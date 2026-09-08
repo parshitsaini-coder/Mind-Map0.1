@@ -17,6 +17,7 @@ function PanelLoading() {
 }
 
 const PALETTE = Object.values(COLORS)
+const TEXT_COLORS = ['#242423', '#333533', '#f5cb5c', '#e8eddf', '#ffffff']
 
 function ShapeSwatch({ shape, active, onClick }) {
   const shapeCls = {
@@ -53,12 +54,14 @@ export default function NodeInspector() {
   const nodes = useMapStore((s) => s.nodes)
   const edges = useMapStore((s) => s.edges)
   const updateNodeData = useMapStore((s) => s.updateNodeData)
+  const updateNodesData = useMapStore((s) => s.updateNodesData)
   const updateEdgeStyle = useMapStore((s) => s.updateEdgeStyle)
   const [showEmoji, setShowEmoji] = useState(false)
   const [showIcons, setShowIcons] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
 
-  const selectedNode = nodes.find((n) => n.selected && n.type !== 'boundaryGroup')
+  const selectedNodes = nodes.filter((n) => n.selected && n.type !== 'boundaryGroup')
+  const selectedNode = selectedNodes.length === 1 ? selectedNodes[0] : null
   const selectedEdge = edges.find((e) => e.selected)
 
   const handleImageUpload = (e) => {
@@ -67,6 +70,80 @@ export default function NodeInspector() {
     const reader = new FileReader()
     reader.onload = () => updateNodeData(selectedNode.id, { image: reader.result })
     reader.readAsDataURL(file)
+  }
+
+  // Multiple nodes selected (Shift-drag box-select or Ctrl/Cmd-click) — show
+  // a simplified panel whose controls apply to every selected node at once.
+  if (selectedNodes.length > 1) {
+    const ids = selectedNodes.map((n) => n.id)
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-[10px] font-medium uppercase tracking-wide text-[#333533]">
+          {selectedNodes.length} nodes selected
+        </p>
+        <div>
+          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[#333533]">Shape</p>
+          <div className="flex flex-wrap gap-1.5">
+            {NODE_SHAPES.map((shape) => (
+              <ShapeSwatch key={shape} shape={shape} active={false} onClick={() => updateNodesData(ids, { shape })} />
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[#333533]">Fill color</p>
+          <div className="flex flex-wrap gap-1.5">
+            {PALETTE.map((color) => (
+              <ColorSwatch key={color} color={color} active={false} onClick={() => updateNodesData(ids, { color })} />
+            ))}
+            <input
+              type="color"
+              onChange={(e) => updateNodesData(ids, { color: e.target.value })}
+              className="h-6 w-6 cursor-pointer rounded-full border-0 bg-transparent p-0"
+              title="Custom color"
+            />
+          </div>
+        </div>
+        <div>
+          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[#333533]">Text color</p>
+          <div className="flex flex-wrap gap-1.5">
+            {TEXT_COLORS.map((color) => (
+              <ColorSwatch
+                key={color}
+                color={color}
+                active={false}
+                onClick={() => updateNodesData(ids, { textColor: color })}
+              />
+            ))}
+            <input
+              type="color"
+              onChange={(e) => updateNodesData(ids, { textColor: e.target.value })}
+              className="h-6 w-6 cursor-pointer rounded-full border-0 bg-transparent p-0"
+              title="Custom text color"
+            />
+          </div>
+        </div>
+        <div>
+          <p className="mb-1 text-[10px] text-[#333533]">Priority</p>
+          <div className="flex flex-wrap gap-1">
+            {[null, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((p) => (
+              <button
+                key={p ?? 'none'}
+                onClick={() => updateNodesData(ids, (data) => ({ badges: { ...(data.badges || {}), priority: p } }))}
+                className="h-5 w-5 rounded bg-[#cfdbd5]/50 text-[10px] hover:bg-[#cfdbd5]"
+              >
+                {p ?? '×'}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[9px] italic text-[#333533]">
+            Priority is set per node — existing progress/star badges on each node are kept.
+          </p>
+        </div>
+        <p className="text-[10px] text-[#333533]">
+          Click empty canvas to deselect, or select a single node for full options (notes, icon, emoji, image, task).
+        </p>
+      </div>
+    )
   }
 
   if (selectedNode) {
@@ -103,6 +180,27 @@ export default function NodeInspector() {
               onChange={(e) => updateNodeData(selectedNode.id, { color: e.target.value })}
               className="h-6 w-6 cursor-pointer rounded-full border-0 bg-transparent p-0"
               title="Custom color"
+            />
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[#333533]">Text color</p>
+          <div className="flex flex-wrap gap-1.5">
+            {TEXT_COLORS.map((color) => (
+              <ColorSwatch
+                key={color}
+                color={color}
+                active={(selectedNode.data.textColor || '#242423') === color}
+                onClick={() => updateNodeData(selectedNode.id, { textColor: color })}
+              />
+            ))}
+            <input
+              type="color"
+              value={selectedNode.data.textColor || '#242423'}
+              onChange={(e) => updateNodeData(selectedNode.id, { textColor: e.target.value })}
+              className="h-6 w-6 cursor-pointer rounded-full border-0 bg-transparent p-0"
+              title="Custom text color"
             />
           </div>
         </div>

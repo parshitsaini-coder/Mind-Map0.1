@@ -283,6 +283,24 @@ export const useMapStore = create(
         })
       },
 
+      // Bulk variant of updateNodeData — applies the same patch to every node
+      // whose id is in `ids`. Used by the Node Inspector when multiple nodes
+      // are selected at once (Shift-drag box-select or Ctrl/Cmd-click).
+      // `patch` can be a plain object (shallow-merged into each node's data)
+      // or a function `(data) => partialPatch` when the update needs to read
+      // that node's own existing data first (e.g. merging into its badges
+      // object without wiping the other badge fields).
+      updateNodesData: (ids, patch) => {
+        const idSet = new Set(ids)
+        set({
+          nodes: get().nodes.map((n) => {
+            if (!idSet.has(n.id)) return n
+            const resolved = typeof patch === 'function' ? patch(n.data) : patch
+            return { ...n, data: { ...n.data, ...resolved } }
+          }),
+        })
+      },
+
       // Section 4.3 — custom branch (edge) color & thickness.
       updateEdgeStyle: (id, patch) => {
         set({

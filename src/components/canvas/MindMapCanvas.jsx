@@ -118,6 +118,7 @@ function FlowInner() {
         proOptions={{ hideAttribution: true }}
         deleteKeyCode={['Backspace', 'Delete']}
         selectionKeyCode="Shift"
+        multiSelectionKeyCode={['Meta', 'Control']}
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--color-sage)" />
         <Controls showInteractive={false} className="!shadow-md !rounded-md overflow-hidden" />

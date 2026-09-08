@@ -74,7 +74,7 @@ function CustomNode({ id, data, selected }) {
         backgroundColor: data.color || '#e8eddf',
         borderColor: selected ? '#f5cb5c' : '#333533',
         borderWidth: selected ? 2 : 1,
-        color: '#242423',
+        color: data.textColor || '#242423',
         minWidth: 90,
         textAlign: 'center',
       }}
