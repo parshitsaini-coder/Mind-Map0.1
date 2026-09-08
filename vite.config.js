@@ -3,9 +3,8 @@ import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
-// GitHub Pages project-page base path — must match the repo name exactly.
-// Repo: https://github.com/parshitsaini-coder/Mind-Map0.1
+// Deploying on Vercel (root domain) — no base path needed.
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: '/Mind-Map0.1/',
+  base: '/',
 })

@@ -15,35 +15,25 @@ npm run dev
 npm run build
 ```
 
-## Deploy to GitHub Pages
+## Deploy to Vercel
 
-This repo is already configured for **https://github.com/parshitsaini-coder/Mind-Map0.1**:
+This repo is set up for a plain root-domain deploy (`base: '/'` in
+`vite.config.js`) — no extra config needed for Vercel.
 
-- `vite.config.js` → `base: '/Mind-Map0.1/'`
-- `package.json` → `"homepage": "https://parshitsaini-coder.github.io/Mind-Map0.1"` + `predeploy`/`deploy` scripts
-- `gh-pages` is already in `devDependencies`
-
-Steps to go live (run these yourself — pushing to GitHub needs your own git/GitHub access):
-
-1. If you haven't already, push this code to the repo:
+1. Push this code to your GitHub repo (`https://github.com/parshitsaini-coder/Mind-Map0.1`):
    ```bash
    git init
-   git remote add origin https://github.com/parshitsaini-coder/Mind-Map0.1.git
    git add .
    git commit -m "Initial commit"
    git branch -M main
+   git remote add origin https://github.com/parshitsaini-coder/Mind-Map0.1.git
    git push -u origin main
    ```
-2. Deploy the build to the `gh-pages` branch:
-   ```bash
-   npm run deploy
-   ```
-   (this runs `npm run build` automatically via `predeploy`, then publishes `dist/` to the `gh-pages` branch)
-3. In the GitHub repo → **Settings → Pages** → set **Source** to the `gh-pages` branch, `/root`.
-4. Wait 1–2 minutes, then your live app will be at:
-   **https://parshitsaini-coder.github.io/Mind-Map0.1/**
-
-> If you ever rename the repo, update `base` in `vite.config.js` and `homepage` in `package.json` to match the new name before redeploying.
+2. Go to [vercel.com](https://vercel.com) → sign in with GitHub.
+3. **Add New → Project** → import `Mind-Map0.1`.
+4. Vercel auto-detects Vite: Build Command `npm run build`, Output Directory `dist`. Leave as-is.
+5. Click **Deploy**. You'll get a live URL like `mind-map0-1.vercel.app`.
+6. Every future `git push` to `main` auto-redeploys.
 
 ## Current status
 
@@ -55,6 +45,6 @@ workspaces, activity log), a full animation pass, and a performance +
 responsive pass (code-splitting, memoization, O(n) layout fix, mobile-friendly
 toolbar/sidebar).
 
-**Step 15 (GitHub Pages deploy config) is complete** — see the deploy section
-above. Only the actual `git push` / `npm run deploy` needs to be run on your
-own machine, since this environment has no GitHub push access.
+**Step 15 (deploy config) is complete** — set up for Vercel. Only the actual
+`git push` needs to be run on your own machine, since this environment has no
+GitHub push access.
