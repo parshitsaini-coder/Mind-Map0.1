@@ -88,3 +88,72 @@ body {
 .layout-transition .react-flow__edge-path {
   transition: d 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease;
 }
+
+/* ── Style Library — live node animations ──────────────────────────────
+   Applied via `data.animationClass` (see nodeStyles.js / CustomNode.jsx).
+   Kept as plain CSS (not per-frame framer-motion loops) so having many
+   animated nodes on the canvas at once stays cheap and GPU-composited. */
+@keyframes nodeFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.node-anim-float {
+  animation: nodeFloat 2.6s ease-in-out infinite;
+}
+
+@keyframes nodeBreathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.045); }
+}
+.node-anim-breathe {
+  animation: nodeBreathe 2.2s ease-in-out infinite;
+}
+
+@keyframes nodeWiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-3deg); }
+  75% { transform: rotate(3deg); }
+}
+.node-anim-wiggle {
+  animation: nodeWiggle 0.5s ease-in-out infinite;
+}
+
+@keyframes nodeBounceSoft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.node-anim-bounce-soft {
+  animation: nodeBounceSoft 1s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
+
+@keyframes nodePulseGlow {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.35); }
+}
+.node-anim-pulse-glow {
+  animation: nodePulseGlow 1.6s ease-in-out infinite;
+}
+
+@keyframes nodeShimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+.node-anim-shimmer {
+  animation: nodeShimmer 2.4s linear infinite;
+}
+
+@keyframes nodeGradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.node-anim-gradient-shift {
+  animation: nodeGradientShift 4s ease infinite;
+}
+
+@keyframes nodeSonar {
+  0% { box-shadow: 0 0 0 0 var(--sonar-color, rgba(79, 176, 165, 0.55)); }
+  100% { box-shadow: 0 0 0 12px rgba(79, 176, 165, 0); }
+}
+.node-anim-sonar {
+  animation: nodeSonar 1.6s cubic-bezier(0.4, 0, 0.4, 1) infinite;
+}

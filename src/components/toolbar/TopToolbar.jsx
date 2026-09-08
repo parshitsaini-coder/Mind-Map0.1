@@ -26,6 +26,7 @@ import {
   User,
   UserCheck,
   LayoutDashboard,
+  Sparkles,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useMapStore } from '../../store/mapStore'
@@ -69,6 +70,8 @@ export default function TopToolbar() {
   const connectorPanelOpen = useUiStore((s) => s.connectorPanelOpen)
   const toggleConnectorPanel = useUiStore((s) => s.toggleConnectorPanel)
   const toggleAuthModal = useUiStore((s) => s.toggleAuthModal)
+  const styleLibraryOpen = useUiStore((s) => s.styleLibraryOpen)
+  const toggleStyleLibrary = useUiStore((s) => s.toggleStyleLibrary)
   const authUser = useAuthStore((s) => s.user)
   const showToast = useUiStore((s) => s.showToast)
   const nodes = useMapStore((s) => s.nodes)
@@ -176,6 +179,12 @@ export default function TopToolbar() {
           onClick={toggleConnectorPanel}
         />
         <IconBtn icon={Users} label="Simulate collaborators (local demo only)" active={showMockCursors} onClick={toggleMockCursors} />
+        <IconBtn
+          icon={Sparkles}
+          label="Style Library — 40+ colors, gradients, glow & animated node styles"
+          active={styleLibraryOpen}
+          onClick={toggleStyleLibrary}
+        />
       </div>
 
       <div className="flex shrink-0 items-center gap-1">

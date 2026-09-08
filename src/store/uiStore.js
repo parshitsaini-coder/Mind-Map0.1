@@ -18,11 +18,13 @@ export const useUiStore = create(
       toastMessage: null,
       connectorPanelOpen: false,
       authModalOpen: false,
+      styleLibraryOpen: false,
       imageLightboxUrl: null, // set to an image URL to open it fullscreen; null when closed
 
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       toggleConnectorPanel: () => set((s) => ({ connectorPanelOpen: !s.connectorPanelOpen })),
       toggleAuthModal: () => set((s) => ({ authModalOpen: !s.authModalOpen })),
+      toggleStyleLibrary: () => set((s) => ({ styleLibraryOpen: !s.styleLibraryOpen })),
       toggleRelationshipMode: () => set((s) => ({ relationshipMode: !s.relationshipMode })),
       setActivePanel: (panel) => set({ activePanel: panel, sidebarOpen: true }),
       setLayout: (layout) => set({ layout }),

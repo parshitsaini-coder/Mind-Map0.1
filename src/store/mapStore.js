@@ -11,6 +11,15 @@ let idCounter = 1
 const nextId = () => `node_${Date.now()}_${idCounter++}`
 const nextGroupId = () => `group_${Date.now()}_${idCounter++}`
 
+// Groups a rapid burst of fine-grained edits (typing a label, dragging a
+// color/scale slider, etc.) into a single undo step, instead of pushing a
+// snapshot on every keystroke/tick. The first edit in a burst snapshots
+// immediately (so Ctrl+Z always has something to go back to); any further
+// edits within BURST_WINDOW_MS are absorbed into that same step. Once the
+// user pauses for BURST_WINDOW_MS, the next edit starts a fresh step.
+const BURST_WINDOW_MS = 700
+let burstTimer = null
+
 const initialNodes = [
   {
     id: 'root',
@@ -140,6 +149,18 @@ export const useMapStore = create(
             future: [],
           },
         })
+      },
+
+      // Same idea as pushSnapshot, but for content edits that fire many
+      // times in quick succession (typing a label, dragging a color/scale
+      // control). Only snapshots at the *start* of a burst; see
+      // BURST_WINDOW_MS comment above.
+      pushSnapshotBurst: () => {
+        if (!burstTimer) get().pushSnapshot()
+        clearTimeout(burstTimer)
+        burstTimer = setTimeout(() => {
+          burstTimer = null
+        }, BURST_WINDOW_MS)
       },
       undo: () => {
         const { history, nodes, edges } = get()
@@ -336,6 +357,7 @@ export const useMapStore = create(
       },
 
       updateNodeData: (id, patch) => {
+        get().pushSnapshotBurst()
         set({
           nodes: get().nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)),
         })
@@ -349,6 +371,7 @@ export const useMapStore = create(
       // that node's own existing data first (e.g. merging into its badges
       // object without wiping the other badge fields).
       updateNodesData: (ids, patch) => {
+        get().pushSnapshotBurst()
         const idSet = new Set(ids)
         set({
           nodes: get().nodes.map((n) => {
@@ -361,6 +384,7 @@ export const useMapStore = create(
 
       // Section 4.3 — custom branch (edge) color & thickness.
       updateEdgeStyle: (id, patch) => {
+        get().pushSnapshotBurst()
         set({
           edges: get().edges.map((e) =>
             e.id === id ? { ...e, style: { ...e.style, ...patch } } : e
@@ -454,6 +478,7 @@ export const useMapStore = create(
       setConnectorScale: (scale) => {
         const allEdges = get().edges
         if (!allEdges.length) return 0
+        get().pushSnapshotBurst()
         const selectedIds = allEdges.filter((e) => e.selected).map((e) => e.id)
         const targetIds = selectedIds.length ? selectedIds : allEdges.map((e) => e.id)
         const idSet = new Set(targetIds)
@@ -516,6 +541,41 @@ export const useMapStore = create(
         get().logActivity(
           `🎨 Applied "${style.label}" line style to ${targetIds.length} connector${targetIds.length > 1 ? 's' : ''}`
         )
+        return targetIds.length
+      },
+
+      // Section — Style Library. Applies a preset from nodeStyles.js onto
+      // the selected node(s), or every node on the canvas if none are
+      // selected (same targeting rule as applyLineStyleToSelectedEdges, so
+      // the panel always visibly does something). Explicitly clears the
+      // fields a preset doesn't set (customBg/glowColor/etc.) so switching
+      // from one preset to another never leaves a stale field behind.
+      applyNodeStyle: (preset) => {
+        const allNodes = get().nodes
+        if (!allNodes.length) return 0
+        const selectedIds = allNodes.filter((n) => n.selected).map((n) => n.id)
+        const targetIds = selectedIds.length ? selectedIds : allNodes.map((n) => n.id)
+        get().pushSnapshot()
+        const idSet = new Set(targetIds)
+        set({
+          nodes: get().nodes.map((n) => {
+            if (!idSet.has(n.id)) return n
+            return {
+              ...n,
+              data: {
+                ...n.data,
+                color: preset.color || null,
+                customBg: preset.customBg || null,
+                bgSize: preset.bgSize || null,
+                textColor: preset.textColor || n.data.textColor,
+                glowColor: preset.glowColor || null,
+                customBorder: preset.customBorder || null,
+                animationClass: preset.animationClass || null,
+              },
+            }
+          }),
+        })
+        get().logActivity(`🎨 Applied "${preset.name}" style to ${targetIds.length} node${targetIds.length > 1 ? 's' : ''}`)
         return targetIds.length
       },
     }),

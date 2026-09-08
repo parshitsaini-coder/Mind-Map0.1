@@ -65,6 +65,14 @@ function CustomNode({ id, data, selected }) {
   const overdue = task?.dueDate && !task.done && new Date(task.dueDate) < new Date()
   const textStyle = nodeTextStyle(data)
 
+  // Section — Style Library. `customBg` carries a full CSS `background`
+  // value (gradients) that takes priority over the plain `color` swatch;
+  // `glowColor` adds a static halo (Glow category); `customBorder` overrides
+  // the default 1px slate / 2px accent-when-selected border; `animationClass`
+  // is one of the node-anim-* CSS classes defined in index.css.
+  const border = data.customBorder
+  const glowShadow = data.glowColor ? `0 0 10px 2px ${data.glowColor}55` : null
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.7 }}
@@ -72,11 +80,15 @@ function CustomNode({ id, data, selected }) {
       exit={{ opacity: 0, scale: 0.7 }}
       whileHover={{ scale: 1.02 }}
       transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-      className={`group relative flex items-center gap-1.5 border px-3 py-1.5 text-xs font-medium shadow-sm ${shapeClass[data.shape] || 'rounded-md'}`}
+      className={`group relative flex items-center gap-1.5 border px-3 py-1.5 text-xs font-medium shadow-sm ${shapeClass[data.shape] || 'rounded-md'} ${data.animationClass || ''}`}
       style={{
-        backgroundColor: data.color || 'var(--color-cream)',
-        borderColor: selected ? 'var(--color-accent)' : 'var(--color-slate)',
-        borderWidth: selected ? 2 : 1,
+        background: data.customBg || data.color || 'var(--color-cream)',
+        backgroundSize: data.bgSize,
+        borderColor: selected ? 'var(--color-accent)' : border?.color || 'var(--color-slate)',
+        borderWidth: selected ? 2 : border?.width ?? 1,
+        borderStyle: border?.style || 'solid',
+        boxShadow: glowShadow || undefined,
+        '--sonar-color': data.glowColor ? `${data.glowColor}8c` : undefined,
         color: data.textColor || 'var(--color-ink)',
         minWidth: 90,
         textAlign: 'center',

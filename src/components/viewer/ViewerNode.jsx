@@ -118,10 +118,10 @@ function ViewerNode({ id, data }) {
             e.stopPropagation()
             toggleCollapse(id)
           }}
-          className="nodrag nopan absolute -right-4 top-1/2 -translate-y-1/2 rounded-full bg-[var(--color-cream)] p-0.5 shadow"
+          className="nodrag nopan absolute -right-5 top-1/2 flex h-5 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-[var(--color-cream)] shadow hover:bg-[var(--color-sage)]"
           title={data.collapsed ? `Expand (${childCount} hidden)` : 'Collapse branch'}
         >
-          {data.collapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
+          {data.collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
         </button>
       )}
 

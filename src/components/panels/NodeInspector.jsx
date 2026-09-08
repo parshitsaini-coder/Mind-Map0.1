@@ -20,6 +20,11 @@ function PanelLoading() {
 const PALETTE = Object.values(COLORS)
 const TEXT_COLORS = ['var(--color-ink)', 'var(--color-slate)', 'var(--color-accent)', 'var(--color-cream)', '#ffffff']
 
+// Picking a plain fill color here should always visibly "win" over whatever
+// the Style Library (gradients/glow/animation) previously set — otherwise a
+// gradient/animated preset would keep showing underneath the new solid pick.
+const STYLE_EXTRAS_CLEAR = { customBg: null, bgSize: null, glowColor: null, customBorder: null, animationClass: null }
+
 function ShapeSwatch({ shape, active, onClick }) {
   const shapeCls = {
     rectangle: 'rounded-sm',
@@ -189,11 +194,11 @@ export default function NodeInspector() {
           <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Fill color</p>
           <div className="flex flex-wrap gap-1">
             {PALETTE.map((color) => (
-              <ColorSwatch key={color} color={color} active={false} onClick={() => updateNodesData(ids, { color })} />
+              <ColorSwatch key={color} color={color} active={false} onClick={() => updateNodesData(ids, { color, ...STYLE_EXTRAS_CLEAR })} />
             ))}
             <CustomColorInput
               value="var(--color-accent)"
-              onChange={(e) => updateNodesData(ids, { color: e.target.value })}
+              onChange={(e) => updateNodesData(ids, { color: e.target.value, ...STYLE_EXTRAS_CLEAR })}
               title="Custom color"
             />
           </div>
@@ -267,12 +272,12 @@ export default function NodeInspector() {
                 key={color}
                 color={color}
                 active={selectedNode.data.color === color}
-                onClick={() => updateNodeData(selectedNode.id, { color })}
+                onClick={() => updateNodeData(selectedNode.id, { color, ...STYLE_EXTRAS_CLEAR })}
               />
             ))}
             <CustomColorInput
               value={selectedNode.data.color}
-              onChange={(e) => updateNodeData(selectedNode.id, { color: e.target.value })}
+              onChange={(e) => updateNodeData(selectedNode.id, { color: e.target.value, ...STYLE_EXTRAS_CLEAR })}
               title="Custom color"
             />
           </div>
