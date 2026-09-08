@@ -22,6 +22,7 @@
     "html-to-image": "^1.11.11",
     "jspdf": "^2.5.2",
     "lucide-react": "^1.41.0",
+    "lz-string": "^1.5.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-hotkeys-hook": "^5.3.3",

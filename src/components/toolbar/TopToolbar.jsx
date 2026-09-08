@@ -89,7 +89,12 @@ export default function TopToolbar() {
   }
 
   const handleShare = async () => {
-    const url = buildShareUrl(nodes, edges)
+    const result = buildShareUrl(nodes, edges)
+    if (result.error) {
+      showToast(result.error)
+      return
+    }
+    const { url } = result
     try {
       await navigator.clipboard.writeText(url)
       showToast('View-only share link copied to clipboard')
