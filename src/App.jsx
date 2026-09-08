@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import TopToolbar from './components/toolbar/TopToolbar'
 import Sidebar from './components/panels/Sidebar'
+import ConnectorStylesPanel from './components/panels/ConnectorStylesPanel'
 import MindMapCanvas from './components/canvas/MindMapCanvas'
 import { useUiStore } from './store/uiStore'
 import { useMapStore } from './store/mapStore'
@@ -45,6 +46,7 @@ export default function App() {
     <div className="flex h-screen w-screen flex-col overflow-hidden" style={{ backgroundColor: 'var(--color-bg-main)' }}>
       <TopToolbar />
       <div className="flex min-h-0 flex-1">
+        <ConnectorStylesPanel />
         <main className="min-w-0 flex-1">
           <MindMapCanvas />
         </main>

@@ -301,31 +301,11 @@ export const useMapStore = create(
         })
       },
 
-      // Section 4.3/4.8 — custom branch (edge) color & thickness.
+      // Section 4.3 — custom branch (edge) color & thickness.
       updateEdgeStyle: (id, patch) => {
         set({
           edges: get().edges.map((e) =>
             e.id === id ? { ...e, style: { ...e.style, ...patch } } : e
-          ),
-        })
-      },
-
-      // Line-style presets (curved/straight/step/dotted/animated/icon-in-
-      // middle…) from the Node Inspector's "Line style" section. Stored in
-      // `data` — separate from `style` above — so color/thickness and line
-      // style never clobber each other.
-      updateEdgeData: (id, patch) => {
-        set({
-          edges: get().edges.map((e) => (e.id === id ? { ...e, data: { ...e.data, ...patch } } : e)),
-        })
-      },
-
-      // Arrowhead toggle (none / end / both). markerEnd/markerStart are
-      // top-level React Flow edge props, not part of `style` or `data`.
-      updateEdgeMarker: (id, { markerEnd, markerStart }) => {
-        set({
-          edges: get().edges.map((e) =>
-            e.id === id ? { ...e, markerEnd, markerStart } : e
           ),
         })
       },
@@ -350,6 +330,46 @@ export const useMapStore = create(
         const { nodes, edges } = buildConnectorDemo()
         set({ nodes, edges })
         get().logActivity('🔗 Loaded connector-styles demo map (18 line styles)')
+      },
+
+      // Left "Connector Styles" panel — apply one of the predefined line
+      // styles (path shape, dash, color, width, arrows, animation, mid-icon)
+      // to whichever edge(s) are currently selected on the canvas. Switches
+      // those edges to the flexible `demoEdge` renderer so every style
+      // option (not just color/width) actually takes effect.
+      applyLineStyleToSelectedEdges: (style) => {
+        const selectedIds = get().edges.filter((e) => e.selected).map((e) => e.id)
+        if (!selectedIds.length) return 0
+        get().pushSnapshot()
+        const idSet = new Set(selectedIds)
+        set({
+          edges: get().edges.map((e) => {
+            if (!idSet.has(e.id)) return e
+            return {
+              ...e,
+              type: 'demoEdge',
+              markerEnd: style.arrowEnd
+                ? { type: 'arrowclosed', color: style.color || '#333533', width: 16, height: 16 }
+                : undefined,
+              markerStart: style.arrowStart
+                ? { type: 'arrowclosed', color: style.color || '#333533', width: 16, height: 16 }
+                : undefined,
+              data: {
+                pathType: style.pathType,
+                dash: style.dash,
+                strokeWidth: style.strokeWidth || 2,
+                color: style.color || '#333533',
+                animated: !!style.animated,
+                iconMid: style.iconMid || null,
+                cap: style.cap,
+              },
+            }
+          }),
+        })
+        get().logActivity(
+          `🎨 Applied "${style.label}" line style to ${selectedIds.length} connector${selectedIds.length > 1 ? 's' : ''}`
+        )
+        return selectedIds.length
       },
     }),
     { name: 'mindmap-storage', partialize: (state) => ({ nodes: state.nodes, edges: state.edges, groups: state.groups, activityLog: state.activityLog }) }

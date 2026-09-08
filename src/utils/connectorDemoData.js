@@ -31,6 +31,12 @@ export const CONNECTOR_STYLES = [
   { label: 'Curved + Icon-in-Middle (Star)', pathType: 'bezier', iconMid: 'Star', color: '#f5cb5c' },
   { label: 'Curved + Icon-in-Middle (Flag)', pathType: 'smoothstep', iconMid: 'Flag', color: '#4fb0a5' },
   { label: 'Animated Arrow Flow', pathType: 'smoothstep', dash: '6 4', animated: true, arrowEnd: true, color: '#8a7fd1' },
+  { label: 'Elbow — Long Dash', pathType: 'step', dash: '10 4', color: '#606c38' },
+  { label: 'Curved — Thin Accent', pathType: 'simplebezier', strokeWidth: 1, color: '#bc6c25' },
+  { label: 'Straight — Thick Bold', pathType: 'straight', strokeWidth: 5, color: '#242423' },
+  { label: 'Smoothstep + Icon (Heart)', pathType: 'smoothstep', iconMid: 'Heart', color: '#e07856' },
+  { label: 'Bezier — Long Dash Arrow', pathType: 'bezier', dash: '12 5', arrowEnd: true, color: '#4a6fa5' },
+  { label: 'Step — Dotted Thin', pathType: 'step', dash: '1.5 4', cap: 'round', strokeWidth: 1 },
 ]
 
 export function buildConnectorDemo() {

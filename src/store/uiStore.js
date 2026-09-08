@@ -13,8 +13,10 @@ export const useUiStore = create((set) => ({
   searchOpen: false,
   showMockCursors: false,
   toastMessage: null,
+  connectorPanelOpen: false,
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+  toggleConnectorPanel: () => set((s) => ({ connectorPanelOpen: !s.connectorPanelOpen })),
   toggleRelationshipMode: () => set((s) => ({ relationshipMode: !s.relationshipMode })),
   setActivePanel: (panel) => set({ activePanel: panel, sidebarOpen: true }),
   setLayout: (layout) => set({ layout }),

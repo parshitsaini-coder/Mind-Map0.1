@@ -55,6 +55,9 @@ body {
 @keyframes dashdraw {
   to { stroke-dashoffset: -20; }
 }
+.connector-preview-animated {
+  animation: dashdraw 0.9s linear infinite;
+}
 .clip-hex {
   clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
 }
@@ -76,12 +79,6 @@ body {
 }
 .badge-pop {
   animation: popIn 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-/* Section 4.8 — Node Inspector "Line style" picker: gives the Animated flow
-   swatch a tiny marching-ants preview so it visually matches the real edge. */
-.edge-preview-animated path {
-  animation: dashdraw 0.9s linear infinite;
 }
 
 /* Smooth repositioning when switching layouts (Section 4.2 / 4.8) */

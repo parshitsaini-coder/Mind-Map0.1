@@ -20,10 +20,15 @@ import {
   FolderOpen,
   Users,
   Spline,
+  Download,
+  FileDown,
+  GitBranch,
 } from 'lucide-react'
+import { useState } from 'react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
 import { buildShareUrl } from '../../utils/exportShareLink'
+import { exportMapAsPng, exportMapAsPdf } from '../../utils/exportImage'
 
 const IconBtn = ({ icon: Icon, label, onClick, active }) => (
   <motion.button
@@ -56,10 +61,13 @@ export default function TopToolbar() {
   const toggleSearch = useUiStore((s) => s.toggleSearch)
   const showMockCursors = useUiStore((s) => s.showMockCursors)
   const toggleMockCursors = useUiStore((s) => s.toggleMockCursors)
+  const connectorPanelOpen = useUiStore((s) => s.connectorPanelOpen)
+  const toggleConnectorPanel = useUiStore((s) => s.toggleConnectorPanel)
   const showToast = useUiStore((s) => s.showToast)
   const nodes = useMapStore((s) => s.nodes)
   const edges = useMapStore((s) => s.edges)
   const loadConnectorDemo = useMapStore((s) => s.loadConnectorDemo)
+  const [exporting, setExporting] = useState(false)
 
   const handleConnectorDemo = () => {
     if (
@@ -79,6 +87,32 @@ export default function TopToolbar() {
       showToast('Share link copied to clipboard')
     } catch {
       window.prompt('Copy this share link:', url)
+    }
+  }
+
+  const handleExportPng = async () => {
+    if (exporting) return
+    setExporting(true)
+    try {
+      await exportMapAsPng(nodes)
+      showToast('Exported as PNG')
+    } catch (err) {
+      showToast(err.message || 'Could not export PNG')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleExportPdf = async () => {
+    if (exporting) return
+    setExporting(true)
+    try {
+      await exportMapAsPdf(nodes)
+      showToast('Exported as PDF')
+    } catch (err) {
+      showToast(err.message || 'Could not export PDF')
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -117,7 +151,15 @@ export default function TopToolbar() {
         <IconBtn icon={History} label="Activity / version history" active={activePanel === 'activity'} onClick={() => setActivePanel('activity')} />
         <IconBtn icon={FolderOpen} label="Workspaces" active={activePanel === 'workspaces'} onClick={() => setActivePanel('workspaces')} />
         <IconBtn icon={Share2} label="Copy share link" onClick={handleShare} />
+        <IconBtn icon={Download} label="Export as PNG image" onClick={handleExportPng} />
+        <IconBtn icon={FileDown} label="Export as PDF" onClick={handleExportPdf} />
         <IconBtn icon={Spline} label="Connector styles demo (18 line styles)" onClick={handleConnectorDemo} />
+        <IconBtn
+          icon={GitBranch}
+          label="Connector Styles panel — select a line, pick a style"
+          active={connectorPanelOpen}
+          onClick={toggleConnectorPanel}
+        />
         <IconBtn icon={Users} label="Simulate collaborators (local demo only)" active={showMockCursors} onClick={toggleMockCursors} />
       </div>
 
