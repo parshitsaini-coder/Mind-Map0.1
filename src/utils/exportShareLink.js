@@ -7,10 +7,15 @@ import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from
 // (Vercel included) will accept, and the visitor lands on a
 // "414 / URI_TOO_LONG" error page instead of the map.
 //
-// Fixed by compressing the JSON with lz-string before it goes in the URL
-// (typically 5–10x smaller for this kind of repetitive JSON) and by
-// refusing to hand back a link that's still too long, so the toolbar can
-// show a clear message instead of silently producing a broken URL.
+// Fixed in two layers:
+//  1. Compress the JSON with lz-string before it goes in the URL
+//     (typically 5–10x smaller for this kind of repetitive JSON).
+//  2. If it's STILL too long, that's almost always because a node has an
+//     embedded image/attachment/audio note as a base64 data URL — those
+//     can be huge even for a map with just a handful of nodes. So we
+//     strip that embedded media out and retry once before giving up,
+//     which keeps small-to-medium maps shareable even when one node has
+//     a large image on it (the shared view just won't show that image).
 
 // Most browsers/proxies are comfortable well past this, but some hosts
 // (Vercel's edge network included) start rejecting requests in the
@@ -42,18 +47,58 @@ export function decodeMapFromParam(param) {
   }
 }
 
-// Returns { url } on success, or { error } if the map is too large to fit
-// in a shareable link even after compression — the caller decides how to
-// surface that (toast, etc).
-export function buildShareUrl(nodes, edges) {
-  const encoded = encodeMapToParam(nodes, edges)
-  if (encoded.length > MAX_URL_PARAM_LENGTH) {
+// True if this node is carrying any embedded base64 media that could be
+// large (image, file attachment, recorded audio note). `videoEmbed` is
+// just a short YouTube id, so it's left alone.
+function hasEmbeddedMedia(data) {
+  return Boolean(data?.image || data?.audioNote || (data?.attachments || []).length)
+}
+
+// Returns a copy of nodes with embedded image/attachment/audio-note data
+// removed, replaced by a small marker so the shared viewer can (if it
+// wants to) show "image not included in this shared link" instead of
+// silently dropping it without a trace.
+function stripHeavyMedia(nodes) {
+  return nodes.map((n) => {
+    if (!hasEmbeddedMedia(n.data)) return n
+    const { image, audioNote, attachments, ...rest } = n.data
     return {
-      error:
-        'This mind map is too large for a share link (usually caused by embedded images/attachments). Try removing large images or use Export instead.',
+      ...n,
+      data: {
+        ...rest,
+        sharedMediaOmitted: true,
+      },
+    }
+  })
+}
+
+// Returns { url } on success, { url, warning } if media had to be
+// stripped to make it fit, or { error } if the map is too large to share
+// as a link even after both compression and stripping.
+export function buildShareUrl(nodes, edges) {
+  const full = encodeMapToParam(nodes, edges)
+  if (full.length <= MAX_URL_PARAM_LENGTH) {
+    const url = new URL(window.location.href)
+    url.searchParams.set('map', full)
+    return { url: url.toString() }
+  }
+
+  const strippedNodes = stripHeavyMedia(nodes)
+  const anyStripped = strippedNodes.some((n, i) => n !== nodes[i])
+  if (anyStripped) {
+    const lean = encodeMapToParam(strippedNodes, edges)
+    if (lean.length <= MAX_URL_PARAM_LENGTH) {
+      const url = new URL(window.location.href)
+      url.searchParams.set('map', lean)
+      return {
+        url: url.toString(),
+        warning: 'Link created, but embedded images/attachments/audio notes were left out — the map itself was too large to include them.',
+      }
     }
   }
-  const url = new URL(window.location.href)
-  url.searchParams.set('map', encoded)
-  return { url: url.toString() }
+
+  return {
+    error:
+      'This mind map is too large for a share link, even after removing embedded images/attachments. Try trimming the map or use Export instead.',
+  }
 }

@@ -18,6 +18,7 @@ export const useUiStore = create(
       toastMessage: null,
       connectorPanelOpen: false,
       authModalOpen: false,
+      imageLightboxUrl: null, // set to an image URL to open it fullscreen; null when closed
 
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       toggleConnectorPanel: () => set((s) => ({ connectorPanelOpen: !s.connectorPanelOpen })),
@@ -32,6 +33,8 @@ export const useUiStore = create(
       setPresentationIndex: (presentationIndex) => set({ presentationIndex }),
       toggleSearch: () => set((s) => ({ searchOpen: !s.searchOpen })),
       toggleMockCursors: () => set((s) => ({ showMockCursors: !s.showMockCursors })),
+      openImageLightbox: (url) => set({ imageLightboxUrl: url }),
+      closeImageLightbox: () => set({ imageLightboxUrl: null }),
       showToast: (toastMessage) => {
         set({ toastMessage })
         setTimeout(() => set((s) => (s.toastMessage === toastMessage ? { toastMessage: null } : {})), 2200)

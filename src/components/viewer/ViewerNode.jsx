@@ -3,7 +3,9 @@ import { Handle, Position } from '@xyflow/react'
 import { motion } from 'framer-motion'
 import { ChevronRight, ChevronDown, CheckSquare, Square, Star, FileText } from 'lucide-react'
 import { useViewerStore } from '../../store/viewerStore'
+import { useUiStore } from '../../store/uiStore'
 import { ICONS } from '../../theme/iconSet'
+import { nodeTextStyle } from '../../utils/textStyle'
 
 const shapeClass = {
   rectangle: 'rounded-md',
@@ -82,12 +84,23 @@ function ViewerNode({ id, data }) {
       )}
 
       {data.image && (
-        <img src={data.image} alt="" className="h-5 w-5 shrink-0 rounded object-cover" />
+        <img
+          src={data.image}
+          alt=""
+          onClick={(e) => {
+            e.stopPropagation()
+            useUiStore.getState().openImageLightbox(data.image)
+          }}
+          title="Click to view full size"
+          className="nodrag nopan h-5 w-5 shrink-0 cursor-zoom-in rounded object-cover"
+        />
       )}
       {!data.image && data.emoji && <span className="shrink-0">{data.emoji}</span>}
       {!data.image && !data.emoji && IconComp && <IconComp size={13} className="shrink-0" />}
 
-      <span className={`flex-1 ${task?.done ? 'line-through opacity-60' : ''}`}>{data.label}</span>
+      <span className={`flex-1 ${task?.done ? 'line-through opacity-60' : ''}`} style={nodeTextStyle(data)}>
+        {data.label}
+      </span>
 
       {task?.assignee && (
         <span
@@ -105,7 +118,7 @@ function ViewerNode({ id, data }) {
             e.stopPropagation()
             toggleCollapse(id)
           }}
-          className="absolute -right-4 top-1/2 -translate-y-1/2 rounded-full bg-[var(--color-cream)] p-0.5 shadow"
+          className="nodrag nopan absolute -right-4 top-1/2 -translate-y-1/2 rounded-full bg-[var(--color-cream)] p-0.5 shadow"
           title={data.collapsed ? `Expand (${childCount} hidden)` : 'Collapse branch'}
         >
           {data.collapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}

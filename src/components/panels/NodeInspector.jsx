@@ -1,8 +1,9 @@
 import { lazy, Suspense, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Star, X as XIcon } from 'lucide-react'
+import { Star, X as XIcon, Bold, Italic, Underline, Minus, Plus } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 import { COLORS, NODE_SHAPES } from '../../theme/tokens'
+import { FONT_FAMILIES, MIN_FONT_SIZE, MAX_FONT_SIZE, DEFAULT_FONT_SIZE } from '../../utils/textStyle'
 import IconLibrary from './IconLibrary'
 
 // Section 14 — perf pass: Tiptap (NotesEditor) and emoji-picker-react are the
@@ -31,7 +32,7 @@ function ShapeSwatch({ shape, active, onClick }) {
     <button
       onClick={onClick}
       title={shape}
-      className={`flex h-7 w-7 items-center justify-center border ${shapeCls} ${
+      className={`flex h-6 w-6 items-center justify-center border ${shapeCls} ${
         active ? 'border-[var(--color-accent)] border-2' : 'border-[var(--color-slate)]'
       }`}
       style={{ backgroundColor: 'var(--color-cream)' }}
@@ -43,7 +44,7 @@ function ColorSwatch({ color, active, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`h-6 w-6 rounded-full border ${active ? 'ring-2 ring-[var(--color-accent)] ring-offset-1' : ''}`}
+      className={`h-5 w-5 rounded-full border ${active ? 'ring-2 ring-[var(--color-accent)] ring-offset-1' : ''}`}
       style={{ backgroundColor: color, borderColor: 'var(--color-slate)' }}
       title={color}
     />
@@ -57,7 +58,7 @@ function ColorSwatch({ color, active, onClick }) {
 function CustomColorInput({ value, onChange, title }) {
   return (
     <label
-      className="relative flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full"
+      className="relative flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full"
       style={{
         background:
           'conic-gradient(from 0deg, var(--color-accent), #e57373, #ba68c8, #64b5f6, #81c784, var(--color-accent))',
@@ -65,7 +66,7 @@ function CustomColorInput({ value, onChange, title }) {
       title={title || 'Custom color'}
     >
       <span
-        className="pointer-events-none h-4 w-4 rounded-full border border-white/70"
+        className="pointer-events-none h-3 w-3 rounded-full border border-white/70"
         style={{ backgroundColor: value }}
       />
       <input
@@ -75,6 +76,73 @@ function CustomColorInput({ value, onChange, title }) {
         className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
       />
     </label>
+  )
+}
+
+// Section — text styling. Bold/italic/underline toggle straight off
+// node.data, a stepper adjusts font size a couple px at a time, and a
+// dropdown swaps the font family — all applied live via nodeTextStyle()
+// in CustomNode/ViewerNode so what you see here is exactly what renders.
+function TextStylePanel({ data, onChange }) {
+  const fontSize = data.fontSize || DEFAULT_FONT_SIZE
+  const bump = (delta) => onChange({ fontSize: Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, fontSize + delta)) })
+
+  return (
+    <div>
+      <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Text style</p>
+      <div className="flex flex-wrap items-center gap-1">
+        <button
+          onClick={() => onChange({ bold: !data.bold })}
+          title="Bold"
+          className={`flex h-6 w-6 items-center justify-center rounded border ${
+            data.bold ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/30' : 'border-[var(--color-sage)]'
+          }`}
+        >
+          <Bold size={11} />
+        </button>
+        <button
+          onClick={() => onChange({ italic: !data.italic })}
+          title="Italic"
+          className={`flex h-6 w-6 items-center justify-center rounded border ${
+            data.italic ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/30' : 'border-[var(--color-sage)]'
+          }`}
+        >
+          <Italic size={11} />
+        </button>
+        <button
+          onClick={() => onChange({ underline: !data.underline })}
+          title="Underline"
+          className={`flex h-6 w-6 items-center justify-center rounded border ${
+            data.underline ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/30' : 'border-[var(--color-sage)]'
+          }`}
+        >
+          <Underline size={11} />
+        </button>
+
+        <div className="ml-1 flex items-center gap-0.5 rounded border border-[var(--color-sage)] px-0.5">
+          <button onClick={() => bump(-1)} title="Smaller" className="flex h-5 w-5 items-center justify-center">
+            <Minus size={9} />
+          </button>
+          <span className="w-6 text-center text-[10px] tabular-nums">{fontSize}</span>
+          <button onClick={() => bump(1)} title="Larger" className="flex h-5 w-5 items-center justify-center">
+            <Plus size={9} />
+          </button>
+        </div>
+
+        <select
+          value={data.fontFamily || 'sans'}
+          onChange={(e) => onChange({ fontFamily: e.target.value })}
+          className="ml-1 rounded border border-[var(--color-sage)] bg-white/60 px-1 py-0.5 text-[10px]"
+          title="Font family"
+        >
+          {FONT_FAMILIES.map((f) => (
+            <option key={f.key} value={f.key}>
+              {f.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
   )
 }
 
@@ -105,13 +173,13 @@ export default function NodeInspector() {
   if (selectedNodes.length > 1) {
     const ids = selectedNodes.map((n) => n.id)
     return (
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">
           {selectedNodes.length} nodes selected
         </p>
         <div>
           <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Shape</p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1">
             {NODE_SHAPES.map((shape) => (
               <ShapeSwatch key={shape} shape={shape} active={false} onClick={() => updateNodesData(ids, { shape })} />
             ))}
@@ -119,7 +187,7 @@ export default function NodeInspector() {
         </div>
         <div>
           <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Fill color</p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1">
             {PALETTE.map((color) => (
               <ColorSwatch key={color} color={color} active={false} onClick={() => updateNodesData(ids, { color })} />
             ))}
@@ -132,7 +200,7 @@ export default function NodeInspector() {
         </div>
         <div>
           <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Text color</p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1">
             {TEXT_COLORS.map((color) => (
               <ColorSwatch
                 key={color}
@@ -148,6 +216,8 @@ export default function NodeInspector() {
             />
           </div>
         </div>
+
+        <TextStylePanel data={{}} onChange={(patch) => updateNodesData(ids, patch)} />
         <div>
           <p className="mb-1 text-[10px] text-[var(--color-slate)]">Priority</p>
           <div className="flex flex-wrap gap-1">
@@ -155,7 +225,7 @@ export default function NodeInspector() {
               <button
                 key={p ?? 'none'}
                 onClick={() => updateNodesData(ids, (data) => ({ badges: { ...(data.badges || {}), priority: p } }))}
-                className="h-5 w-5 rounded bg-[var(--color-sage)]/50 text-[10px] hover:bg-[var(--color-sage)]"
+                className="h-[18px] w-[18px] rounded bg-[var(--color-sage)]/50 text-[10px] hover:bg-[var(--color-sage)]"
               >
                 {p ?? '×'}
               </button>
@@ -175,10 +245,10 @@ export default function NodeInspector() {
   if (selectedNode) {
     const badges = selectedNode.data.badges || {}
     return (
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         <div>
           <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Shape</p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1">
             {NODE_SHAPES.map((shape) => (
               <ShapeSwatch
                 key={shape}
@@ -191,7 +261,7 @@ export default function NodeInspector() {
         </div>
         <div>
           <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Fill color</p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1">
             {PALETTE.map((color) => (
               <ColorSwatch
                 key={color}
@@ -210,7 +280,7 @@ export default function NodeInspector() {
 
         <div>
           <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Text color</p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1">
             {TEXT_COLORS.map((color) => (
               <ColorSwatch
                 key={color}
@@ -227,12 +297,14 @@ export default function NodeInspector() {
           </div>
         </div>
 
+        <TextStylePanel data={selectedNode.data} onChange={(patch) => updateNodeData(selectedNode.id, patch)} />
+
         {/* Section 4.5 — task management: to-do marker, due date, assignee */}
         <div>
           <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Task</p>
           {selectedNode.data.task ? (
-            <div className="flex flex-col gap-1.5">
-              <label className="flex items-center gap-1.5 text-[10px]">
+            <div className="flex flex-col gap-1">
+              <label className="flex items-center gap-1 text-[10px]">
                 <input
                   type="checkbox"
                   checked={!!selectedNode.data.task.done}
@@ -405,7 +477,7 @@ export default function NodeInspector() {
                   <button
                     key={p ?? 'none'}
                     onClick={() => updateNodeData(selectedNode.id, { badges: { ...badges, priority: p } })}
-                    className={`h-5 w-5 rounded text-[10px] ${
+                    className={`h-[18px] w-[18px] rounded text-[10px] ${
                       badges.priority === p ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-sage)]/50 hover:bg-[var(--color-sage)]'
                     }`}
                   >
@@ -448,10 +520,10 @@ export default function NodeInspector() {
     const stroke = selectedEdge.style?.stroke || 'var(--color-slate)'
     const strokeWidth = selectedEdge.style?.strokeWidth || 1.5
     return (
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         <div>
           <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Branch color</p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1">
             {PALETTE.map((color) => (
               <ColorSwatch
                 key={color}

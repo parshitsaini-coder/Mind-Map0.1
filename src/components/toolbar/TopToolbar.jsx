@@ -94,12 +94,13 @@ export default function TopToolbar() {
       showToast(result.error)
       return
     }
-    const { url } = result
+    const { url, warning } = result
     try {
       await navigator.clipboard.writeText(url)
-      showToast('View-only share link copied to clipboard')
+      showToast(warning || 'View-only share link copied to clipboard')
     } catch {
       window.prompt('Copy this share link:', url)
+      if (warning) showToast(warning)
     }
   }
 

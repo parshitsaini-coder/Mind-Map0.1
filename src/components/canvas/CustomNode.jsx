@@ -3,7 +3,9 @@ import { Handle, Position } from '@xyflow/react'
 import { motion } from 'framer-motion'
 import { Plus, Trash2, Star, FileText, CheckSquare, Square, ChevronRight, ChevronDown } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
+import { useUiStore } from '../../store/uiStore'
 import { ICONS } from '../../theme/iconSet'
+import { nodeTextStyle } from '../../utils/textStyle'
 
 const shapeClass = {
   rectangle: 'rounded-md',
@@ -61,6 +63,7 @@ function CustomNode({ id, data, selected }) {
   const hasExtras = hasNotes || (data.attachments || []).length > 0 || data.audioNote || data.videoEmbed
   const task = data.task
   const overdue = task?.dueDate && !task.done && new Date(task.dueDate) < new Date()
+  const textStyle = nodeTextStyle(data)
 
   return (
     <motion.div
@@ -100,7 +103,16 @@ function CustomNode({ id, data, selected }) {
       )}
 
       {data.image && (
-        <img src={data.image} alt="" className="h-5 w-5 shrink-0 rounded object-cover" />
+        <img
+          src={data.image}
+          alt=""
+          onClick={(e) => {
+            e.stopPropagation()
+            useUiStore.getState().openImageLightbox(data.image)
+          }}
+          title="Click to view full size"
+          className="h-5 w-5 shrink-0 cursor-zoom-in rounded object-cover"
+        />
       )}
       {!data.image && data.emoji && <span className="shrink-0">{data.emoji}</span>}
       {!data.image && !data.emoji && IconComp && <IconComp size={13} className="shrink-0" />}
@@ -112,10 +124,13 @@ function CustomNode({ id, data, selected }) {
           onChange={(e) => setLabel(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => e.key === 'Enter' && commit()}
+          style={textStyle}
           className="w-full bg-transparent text-center outline-none"
         />
       ) : (
-        <span className={`flex-1 ${task?.done ? 'line-through opacity-60' : ''}`}>{data.label}</span>
+        <span className={`flex-1 ${task?.done ? 'line-through opacity-60' : ''}`} style={textStyle}>
+          {data.label}
+        </span>
       )}
       {task?.assignee && (
         <span

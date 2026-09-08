@@ -5,6 +5,7 @@ import Sidebar from './components/panels/Sidebar'
 import ConnectorStylesPanel from './components/panels/ConnectorStylesPanel'
 import ProjectsDashboard from './components/panels/ProjectsDashboard'
 import AuthPanel from './components/auth/AuthPanel'
+import ImageLightbox from './components/common/ImageLightbox'
 import MindMapCanvas from './components/canvas/MindMapCanvas'
 import { useUiStore } from './store/uiStore'
 import { useMapStore } from './store/mapStore'
@@ -118,6 +119,7 @@ export default function App() {
       )}
       <AuthPanel />
       <ProjectsDashboard />
+      <ImageLightbox />
     </div>
   )
 }

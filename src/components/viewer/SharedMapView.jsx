@@ -15,6 +15,7 @@ import CustomEdge from '../canvas/CustomEdge'
 import CrossEdge from '../canvas/CrossEdge'
 import { computeHidden } from '../../utils/graphUtils'
 import { applyThemeVars } from '../../theme/tokens'
+import ImageLightbox from '../common/ImageLightbox'
 
 function ViewerInner() {
   const nodes = useViewerStore((s) => s.nodes)
@@ -78,6 +79,7 @@ export default function SharedMapView({ nodes, edges }) {
   return (
     <ReactFlowProvider>
       <ViewerInner />
+      <ImageLightbox />
     </ReactFlowProvider>
   )
 }

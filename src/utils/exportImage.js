@@ -40,7 +40,7 @@ async function renderMapToDataUrl(nodes) {
     imageHeight,
     0.05,
     2,
-    PADDING * scale
+    `${PADDING * scale}px`
   )
 
   const dataUrl = await toPng(viewportEl, {
