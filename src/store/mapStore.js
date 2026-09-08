@@ -4,6 +4,7 @@ import { applyNodeChanges, applyEdgeChanges, addEdge as rfAddEdge } from '@xyflo
 import { useUiStore } from './uiStore'
 import { runLayout } from '../hooks/useAutoLayout'
 import { buildConnectorDemo } from '../utils/connectorDemoData'
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 
 let idCounter = 1
 const nextId = () => `node_${Date.now()}_${idCounter++}`
@@ -30,6 +31,34 @@ export const useMapStore = create(
       groups: [],
       history: { past: [], future: [] },
       activityLog: [],
+      cloudStatus: 'idle', // 'idle' | 'saving' | 'saved' | 'error'
+
+      // Section — online account sync (Supabase). Pulls the signed-in
+      // user's last-saved map down from the cloud, replacing whatever is
+      // currently on the canvas (their local map stays in undo history).
+      loadFromCloud: async (userId) => {
+        if (!isSupabaseConfigured || !userId) return
+        const { data, error } = await supabase
+          .from('maps')
+          .select('nodes, edges')
+          .eq('user_id', userId)
+          .maybeSingle()
+        if (error || !data) return
+        get().pushSnapshot()
+        set({ nodes: data.nodes?.length ? data.nodes : initialNodes, edges: data.edges || [] })
+      },
+
+      // Debounced auto-save target (called from App.jsx whenever the map
+      // changes while someone is signed in). Upserts one row per user.
+      saveToCloud: async (userId) => {
+        if (!isSupabaseConfigured || !userId) return
+        set({ cloudStatus: 'saving' })
+        const { nodes, edges } = get()
+        const { error } = await supabase
+          .from('maps')
+          .upsert({ user_id: userId, nodes, edges, updated_at: new Date().toISOString() })
+        set({ cloudStatus: error ? 'error' : 'saved' })
+      },
 
       // Section 4.7 — local activity log. Called from the actions below.
       logActivity: (message) => {
@@ -370,6 +399,13 @@ export const useMapStore = create(
             return {
               ...e,
               type: 'demoEdge',
+              // Explicitly override the top-level RF `animated` flag too —
+              // otherwise an edge originally created with `animated: true`
+              // (the default for normal connections) keeps React Flow's own
+              // built-in dashed marching-ants CSS even after switching to a
+              // "solid" style, since that flag is separate from our custom
+              // `data.animated` used by ConnectorDemoEdge.
+              animated: !!style.animated,
               markerEnd: style.arrowEnd
                 ? { type: 'arrowclosed', color: style.color || '#333533', width: 16, height: 16 }
                 : undefined,

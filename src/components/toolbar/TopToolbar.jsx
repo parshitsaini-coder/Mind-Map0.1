@@ -23,10 +23,13 @@ import {
   Download,
   FileDown,
   GitBranch,
+  User,
+  UserCheck,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
+import { useAuthStore } from '../../store/authStore'
 import { buildShareUrl } from '../../utils/exportShareLink'
 import { exportMapAsPng, exportMapAsPdf } from '../../utils/exportImage'
 
@@ -63,6 +66,8 @@ export default function TopToolbar() {
   const toggleMockCursors = useUiStore((s) => s.toggleMockCursors)
   const connectorPanelOpen = useUiStore((s) => s.connectorPanelOpen)
   const toggleConnectorPanel = useUiStore((s) => s.toggleConnectorPanel)
+  const toggleAuthModal = useUiStore((s) => s.toggleAuthModal)
+  const authUser = useAuthStore((s) => s.user)
   const showToast = useUiStore((s) => s.showToast)
   const nodes = useMapStore((s) => s.nodes)
   const edges = useMapStore((s) => s.edges)
@@ -170,6 +175,12 @@ export default function TopToolbar() {
         <div className="mx-1 hidden h-5 w-px sm:block" style={{ backgroundColor: '#cfdbd5' }} />
         <IconBtn icon={Focus} label="Focus mode" active={focusMode} onClick={toggleFocusMode} />
         <IconBtn icon={PlayCircle} label="Presentation mode" onClick={togglePresentationMode} />
+        <IconBtn
+          icon={authUser ? UserCheck : User}
+          label={authUser ? `Signed in as ${authUser.name} — click for account` : 'Sign up / Log in to save online'}
+          active={!!authUser}
+          onClick={toggleAuthModal}
+        />
       </div>
     </div>
   )

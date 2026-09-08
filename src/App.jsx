@@ -1,10 +1,12 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import TopToolbar from './components/toolbar/TopToolbar'
 import Sidebar from './components/panels/Sidebar'
 import ConnectorStylesPanel from './components/panels/ConnectorStylesPanel'
+import AuthPanel from './components/auth/AuthPanel'
 import MindMapCanvas from './components/canvas/MindMapCanvas'
 import { useUiStore } from './store/uiStore'
 import { useMapStore } from './store/mapStore'
+import { useAuthStore } from './store/authStore'
 import { THEME_PRESETS } from './theme/tokens'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { decodeMapFromParam } from './utils/exportShareLink'
@@ -13,7 +15,40 @@ export default function App() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen)
   const themeName = useUiStore((s) => s.themeName)
   const toastMessage = useUiStore((s) => s.toastMessage)
+  const user = useAuthStore((s) => s.user)
+  const authInitialized = useAuthStore((s) => s.initialized)
+  const saveTimeout = useRef(null)
+  const hasLoadedForUser = useRef(null)
   useKeyboardShortcuts()
+
+  // Restore an existing Supabase session (if any) once on app start.
+  useEffect(() => {
+    useAuthStore.getState().init()
+  }, [])
+
+  // Section — online account sync. As soon as someone is signed in, pull
+  // their last-saved cloud map down once; after that, every map change is
+  // auto-saved back up (debounced, so a burst of edits = one network call).
+  useEffect(() => {
+    if (!authInitialized) return
+    if (user && hasLoadedForUser.current !== user.id) {
+      hasLoadedForUser.current = user.id
+      useMapStore.getState().loadFromCloud(user.id)
+    }
+    if (!user) hasLoadedForUser.current = null
+
+    const unsubscribe = useMapStore.subscribe(() => {
+      if (!user) return
+      clearTimeout(saveTimeout.current)
+      saveTimeout.current = setTimeout(() => {
+        useMapStore.getState().saveToCloud(user.id)
+      }, 1200)
+    })
+    return () => {
+      clearTimeout(saveTimeout.current)
+      unsubscribe()
+    }
+  }, [user, authInitialized])
 
   // Section 4.7 — share link: load map data encoded in the URL, if present.
   useEffect(() => {
@@ -69,6 +104,7 @@ export default function App() {
           {toastMessage}
         </div>
       )}
+      <AuthPanel />
     </div>
   )
 }
