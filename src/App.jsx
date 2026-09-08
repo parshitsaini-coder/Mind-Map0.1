@@ -1,11 +1,14 @@
 import { useEffect, useRef } from 'react'
 import TopToolbar from './components/toolbar/TopToolbar'
+import TabsBar from './components/toolbar/TabsBar'
 import Sidebar from './components/panels/Sidebar'
 import ConnectorStylesPanel from './components/panels/ConnectorStylesPanel'
+import ProjectsDashboard from './components/panels/ProjectsDashboard'
 import AuthPanel from './components/auth/AuthPanel'
 import MindMapCanvas from './components/canvas/MindMapCanvas'
 import { useUiStore } from './store/uiStore'
 import { useMapStore } from './store/mapStore'
+import { useProjectsStore } from './store/projectsStore'
 import { useAuthStore } from './store/authStore'
 import { THEME_PRESETS } from './theme/tokens'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
@@ -19,11 +22,41 @@ export default function App() {
   const authInitialized = useAuthStore((s) => s.initialized)
   const saveTimeout = useRef(null)
   const hasLoadedForUser = useRef(null)
+  const projectSaveTimeout = useRef(null)
   useKeyboardShortcuts()
 
   // Restore an existing Supabase session (if any) once on app start.
   useEffect(() => {
     useAuthStore.getState().init()
+  }, [])
+
+  // Section — multi-project support. Sets up (or migrates) the projects
+  // list once, then loads whichever project was last active straight onto
+  // the canvas so returning users land back where they left off.
+  useEffect(() => {
+    useProjectsStore.getState().init()
+    const id = useProjectsStore.getState().activeProjectId
+    if (id) useMapStore.getState().loadProject(id)
+  }, [])
+
+  // Autosave the live canvas into the *current* project's local storage
+  // slot (debounced, same 1.2s pattern as the cloud sync below) whenever
+  // nodes/edges/groups change, and bump that project's "last edited" date
+  // so the dashboard sorts it to the top.
+  useEffect(() => {
+    const unsubscribe = useMapStore.subscribe(() => {
+      const projectId = useMapStore.getState().activeProjectId
+      if (!projectId) return
+      clearTimeout(projectSaveTimeout.current)
+      projectSaveTimeout.current = setTimeout(() => {
+        useMapStore.getState().saveProject(projectId)
+        useProjectsStore.getState().touchActiveProject()
+      }, 1200)
+    })
+    return () => {
+      clearTimeout(projectSaveTimeout.current)
+      unsubscribe()
+    }
   }, [])
 
   // Section — online account sync. As soon as someone is signed in, pull
@@ -80,6 +113,7 @@ export default function App() {
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden" style={{ backgroundColor: 'var(--color-bg-main)' }}>
       <TopToolbar />
+      <TabsBar />
       <div className="flex min-h-0 flex-1">
         <ConnectorStylesPanel />
         <main className="min-w-0 flex-1">
@@ -105,6 +139,7 @@ export default function App() {
         </div>
       )}
       <AuthPanel />
+      <ProjectsDashboard />
     </div>
   )
 }

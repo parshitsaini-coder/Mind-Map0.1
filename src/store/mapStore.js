@@ -5,6 +5,7 @@ import { useUiStore } from './uiStore'
 import { runLayout } from '../hooks/useAutoLayout'
 import { buildConnectorDemo } from '../utils/connectorDemoData'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
+import { readProjectData, writeProjectData } from './projectsStore'
 
 let idCounter = 1
 const nextId = () => `node_${Date.now()}_${idCounter++}`
@@ -32,6 +33,34 @@ export const useMapStore = create(
       history: { past: [], future: [] },
       activityLog: [],
       cloudStatus: 'idle', // 'idle' | 'saving' | 'saved' | 'error'
+      activeProjectId: null,
+
+      // Multi-project support — swap the whole canvas over to a different
+      // project's saved data. Called by the Tabs bar / Projects dashboard
+      // whenever the active project changes. Does NOT push an undo snapshot
+      // (switching projects isn't something you'd want to Ctrl+Z through)
+      // and resets the undo/redo history, since it belongs to the project
+      // being left.
+      loadProject: (projectId) => {
+        const data = readProjectData(projectId)
+        set({
+          activeProjectId: projectId,
+          nodes: data?.nodes?.length ? data.nodes : initialNodes,
+          edges: data?.edges || [],
+          groups: data?.groups || [],
+          activityLog: data?.activityLog || [],
+          history: { past: [], future: [] },
+        })
+      },
+
+      // Persists the current canvas into the given project's local storage
+      // slot. Called (debounced) from App.jsx on every canvas change, and
+      // right before switching away from a project.
+      saveProject: (projectId) => {
+        if (!projectId) return
+        const { nodes, edges, groups, activityLog } = get()
+        writeProjectData(projectId, { nodes, edges, groups, activityLog })
+      },
 
       // Section — online account sync (Supabase). Pulls the signed-in
       // user's last-saved map down from the cloud, replacing whatever is

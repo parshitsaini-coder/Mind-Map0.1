@@ -25,11 +25,13 @@ import {
   GitBranch,
   User,
   UserCheck,
+  LayoutDashboard,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
 import { useAuthStore } from '../../store/authStore'
+import { useProjectsStore } from '../../store/projectsStore'
 import { buildShareUrl } from '../../utils/exportShareLink'
 import { exportMapAsPng, exportMapAsPdf } from '../../utils/exportImage'
 
@@ -72,6 +74,7 @@ export default function TopToolbar() {
   const nodes = useMapStore((s) => s.nodes)
   const edges = useMapStore((s) => s.edges)
   const loadConnectorDemo = useMapStore((s) => s.loadConnectorDemo)
+  const openProjectsDashboard = useProjectsStore((s) => s.openDashboard)
   const [exporting, setExporting] = useState(false)
 
   const handleConnectorDemo = () => {
@@ -135,6 +138,7 @@ export default function TopToolbar() {
           🧠 MindMap
         </span>
         <div className="mx-1 hidden h-5 w-px shrink-0 sm:block" style={{ backgroundColor: '#cfdbd5' }} />
+        <IconBtn icon={LayoutDashboard} label="My mind maps (new / open projects)" onClick={openProjectsDashboard} />
         <IconBtn icon={Target} label="Add central topic" onClick={addCentralTopic} />
         <IconBtn icon={StickyNote} label="Add floating note" onClick={addFloatingNode} />
         <IconBtn
