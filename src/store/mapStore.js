@@ -301,11 +301,31 @@ export const useMapStore = create(
         })
       },
 
-      // Section 4.3 — custom branch (edge) color & thickness.
+      // Section 4.3/4.8 — custom branch (edge) color & thickness.
       updateEdgeStyle: (id, patch) => {
         set({
           edges: get().edges.map((e) =>
             e.id === id ? { ...e, style: { ...e.style, ...patch } } : e
+          ),
+        })
+      },
+
+      // Line-style presets (curved/straight/step/dotted/animated/icon-in-
+      // middle…) from the Node Inspector's "Line style" section. Stored in
+      // `data` — separate from `style` above — so color/thickness and line
+      // style never clobber each other.
+      updateEdgeData: (id, patch) => {
+        set({
+          edges: get().edges.map((e) => (e.id === id ? { ...e, data: { ...e.data, ...patch } } : e)),
+        })
+      },
+
+      // Arrowhead toggle (none / end / both). markerEnd/markerStart are
+      // top-level React Flow edge props, not part of `style` or `data`.
+      updateEdgeMarker: (id, { markerEnd, markerStart }) => {
+        set({
+          edges: get().edges.map((e) =>
+            e.id === id ? { ...e, markerEnd, markerStart } : e
           ),
         })
       },

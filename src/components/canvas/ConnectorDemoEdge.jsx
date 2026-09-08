@@ -1,33 +1,14 @@
 import { memo } from 'react'
-import {
-  BaseEdge,
-  EdgeLabelRenderer,
-  getBezierPath,
-  getStraightPath,
-  getSmoothStepPath,
-  getSimpleBezierPath,
-} from '@xyflow/react'
+import { BaseEdge, EdgeLabelRenderer } from '@xyflow/react'
+import { resolvePath } from './edgePathUtils'
 import { ICONS } from '../../theme/iconSet'
 
 // Section 4.8 — connector styles showcase. One component handles every row
 // of the demo map; `data.pathType` picks which React Flow path algorithm to
-// draw, everything else (dash pattern, width, color, animation, arrows,
+// draw (via the shared `resolvePath` helper — also used by CustomEdge/
+// CrossEdge so the Node Inspector's Line style picker matches this demo),
+// everything else (dash pattern, width, color, animation, arrows,
 // icon-in-middle) comes from `data` too.
-function resolvePath(pathType, params) {
-  switch (pathType) {
-    case 'straight':
-      return getStraightPath(params)
-    case 'smoothstep':
-      return getSmoothStepPath({ ...params, borderRadius: 10 })
-    case 'step':
-      return getSmoothStepPath({ ...params, borderRadius: 0 })
-    case 'simplebezier':
-      return getSimpleBezierPath(params)
-    case 'bezier':
-    default:
-      return getBezierPath(params)
-  }
-}
 
 // Section 14 — perf pass: memoized like the other edge/node components.
 function ConnectorDemoEdge({

@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Star, X as XIcon } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 import { COLORS, NODE_SHAPES } from '../../theme/tokens'
+import { LINE_STYLE_PRESETS } from '../canvas/edgePathUtils'
 import IconLibrary from './IconLibrary'
 
 // Section 14 — perf pass: Tiptap (NotesEditor) and emoji-picker-react are the
@@ -50,15 +51,51 @@ function ColorSwatch({ color, active, onClick }) {
   )
 }
 
+// Mini SVG preview of a line-style preset (curved/straight/step/dotted/
+// animated…) so the "Line style" picker shows what each button actually
+// looks like instead of a plain text label.
+function LineStyleSwatch({ preset, active, onClick }) {
+  const { pathType, dash, cap } = preset.data
+  const pathD =
+    pathType === 'straight'
+      ? 'M4 20 L44 20'
+      : pathType === 'step' || pathType === 'smoothstep'
+        ? 'M4 20 L24 20 L24 8 L44 8'
+        : 'M4 20 Q 16 4, 24 12 T 44 8'
+  return (
+    <button
+      onClick={onClick}
+      title={preset.label}
+      className={`flex h-9 w-12 items-center justify-center rounded-md border ${
+        active ? 'border-[#f5cb5c] border-2 bg-[#f5cb5c]/10' : 'border-[#cfdbd5] hover:bg-[#cfdbd5]/20'
+      }`}
+    >
+      <svg width="44" height="24" viewBox="0 0 48 24" className={preset.data.animated ? 'edge-preview-animated' : ''}>
+        <path
+          d={pathD}
+          fill="none"
+          stroke="#333533"
+          strokeWidth="2"
+          strokeDasharray={dash || undefined}
+          strokeLinecap={cap || undefined}
+        />
+      </svg>
+    </button>
+  )
+}
+
 export default function NodeInspector() {
   const nodes = useMapStore((s) => s.nodes)
   const edges = useMapStore((s) => s.edges)
   const updateNodeData = useMapStore((s) => s.updateNodeData)
   const updateNodesData = useMapStore((s) => s.updateNodesData)
   const updateEdgeStyle = useMapStore((s) => s.updateEdgeStyle)
+  const updateEdgeData = useMapStore((s) => s.updateEdgeData)
+  const updateEdgeMarker = useMapStore((s) => s.updateEdgeMarker)
   const [showEmoji, setShowEmoji] = useState(false)
   const [showIcons, setShowIcons] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
+  const [showLineIcon, setShowLineIcon] = useState(false)
 
   const selectedNodes = nodes.filter((n) => n.selected && n.type !== 'boundaryGroup')
   const selectedNode = selectedNodes.length === 1 ? selectedNodes[0] : null
@@ -425,6 +462,23 @@ export default function NodeInspector() {
   if (selectedEdge) {
     const stroke = selectedEdge.style?.stroke || '#333533'
     const strokeWidth = selectedEdge.style?.strokeWidth || 1.5
+    const lineData = selectedEdge.data || {}
+    const activePresetKey = LINE_STYLE_PRESETS.find(
+      (p) =>
+        (p.data.pathType || 'bezier') === (lineData.pathType || 'bezier') &&
+        (p.data.dash || '') === (lineData.dash !== undefined ? lineData.dash : '6') &&
+        !!p.data.animated === (lineData.animated !== false)
+    )?.key
+    const hasEndArrow = !!selectedEdge.markerEnd
+    const hasStartArrow = !!selectedEdge.markerStart
+    const arrowState = hasStartArrow && hasEndArrow ? 'both' : hasEndArrow ? 'end' : 'none'
+    const setArrow = (mode) => {
+      const marker = { type: 'arrowclosed', color: stroke, width: 16, height: 16 }
+      updateEdgeMarker(selectedEdge.id, {
+        markerEnd: mode === 'none' ? undefined : marker,
+        markerStart: mode === 'both' ? marker : undefined,
+      })
+    }
     return (
       <div className="flex flex-col gap-3">
         <div>
@@ -438,6 +492,13 @@ export default function NodeInspector() {
                 onClick={() => updateEdgeStyle(selectedEdge.id, { stroke: color })}
               />
             ))}
+            <input
+              type="color"
+              value={stroke}
+              onChange={(e) => updateEdgeStyle(selectedEdge.id, { stroke: e.target.value })}
+              className="h-6 w-6 cursor-pointer rounded-full border-0 bg-transparent p-0"
+              title="Custom color"
+            />
           </div>
         </div>
         <div>
@@ -453,6 +514,82 @@ export default function NodeInspector() {
             onChange={(e) => updateEdgeStyle(selectedEdge.id, { strokeWidth: Number(e.target.value) })}
             className="w-full accent-[#f5cb5c]"
           />
+        </div>
+
+        {/* Section 4.8 — 9 one-click connector line styles (curved, straight,
+            step, dotted, animated, simple-curve…), matching the styles
+            visually demoed on the connector-styles sample map. */}
+        <div>
+          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[#333533]">Line style</p>
+          <div className="grid grid-cols-3 gap-1.5">
+            {LINE_STYLE_PRESETS.map((preset) => (
+              <LineStyleSwatch
+                key={preset.key}
+                preset={preset}
+                active={activePresetKey === preset.key}
+                onClick={() => updateEdgeData(selectedEdge.id, preset.data)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Arrowhead toggle — none / end / both ends. */}
+        <div>
+          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[#333533]">Arrow</p>
+          <div className="flex gap-1.5">
+            {[
+              { key: 'none', label: 'None' },
+              { key: 'end', label: 'End →' },
+              { key: 'both', label: '↔ Both' },
+            ].map((opt) => (
+              <button
+                key={opt.key}
+                onClick={() => setArrow(opt.key)}
+                className={`rounded-md border px-2 py-1 text-[10px] ${
+                  arrowState === opt.key
+                    ? 'border-[#f5cb5c] bg-[#f5cb5c]/30'
+                    : 'border-[#cfdbd5] hover:bg-[#cfdbd5]/30'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Section 4.8 — icon-in-middle connector decoration. */}
+        <div>
+          <button
+            onClick={() => setShowLineIcon((v) => !v)}
+            className="mb-1 flex w-full items-center justify-between text-[10px] font-medium uppercase tracking-wide text-[#333533]"
+          >
+            <span>Icon in middle {lineData.iconMid ? `— ${lineData.iconMid}` : ''}</span>
+            <span>{showLineIcon ? '−' : '+'}</span>
+          </button>
+          <AnimatePresence initial={false}>
+            {showLineIcon && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
+                className="overflow-hidden"
+              >
+                <IconLibrary
+                  activeIcon={lineData.iconMid}
+                  onSelect={(name) => updateEdgeData(selectedEdge.id, { iconMid: name })}
+                />
+                {lineData.iconMid && (
+                  <button
+                    onClick={() => updateEdgeData(selectedEdge.id, { iconMid: null })}
+                    className="mt-1 w-full rounded-md border border-[#cfdbd5] py-1 text-[10px] hover:bg-[#cfdbd5]/40"
+                  >
+                    Remove icon
+                  </button>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     )
