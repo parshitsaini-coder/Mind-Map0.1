@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState } from 'react'
+import { useMemo, useEffect, useState, useCallback } from 'react'
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -20,6 +20,7 @@ import PresentationMode from '../modes/PresentationMode'
 import { getSubtreeIds } from '../modes/FocusMode'
 import SearchBar from '../toolbar/SearchBar'
 import MockCursors from './MockCursors'
+import NodeContextMenu from './NodeContextMenu'
 import { computeHidden } from '../../utils/graphUtils'
 
 
@@ -35,6 +36,7 @@ function FlowInner() {
   const presentationIndex = useUiStore((s) => s.presentationIndex)
   const showMockCursors = useUiStore((s) => s.showMockCursors)
   const [transitioning, setTransitioning] = useState(false)
+  const [contextMenu, setContextMenu] = useState(null)
   const { fitView } = useReactFlow()
 
   // Section 4.2 — smooth repositioning transition (not an instant jump)
@@ -96,6 +98,20 @@ function FlowInner() {
       return dimmed ? { ...e, style: { ...e.style, opacity: 0.15 } } : e
     })
 
+  // Right-click on a node opens a small context menu (add child/sibling,
+  // duplicate, collapse, delete) instead of the browser's default menu.
+  const onNodeContextMenu = useCallback((event, node) => {
+    event.preventDefault()
+    if (node.type === 'boundaryGroup') return
+    const menuWidth = 176
+    const menuHeight = 190
+    setContextMenu({
+      id: node.id,
+      x: Math.min(event.clientX, window.innerWidth - menuWidth - 8),
+      y: Math.min(event.clientY, window.innerHeight - menuHeight - 8),
+    })
+  }, [])
+
   return (
     <div
       className={`relative h-full w-full ${transitioning ? 'layout-transition' : ''}`}
@@ -110,6 +126,7 @@ function FlowInner() {
         onConnect={onConnect}
         onNodeClick={() => useUiStore.getState().setActivePanel('inspector')}
         onEdgeClick={() => useUiStore.getState().setActivePanel('inspector')}
+        onNodeContextMenu={onNodeContextMenu}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
@@ -132,9 +149,18 @@ function FlowInner() {
       </ReactFlow>
       {presentationMode && <PresentationMode order={presentationOrder} />}
       {showMockCursors && <MockCursors />}
+      {contextMenu && (
+        <NodeContextMenu
+          id={contextMenu.id}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   )
 }
+
 
 export default function MindMapCanvas() {
   return (

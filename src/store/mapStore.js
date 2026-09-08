@@ -320,6 +320,26 @@ export const useMapStore = create(
         get().logActivity(`🗑️ Deleted "${node?.data?.label || id}"`)
       },
 
+      // Right-click context menu — clone a node (and give it a fresh id) a
+      // little below/right of the original. Doesn't copy any incoming edge,
+      // so it starts as a floating duplicate the user can re-attach.
+      duplicateNode: (id) => {
+        const node = get().nodes.find((n) => n.id === id)
+        if (!node) return null
+        get().pushSnapshot()
+        const newId = nextId()
+        const newNode = {
+          ...node,
+          id: newId,
+          selected: false,
+          position: { x: node.position.x + 36, y: node.position.y + 36 },
+          data: { ...node.data, isRoot: false, label: `${node.data?.label || 'Node'} (copy)` },
+        }
+        set({ nodes: [...get().nodes, newNode] })
+        get().logActivity(`📄 Duplicated "${node.data?.label}"`)
+        return newId
+      },
+
       setNodesPositions: (nodes) => set({ nodes }),
 
       // Section 4.8 — connector line styles showcase (curved, straight,
@@ -333,15 +353,17 @@ export const useMapStore = create(
       },
 
       // Left "Connector Styles" panel — apply one of the predefined line
-      // styles (path shape, dash, color, width, arrows, animation, mid-icon)
-      // to whichever edge(s) are currently selected on the canvas. Switches
-      // those edges to the flexible `demoEdge` renderer so every style
-      // option (not just color/width) actually takes effect.
+      // styles (path shape, dash, color, width, arrows, animation, mid-icon).
+      // If the user has selected specific edge(s), only those change;
+      // otherwise the style is applied to every connector on the canvas so
+      // clicking a style always visibly does something.
       applyLineStyleToSelectedEdges: (style) => {
-        const selectedIds = get().edges.filter((e) => e.selected).map((e) => e.id)
-        if (!selectedIds.length) return 0
+        const allEdges = get().edges
+        if (!allEdges.length) return 0
+        const selectedIds = allEdges.filter((e) => e.selected).map((e) => e.id)
+        const targetIds = selectedIds.length ? selectedIds : allEdges.map((e) => e.id)
         get().pushSnapshot()
-        const idSet = new Set(selectedIds)
+        const idSet = new Set(targetIds)
         set({
           edges: get().edges.map((e) => {
             if (!idSet.has(e.id)) return e
@@ -367,9 +389,9 @@ export const useMapStore = create(
           }),
         })
         get().logActivity(
-          `🎨 Applied "${style.label}" line style to ${selectedIds.length} connector${selectedIds.length > 1 ? 's' : ''}`
+          `🎨 Applied "${style.label}" line style to ${targetIds.length} connector${targetIds.length > 1 ? 's' : ''}`
         )
-        return selectedIds.length
+        return targetIds.length
       },
     }),
     { name: 'mindmap-storage', partialize: (state) => ({ nodes: state.nodes, edges: state.edges, groups: state.groups, activityLog: state.activityLog }) }

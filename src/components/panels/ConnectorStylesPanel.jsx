@@ -59,9 +59,11 @@ export default function ConnectorStylesPanel() {
   const handleApply = (style) => {
     const count = applyLineStyleToSelectedEdges(style)
     if (!count) {
-      showToast('Select a connector line on the canvas first')
+      showToast('Add at least one connector line first')
+    } else if (selectedCount > 0) {
+      showToast(`Applied "${style.label}" to ${count} selected connector${count > 1 ? 's' : ''}`)
     } else {
-      showToast(`Applied "${style.label}" to ${count} connector${count > 1 ? 's' : ''}`)
+      showToast(`Applied "${style.label}" to all ${count} connector${count > 1 ? 's' : ''}`)
     }
   }
 
@@ -96,7 +98,7 @@ export default function ConnectorStylesPanel() {
               <p className="mb-2 text-[10px] leading-snug text-[#333533]">
                 {selectedCount > 0
                   ? `${selectedCount} line${selectedCount > 1 ? 's' : ''} selected — pick a style to apply.`
-                  : 'Click a connector line on the canvas, then pick a style below.'}
+                  : 'Pick a style to apply it to every connector — or select specific line(s) on the canvas first to apply it just to those.'}
               </p>
               <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-0.5">
                 {CONNECTOR_STYLES.map((style) => (
