@@ -92,7 +92,7 @@ export default function TopToolbar() {
     const url = buildShareUrl(nodes, edges)
     try {
       await navigator.clipboard.writeText(url)
-      showToast('Share link copied to clipboard')
+      showToast('View-only share link copied to clipboard')
     } catch {
       window.prompt('Copy this share link:', url)
     }

@@ -1,3 +1,18 @@
+// Applies a theme preset's colors as CSS custom properties on <html>, so the
+// whole UI (canvas bg, sidebar, cards, node fills) repaints instantly.
+// Shared with App.jsx (full editor) and SharedMapView.jsx (read-only viewer)
+// so a shared-link viewer gets the same look without needing its own copy.
+export function applyThemeVars(themeName) {
+  const preset = THEME_PRESETS[themeName] || THEME_PRESETS.default
+  const root = document.documentElement
+  root.style.setProperty('--color-bg-main', preset.bgMain)
+  root.style.setProperty('--color-sage', preset.sage)
+  root.style.setProperty('--color-cream', preset.cream)
+  root.style.setProperty('--color-accent', preset.accent)
+  root.style.setProperty('--color-ink', preset.ink)
+  root.style.setProperty('--color-slate', preset.slate)
+}
+
 // Fixed palette — do not change.
 // coolors.co/palette/cfdbd5-e8eddf-f5cb5c-242423-333533
 export const COLORS = {

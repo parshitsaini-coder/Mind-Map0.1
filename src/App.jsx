@@ -10,9 +10,8 @@ import { useUiStore } from './store/uiStore'
 import { useMapStore } from './store/mapStore'
 import { useProjectsStore } from './store/projectsStore'
 import { useAuthStore } from './store/authStore'
-import { THEME_PRESETS } from './theme/tokens'
+import { applyThemeVars } from './theme/tokens'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
-import { decodeMapFromParam } from './utils/exportShareLink'
 
 export default function App() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen)
@@ -83,31 +82,10 @@ export default function App() {
     }
   }, [user, authInitialized])
 
-  // Section 4.7 — share link: load map data encoded in the URL, if present.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const mapParam = params.get('map')
-    if (!mapParam) return
-    const decoded = decodeMapFromParam(mapParam)
-    if (decoded?.nodes && window.confirm('Open the shared map from this link? This replaces your current map (your current map stays in undo history).')) {
-      useMapStore.getState().pushSnapshot()
-      useMapStore.setState({ nodes: decoded.nodes, edges: decoded.edges || [] })
-    }
-    params.delete('map')
-    window.history.replaceState({}, '', `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`)
-  }, [])
-
   // Section 4.3 — themes/skins. Swaps the live CSS custom properties so the
   // whole UI (canvas bg, sidebar, cards, node fills) repaints instantly.
   useEffect(() => {
-    const preset = THEME_PRESETS[themeName] || THEME_PRESETS.default
-    const root = document.documentElement
-    root.style.setProperty('--color-bg-main', preset.bgMain)
-    root.style.setProperty('--color-sage', preset.sage)
-    root.style.setProperty('--color-cream', preset.cream)
-    root.style.setProperty('--color-accent', preset.accent)
-    root.style.setProperty('--color-ink', preset.ink)
-    root.style.setProperty('--color-slate', preset.slate)
+    applyThemeVars(themeName)
   }, [themeName])
 
   return (

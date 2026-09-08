@@ -1,8 +1,9 @@
+import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { X, Spline } from 'lucide-react'
+import { X, Spline, Waves } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
-import { CONNECTOR_STYLES } from '../../utils/connectorDemoData'
+import { CONNECTOR_STYLES, CONNECTOR_STYLE_CATEGORIES } from '../../utils/connectorDemoData'
 import { ICONS } from '../../theme/iconSet'
 
 // Small inline preview so people can see what a style looks like before
@@ -53,8 +54,13 @@ export default function ConnectorStylesPanel() {
   const toggle = useUiStore((s) => s.toggleConnectorPanel)
   const showToast = useUiStore((s) => s.showToast)
   const applyLineStyleToSelectedEdges = useMapStore((s) => s.applyLineStyleToSelectedEdges)
+  const setConnectorScale = useMapStore((s) => s.setConnectorScale)
   const edges = useMapStore((s) => s.edges)
   const selectedCount = edges.filter((e) => e.selected).length
+
+  // Local slider value only — the store keeps each edge's own base width,
+  // so this doesn't need to track any particular edge's current scale.
+  const [scale, setScale] = useState(1)
 
   const handleApply = (style) => {
     const count = applyLineStyleToSelectedEdges(style)
@@ -66,6 +72,16 @@ export default function ConnectorStylesPanel() {
       showToast(`Applied "${style.label}" to all ${count} connector${count > 1 ? 's' : ''}`)
     }
   }
+
+  const handleScaleChange = (value) => {
+    setScale(value)
+    setConnectorScale(value)
+  }
+
+  const groupedStyles = CONNECTOR_STYLE_CATEGORIES.map((cat) => ({
+    ...cat,
+    styles: CONNECTOR_STYLES.filter((style) => (style.category || 'line') === cat.key),
+  })).filter((group) => group.styles.length)
 
   return (
     <AnimatePresence>
@@ -100,16 +116,47 @@ export default function ConnectorStylesPanel() {
                   ? `${selectedCount} line${selectedCount > 1 ? 's' : ''} selected — pick a style to apply.`
                   : 'Pick a style to apply it to every connector — or select specific line(s) on the canvas first to apply it just to those.'}
               </p>
-              <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-0.5">
-                {CONNECTOR_STYLES.map((style) => (
-                  <button
-                    key={style.label}
-                    onClick={() => handleApply(style)}
-                    className="flex items-center gap-2 rounded-md border border-[var(--color-sage)] px-2 py-1.5 text-left transition-colors hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/20"
-                  >
-                    <StylePreview style={style} />
-                    <span className="text-[10.5px] leading-tight text-[var(--color-ink)]">{style.label}</span>
-                  </button>
+
+              <div className="mb-3 rounded-md border border-[var(--color-sage)] px-2 py-2">
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1 text-[10px] font-semibold" style={{ color: 'var(--color-ink)' }}>
+                    <Waves size={11} /> Connector Scale
+                  </span>
+                  <span className="text-[10px] text-[var(--color-slate)]">{scale.toFixed(2)}×</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="3"
+                  step="0.25"
+                  value={scale}
+                  onChange={(e) => handleScaleChange(Number(e.target.value))}
+                  className="w-full accent-[var(--color-accent)]"
+                />
+                <p className="mt-1 text-[9px] leading-snug text-[var(--color-slate)]">
+                  Scales line thickness relative to each connector's own width.
+                </p>
+              </div>
+
+              <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-0.5">
+                {groupedStyles.map((group) => (
+                  <div key={group.key}>
+                    <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-slate)]">
+                      {group.label}
+                    </h3>
+                    <div className="flex flex-col gap-1">
+                      {group.styles.map((style) => (
+                        <button
+                          key={style.label}
+                          onClick={() => handleApply(style)}
+                          className="flex items-center gap-2 rounded-md border border-[var(--color-sage)] px-2 py-1.5 text-left transition-colors hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/20"
+                        >
+                          <StylePreview style={style} />
+                          <span className="text-[10.5px] leading-tight text-[var(--color-ink)]">{style.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>

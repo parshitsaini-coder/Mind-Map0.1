@@ -445,6 +445,36 @@ export const useMapStore = create(
       // If the user has selected specific edge(s), only those change;
       // otherwise the style is applied to every connector on the canvas so
       // clicking a style always visibly does something.
+      // Section — connector scale. Multiplies the thickness of every
+      // connector (or just the selected ones, same targeting rule as
+      // applyLineStyleToSelectedEdges) against its own original width, so
+      // scaling down and back up returns to the same base thickness
+      // instead of compounding. Driven by the slider at the top of the
+      // Connector Styles panel.
+      setConnectorScale: (scale) => {
+        const allEdges = get().edges
+        if (!allEdges.length) return 0
+        const selectedIds = allEdges.filter((e) => e.selected).map((e) => e.id)
+        const targetIds = selectedIds.length ? selectedIds : allEdges.map((e) => e.id)
+        const idSet = new Set(targetIds)
+        set({
+          edges: get().edges.map((e) => {
+            if (!idSet.has(e.id)) return e
+            const baseWidth = e.data?.baseStrokeWidth ?? e.data?.strokeWidth ?? 2
+            return {
+              ...e,
+              type: e.type || 'demoEdge',
+              data: {
+                ...e.data,
+                baseStrokeWidth: baseWidth,
+                strokeWidth: Math.round(baseWidth * scale * 10) / 10,
+              },
+            }
+          }),
+        })
+        return targetIds.length
+      },
+
       applyLineStyleToSelectedEdges: (style) => {
         const allEdges = get().edges
         if (!allEdges.length) return 0
