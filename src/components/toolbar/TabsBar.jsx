@@ -37,7 +37,7 @@ export default function TabsBar() {
 
   return (
     <div
-      className="no-scrollbar flex h-8 shrink-0 items-center gap-1 overflow-x-auto border-b px-2"
+      className="no-scrollbar flex h-6 shrink-0 items-center gap-1 overflow-x-auto border-b px-2"
       style={{ backgroundColor: '#cfdbd5', borderColor: '#b8c4bd' }}
     >
       <button
@@ -62,7 +62,7 @@ export default function TabsBar() {
               transition={{ duration: 0.14 }}
               onClick={() => handleSwitch(id)}
               title={project.name}
-              className={`group flex shrink-0 items-center gap-1.5 rounded-t-md px-2.5 py-1 text-[11px] transition-colors ${
+              className={`group flex shrink-0 items-center gap-1 rounded-t-md px-2 py-0.5 text-[10px] transition-colors ${
                 active ? 'font-medium' : 'text-[#333533]/70 hover:bg-white/40'
               }`}
               style={active ? { backgroundColor: '#e8eddf', color: '#242423' } : undefined}
