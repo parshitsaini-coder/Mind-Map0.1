@@ -21,10 +21,10 @@ function Row({ node, depth, childrenMap, nodesById, editingId, setEditingId }) {
       transition={{ duration: 0.15, delay: Math.min(depth, 6) * 0.02 }}
     >
       <div
-        className="flex items-center gap-1 rounded px-1 py-0.5 text-[11px] hover:bg-[#cfdbd5]/30"
+        className="flex items-center gap-1 rounded px-1 py-0.5 text-[11px] hover:bg-[var(--color-sage)]/30"
         style={{ paddingLeft: depth * 14 }}
       >
-        <span className="text-[#333533]">•</span>
+        <span className="text-[var(--color-slate)]">•</span>
         {editingId === node.id ? (
           <input
             autoFocus
@@ -71,7 +71,7 @@ export default function OutlineView() {
 
   return (
     <div className="flex flex-col gap-1">
-      <p className="mb-1 text-[10px] text-[#333533]">Double-click a line to rename. Single-click to select on canvas.</p>
+      <p className="mb-1 text-[10px] text-[var(--color-slate)]">Double-click a line to rename. Single-click to select on canvas.</p>
       {roots.map((rootId) => {
         const root = nodesById.get(rootId)
         if (!root) return null

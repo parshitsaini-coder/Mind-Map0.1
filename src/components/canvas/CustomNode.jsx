@@ -19,13 +19,13 @@ function ProgressRing({ percent }) {
   const offset = c - (percent / 100) * c
   return (
     <svg width="18" height="18" viewBox="0 0 18 18">
-      <circle cx="9" cy="9" r={r} fill="none" stroke="#cfdbd5" strokeWidth="2.5" />
+      <circle cx="9" cy="9" r={r} fill="none" stroke="var(--color-sage)" strokeWidth="2.5" />
       <circle
         cx="9"
         cy="9"
         r={r}
         fill="none"
-        stroke="#f5cb5c"
+        stroke="var(--color-accent)"
         strokeWidth="2.5"
         strokeDasharray={c}
         strokeDashoffset={offset}
@@ -71,10 +71,10 @@ function CustomNode({ id, data, selected }) {
       transition={{ type: 'spring', stiffness: 300, damping: 22 }}
       className={`group relative flex items-center gap-1.5 border px-3 py-1.5 text-xs font-medium shadow-sm ${shapeClass[data.shape] || 'rounded-md'}`}
       style={{
-        backgroundColor: data.color || '#e8eddf',
-        borderColor: selected ? '#f5cb5c' : '#333533',
+        backgroundColor: data.color || 'var(--color-cream)',
+        borderColor: selected ? 'var(--color-accent)' : 'var(--color-slate)',
         borderWidth: selected ? 2 : 1,
-        color: data.textColor || '#242423',
+        color: data.textColor || 'var(--color-ink)',
         minWidth: 90,
         textAlign: 'center',
       }}
@@ -92,9 +92,9 @@ function CustomNode({ id, data, selected }) {
           title={task.dueDate ? `Due ${task.dueDate}` : 'To-do'}
         >
           {task.done ? (
-            <CheckSquare size={13} color="#242423" />
+            <CheckSquare size={13} color="var(--color-ink)" />
           ) : (
-            <Square size={13} color={overdue ? '#c1443c' : '#242423'} />
+            <Square size={13} color={overdue ? '#c1443c' : 'var(--color-ink)'} />
           )}
         </button>
       )}
@@ -120,7 +120,7 @@ function CustomNode({ id, data, selected }) {
       {task?.assignee && (
         <span
           title={task.assignee}
-          className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#f5cb5c] text-[8px] font-bold"
+          className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-[8px] font-bold"
         >
           {task.assignee[0].toUpperCase()}
         </span>
@@ -133,7 +133,7 @@ function CustomNode({ id, data, selected }) {
             e.stopPropagation()
             toggleCollapse(id)
           }}
-          className="absolute -right-4 top-1/2 -translate-y-1/2 rounded-full bg-[#e8eddf] p-0.5 shadow"
+          className="absolute -right-4 top-1/2 -translate-y-1/2 rounded-full bg-[var(--color-cream)] p-0.5 shadow"
           title={data.collapsed ? `Expand (${childCount} hidden)` : 'Collapse branch'}
         >
           {data.collapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
@@ -144,13 +144,13 @@ function CustomNode({ id, data, selected }) {
       {badges.priority && (
         <span
           className="badge-pop absolute -left-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white"
-          style={{ backgroundColor: '#242423' }}
+          style={{ backgroundColor: 'var(--color-ink)' }}
         >
           {badges.priority}
         </span>
       )}
       {badges.star && (
-        <Star size={12} className="badge-pop absolute -bottom-1.5 -left-1.5" fill="#f5cb5c" color="#242423" />
+        <Star size={12} className="badge-pop absolute -bottom-1.5 -left-1.5" fill="var(--color-accent)" color="var(--color-ink)" />
       )}
       {typeof badges.progress === 'number' && badges.progress > 0 && (
         <span className="badge-pop absolute -bottom-2 -right-2">
@@ -158,13 +158,13 @@ function CustomNode({ id, data, selected }) {
         </span>
       )}
       {hasExtras && (
-        <FileText size={11} className="absolute -top-1.5 right-3" color="#333533" title="Has notes/attachments" />
+        <FileText size={11} className="absolute -top-1.5 right-3" color="var(--color-slate)" title="Has notes/attachments" />
       )}
 
       <div className="absolute -top-2 -right-2 hidden group-hover:flex gap-1">
         <button
           onClick={() => addChildNode(id)}
-          className="rounded-full bg-[#f5cb5c] p-0.5 shadow hover:brightness-95"
+          className="rounded-full bg-[var(--color-accent)] p-0.5 shadow hover:brightness-95"
           title="Add child (Tab)"
         >
           <Plus size={10} />
@@ -172,7 +172,7 @@ function CustomNode({ id, data, selected }) {
         {!data.isRoot && (
           <button
             onClick={() => deleteNode(id)}
-            className="rounded-full bg-[#cfdbd5] p-0.5 shadow hover:brightness-95"
+            className="rounded-full bg-[var(--color-sage)] p-0.5 shadow hover:brightness-95"
             title="Delete (Del)"
           >
             <Trash2 size={10} />

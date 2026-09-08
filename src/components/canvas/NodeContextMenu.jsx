@@ -70,7 +70,7 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
       />
       <div
         className="fixed z-50 w-44 overflow-hidden rounded-md border py-1 shadow-lg"
-        style={{ top: y, left: x, backgroundColor: '#e8eddf', borderColor: '#cfdbd5' }}
+        style={{ top: y, left: x, backgroundColor: 'var(--color-cream)', borderColor: 'var(--color-sage)' }}
       >
         {items.map((item) => (
           <button
@@ -81,8 +81,8 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
             className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors ${
               item.disabled
                 ? 'cursor-not-allowed opacity-40'
-                : 'hover:bg-[#cfdbd5]/60'
-            } ${item.danger ? 'text-[#c1443c]' : 'text-[#242423]'}`}
+                : 'hover:bg-[var(--color-sage)]/60'
+            } ${item.danger ? 'text-[#c1443c]' : 'text-[var(--color-ink)]'}`}
           >
             <item.icon size={13} />
             {item.label}

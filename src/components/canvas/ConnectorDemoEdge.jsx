@@ -40,6 +40,7 @@ function ConnectorDemoEdge({
   data,
   markerEnd,
   markerStart,
+  selected,
 }) {
   const [edgePath, labelX, labelY] = resolvePath(data?.pathType, {
     sourceX,
@@ -58,12 +59,14 @@ function ConnectorDemoEdge({
         path={edgePath}
         markerEnd={markerEnd}
         markerStart={markerStart}
+        interactionWidth={24}
         style={{
-          stroke: data?.color || '#333533',
-          strokeWidth: data?.strokeWidth || 2,
+          stroke: selected ? 'var(--color-accent)' : data?.color || 'var(--color-slate)',
+          strokeWidth: (data?.strokeWidth || 2) + (selected ? 1.5 : 0),
           strokeDasharray: data?.dash || undefined,
           strokeLinecap: data?.cap || undefined,
           animation: data?.animated ? 'dashdraw 0.9s linear infinite' : undefined,
+          filter: selected ? 'drop-shadow(0 0 2px var(--color-accent))' : undefined,
         }}
       />
       {IconComp && (
@@ -73,12 +76,12 @@ function ConnectorDemoEdge({
               position: 'absolute',
               pointerEvents: 'none',
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-              backgroundColor: '#e8eddf',
-              borderColor: data?.color || '#333533',
+              backgroundColor: 'var(--color-cream)',
+              borderColor: data?.color || 'var(--color-slate)',
             }}
             className="flex h-5 w-5 items-center justify-center rounded-full border shadow"
           >
-            <IconComp size={11} color="#242423" />
+            <IconComp size={11} color="var(--color-ink)" />
           </div>
         </EdgeLabelRenderer>
       )}

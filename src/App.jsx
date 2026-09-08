@@ -125,7 +125,7 @@ export default function App() {
         <button
           onClick={() => useUiStore.getState().toggleSidebar()}
           className="fixed bottom-3 right-3 rounded-full px-2.5 py-1.5 text-xs shadow"
-          style={{ backgroundColor: '#f5cb5c' }}
+          style={{ backgroundColor: 'var(--color-accent)' }}
         >
           Open panel
         </button>
@@ -133,7 +133,7 @@ export default function App() {
       {toastMessage && (
         <div
           className="fixed left-1/2 top-14 z-50 -translate-x-1/2 rounded-full px-3 py-1.5 text-xs shadow-lg"
-          style={{ backgroundColor: '#242423', color: '#e8eddf' }}
+          style={{ backgroundColor: 'var(--color-ink)', color: 'var(--color-cream)' }}
         >
           {toastMessage}
         </div>

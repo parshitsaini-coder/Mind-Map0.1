@@ -74,21 +74,21 @@ export default function AuthPanel() {
           transition={{ type: 'spring', stiffness: 300, damping: 26 }}
           onClick={(e) => e.stopPropagation()}
           className="w-full max-w-xs rounded-lg border shadow-xl"
-          style={{ backgroundColor: '#e8eddf', borderColor: '#cfdbd5' }}
+          style={{ backgroundColor: 'var(--color-cream)', borderColor: 'var(--color-sage)' }}
         >
-          <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: '#cfdbd5' }}>
-            <h2 className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: '#242423' }}>
+          <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: 'var(--color-sage)' }}>
+            <h2 className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
               {user ? <Cloud size={15} /> : pendingEmail ? <MailCheck size={15} /> : <User size={15} />}
               {user ? 'Your account' : pendingEmail ? 'Confirm your email' : mode === 'signup' ? 'Create account' : 'Log in'}
             </h2>
-            <button onClick={close} className="rounded p-0.5 hover:bg-[#cfdbd5]">
+            <button onClick={close} className="rounded p-0.5 hover:bg-[var(--color-sage)]">
               <X size={14} />
             </button>
           </div>
 
           <div className="p-4">
             {!isSupabaseConfigured && (
-              <p className="mb-3 rounded-md bg-[#f5cb5c]/30 p-2 text-[11px] leading-snug text-[#242423]">
+              <p className="mb-3 rounded-md bg-[var(--color-accent)]/30 p-2 text-[11px] leading-snug text-[var(--color-ink)]">
                 Cloud save isn't connected yet. Add your Supabase URL/key to <code>.env</code> to enable online
                 accounts — until then the map still saves locally in this browser.
               </p>
@@ -96,20 +96,20 @@ export default function AuthPanel() {
 
             {user ? (
               <div className="flex flex-col gap-3">
-                <p className="text-xs text-[#333533]">
+                <p className="text-xs text-[var(--color-slate)]">
                   Signed in as <span className="font-semibold">{user.name}</span> ({user.email}). Your map auto-saves
                   to the cloud as you edit it.
                 </p>
                 <button
                   onClick={handleSignOut}
-                  className="flex items-center justify-center gap-1.5 rounded-md border border-[#333533] py-1.5 text-xs hover:bg-[#cfdbd5]/40"
+                  className="flex items-center justify-center gap-1.5 rounded-md border border-[var(--color-slate)] py-1.5 text-xs hover:bg-[var(--color-sage)]/40"
                 >
                   <LogOut size={13} /> Sign out
                 </button>
               </div>
             ) : pendingEmail ? (
               <div className="flex flex-col gap-3">
-                <p className="text-xs text-[#333533]">
+                <p className="text-xs text-[var(--color-slate)]">
                   We sent a confirmation link to <span className="font-semibold">{pendingEmail}</span>. Click it,
                   then come back and log in.
                 </p>
@@ -117,7 +117,7 @@ export default function AuthPanel() {
                 <button
                   onClick={handleResend}
                   disabled={loading}
-                  className="rounded-md border border-[#333533] py-1.5 text-xs hover:bg-[#cfdbd5]/40 disabled:opacity-50"
+                  className="rounded-md border border-[var(--color-slate)] py-1.5 text-xs hover:bg-[var(--color-sage)]/40 disabled:opacity-50"
                 >
                   {loading ? 'Sending…' : 'Resend email'}
                 </button>
@@ -128,7 +128,7 @@ export default function AuthPanel() {
                     clearError()
                     useAuthStore.setState({ pendingEmail: null })
                   }}
-                  className="text-[11px] text-[#333533] underline underline-offset-2"
+                  className="text-[11px] text-[var(--color-slate)] underline underline-offset-2"
                 >
                   Back to log in
                 </button>
@@ -137,21 +137,21 @@ export default function AuthPanel() {
               <form onSubmit={handleSubmit} className="flex flex-col gap-2.5">
                 {mode === 'signup' && (
                   <div>
-                    <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[#333533]">
+                    <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">
                       Name
                     </label>
                     <input
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Your name"
-                      className="w-full rounded-md border px-2.5 py-1.5 text-xs outline-none focus:border-[#f5cb5c]"
-                      style={{ borderColor: '#cfdbd5', backgroundColor: '#f2f1ea' }}
+                      className="w-full rounded-md border px-2.5 py-1.5 text-xs outline-none focus:border-[var(--color-accent)]"
+                      style={{ borderColor: 'var(--color-sage)', backgroundColor: '#f2f1ea' }}
                       disabled={!isSupabaseConfigured}
                     />
                   </div>
                 )}
                 <div>
-                  <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[#333533]">
+                  <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">
                     Email
                   </label>
                   <input
@@ -159,13 +159,13 @@ export default function AuthPanel() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
-                    className="w-full rounded-md border px-2.5 py-1.5 text-xs outline-none focus:border-[#f5cb5c]"
-                    style={{ borderColor: '#cfdbd5', backgroundColor: '#f2f1ea' }}
+                    className="w-full rounded-md border px-2.5 py-1.5 text-xs outline-none focus:border-[var(--color-accent)]"
+                    style={{ borderColor: 'var(--color-sage)', backgroundColor: '#f2f1ea' }}
                     disabled={!isSupabaseConfigured}
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[#333533]">
+                  <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">
                     Password
                   </label>
                   <input
@@ -173,8 +173,8 @@ export default function AuthPanel() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={mode === 'signup' ? 'At least 6 characters' : 'Your password'}
-                    className="w-full rounded-md border px-2.5 py-1.5 text-xs outline-none focus:border-[#f5cb5c]"
-                    style={{ borderColor: '#cfdbd5', backgroundColor: '#f2f1ea' }}
+                    className="w-full rounded-md border px-2.5 py-1.5 text-xs outline-none focus:border-[var(--color-accent)]"
+                    style={{ borderColor: 'var(--color-sage)', backgroundColor: '#f2f1ea' }}
                     disabled={!isSupabaseConfigured}
                   />
                 </div>
@@ -184,8 +184,8 @@ export default function AuthPanel() {
                 <button
                   type="submit"
                   disabled={loading || !isSupabaseConfigured}
-                  className="mt-1 rounded-md py-1.5 text-xs font-semibold text-[#242423] disabled:opacity-50"
-                  style={{ backgroundColor: '#f5cb5c' }}
+                  className="mt-1 rounded-md py-1.5 text-xs font-semibold text-[var(--color-ink)] disabled:opacity-50"
+                  style={{ backgroundColor: 'var(--color-accent)' }}
                 >
                   {loading ? 'Please wait…' : mode === 'signup' ? 'Sign up' : 'Log in'}
                 </button>
@@ -196,7 +196,7 @@ export default function AuthPanel() {
                     setMode(mode === 'signup' ? 'login' : 'signup')
                     clearError()
                   }}
-                  className="text-[11px] text-[#333533] underline underline-offset-2"
+                  className="text-[11px] text-[var(--color-slate)] underline underline-offset-2"
                 >
                   {mode === 'signup' ? 'Already have an account? Log in' : "New here? Create an account"}
                 </button>

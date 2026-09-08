@@ -43,7 +43,7 @@ function PanelBody({ panel }) {
             key={l.id}
             onClick={() => chooseLayout(l.id)}
             className={`rounded-md border px-2.5 py-1.5 text-left text-xs transition-colors ${
-              layout === l.id ? 'border-[#f5cb5c] bg-[#f5cb5c]/30' : 'border-[#cfdbd5] hover:bg-[#cfdbd5]/40'
+              layout === l.id ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/30' : 'border-[var(--color-sage)] hover:bg-[var(--color-sage)]/40'
             }`}
           >
             {l.label}
@@ -60,7 +60,7 @@ function PanelBody({ panel }) {
                   applyLayout('orgChart', dir)
                 }}
                 className={`flex-1 rounded-md border py-1 text-[10px] capitalize ${
-                  treeDirection === dir ? 'border-[#f5cb5c] bg-[#f5cb5c]/30' : 'border-[#cfdbd5]'
+                  treeDirection === dir ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/30' : 'border-[var(--color-sage)]'
                 }`}
               >
                 {dir === 'vertical' ? 'Top-down' : 'Left-right'}
@@ -71,7 +71,7 @@ function PanelBody({ panel }) {
 
         <button
           onClick={() => chooseLayout(layout)}
-          className="mt-2 rounded-md border border-[#333533] py-1 text-[10px] hover:bg-[#cfdbd5]/40"
+          className="mt-2 rounded-md border border-[var(--color-slate)] py-1 text-[10px] hover:bg-[var(--color-sage)]/40"
         >
           Re-run layout
         </button>
@@ -111,7 +111,7 @@ function PanelBody({ panel }) {
             key={name}
             onClick={() => setThemeName(name)}
             className={`flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs capitalize ${
-              themeName === name ? 'border-[#f5cb5c]' : 'border-[#cfdbd5]'
+              themeName === name ? 'border-[var(--color-accent)]' : 'border-[var(--color-sage)]'
             }`}
           >
             <span className="flex gap-0.5">
@@ -127,7 +127,7 @@ function PanelBody({ panel }) {
   }
 
   return (
-    <p className="text-xs text-[#333533]">
+    <p className="text-xs text-[var(--color-slate)]">
       {PANEL_TITLES[panel]} panel — full functionality lands in later progress-tracker steps (rich text,
       tasks, comments, version history).
     </p>
@@ -160,14 +160,14 @@ export default function Sidebar() {
             exit={{ width: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 28 }}
             className="fixed top-11 right-0 bottom-0 z-40 h-auto shrink-0 overflow-hidden border-l shadow-xl sm:static sm:z-auto sm:h-full sm:shadow-none"
-            style={{ backgroundColor: '#e8eddf', borderColor: '#cfdbd5' }}
+            style={{ backgroundColor: 'var(--color-cream)', borderColor: 'var(--color-sage)' }}
           >
             <div className="flex h-full w-[220px] flex-col p-3">
               <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-xs font-semibold" style={{ color: '#242423' }}>
+                <h2 className="text-xs font-semibold" style={{ color: 'var(--color-ink)' }}>
                   {PANEL_TITLES[activePanel]}
                 </h2>
-                <button onClick={toggleSidebar} className="rounded p-0.5 hover:bg-[#cfdbd5]">
+                <button onClick={toggleSidebar} className="rounded p-0.5 hover:bg-[var(--color-sage)]">
                   <X size={13} />
                 </button>
               </div>

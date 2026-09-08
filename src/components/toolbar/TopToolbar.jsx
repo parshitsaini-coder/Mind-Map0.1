@@ -42,10 +42,10 @@ const IconBtn = ({ icon: Icon, label, onClick, active }) => (
     onClick={onClick}
     title={label}
     className={`flex shrink-0 items-center justify-center rounded-md p-1 transition-colors ${
-      active ? 'bg-[#f5cb5c]' : 'hover:bg-[#cfdbd5]'
+      active ? 'bg-[var(--color-accent)]' : 'hover:bg-[var(--color-sage)]'
     }`}
   >
-    <Icon size={13} color="#242423" />
+    <Icon size={13} color="var(--color-ink)" />
   </motion.button>
 )
 
@@ -127,17 +127,17 @@ export default function TopToolbar() {
   return (
     <div
       className="flex h-8 shrink-0 items-center gap-1 border-b px-2"
-      style={{ backgroundColor: '#e8eddf', borderColor: '#cfdbd5' }}
+      style={{ backgroundColor: 'var(--color-cream)', borderColor: 'var(--color-sage)' }}
     >
       {/* Section 14 — responsive pass: this cluster is the widest part of the
           toolbar (11 icons). On narrow/mobile viewports it scrolls
           horizontally instead of wrapping or clipping, so the undo/redo/
           focus/presentation cluster on the right stays reachable. */}
       <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
-        <span className="hidden shrink-0 text-xs font-semibold sm:inline" style={{ color: '#242423' }}>
+        <span className="hidden shrink-0 text-xs font-semibold sm:inline" style={{ color: 'var(--color-ink)' }}>
           🧠 MindMap
         </span>
-        <div className="mx-0.5 hidden h-4 w-px shrink-0 sm:block" style={{ backgroundColor: '#cfdbd5' }} />
+        <div className="mx-0.5 hidden h-4 w-px shrink-0 sm:block" style={{ backgroundColor: 'var(--color-sage)' }} />
         <IconBtn icon={LayoutDashboard} label="My mind maps (new / open projects)" onClick={openProjectsDashboard} />
         <IconBtn icon={Target} label="Add central topic" onClick={addCentralTopic} />
         <IconBtn icon={StickyNote} label="Add floating note" onClick={addFloatingNode} />
@@ -176,7 +176,7 @@ export default function TopToolbar() {
         <IconBtn icon={Search} label="Search & replace" active={searchOpen} onClick={toggleSearch} />
         <IconBtn icon={Undo2} label="Undo (Ctrl+Z)" onClick={undo} />
         <IconBtn icon={Redo2} label="Redo (Ctrl+Y)" onClick={redo} />
-        <div className="mx-0.5 hidden h-4 w-px sm:block" style={{ backgroundColor: '#cfdbd5' }} />
+        <div className="mx-0.5 hidden h-4 w-px sm:block" style={{ backgroundColor: 'var(--color-sage)' }} />
         <IconBtn icon={Focus} label="Focus mode" active={focusMode} onClick={toggleFocusMode} />
         <IconBtn icon={PlayCircle} label="Presentation mode" onClick={togglePresentationMode} />
         <IconBtn

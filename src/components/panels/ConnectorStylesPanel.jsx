@@ -8,7 +8,7 @@ import { ICONS } from '../../theme/iconSet'
 // Small inline preview so people can see what a style looks like before
 // applying it, without leaving the panel or opening the demo map.
 function StylePreview({ style }) {
-  const color = style.color || '#333533'
+  const color = style.color || 'var(--color-slate)'
   const width = style.strokeWidth || 2
   let d = 'M4 12 H56'
   if (style.pathType === 'step') d = 'M4 12 H26 V6 H56'
@@ -38,9 +38,9 @@ function StylePreview({ style }) {
         <foreignObject x="22" y="2" width="16" height="16">
           <div
             className="flex h-4 w-4 items-center justify-center rounded-full border shadow"
-            style={{ backgroundColor: '#e8eddf', borderColor: color }}
+            style={{ backgroundColor: 'var(--color-cream)', borderColor: color }}
           >
-            <IconComp size={9} color="#242423" />
+            <IconComp size={9} color="var(--color-ink)" />
           </div>
         </foreignObject>
       )}
@@ -84,18 +84,18 @@ export default function ConnectorStylesPanel() {
             exit={{ width: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 28 }}
             className="fixed top-11 left-0 bottom-0 z-40 h-auto shrink-0 overflow-hidden border-r shadow-xl sm:static sm:z-auto sm:h-full sm:shadow-none"
-            style={{ backgroundColor: '#e8eddf', borderColor: '#cfdbd5' }}
+            style={{ backgroundColor: 'var(--color-cream)', borderColor: 'var(--color-sage)' }}
           >
             <div className="flex h-full w-[240px] flex-col p-3">
               <div className="mb-1 flex items-center justify-between">
-                <h2 className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: '#242423' }}>
+                <h2 className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--color-ink)' }}>
                   <Spline size={13} /> Connector Styles
                 </h2>
-                <button onClick={toggle} className="rounded p-0.5 hover:bg-[#cfdbd5]">
+                <button onClick={toggle} className="rounded p-0.5 hover:bg-[var(--color-sage)]">
                   <X size={13} />
                 </button>
               </div>
-              <p className="mb-2 text-[10px] leading-snug text-[#333533]">
+              <p className="mb-2 text-[10px] leading-snug text-[var(--color-slate)]">
                 {selectedCount > 0
                   ? `${selectedCount} line${selectedCount > 1 ? 's' : ''} selected — pick a style to apply.`
                   : 'Pick a style to apply it to every connector — or select specific line(s) on the canvas first to apply it just to those.'}
@@ -105,10 +105,10 @@ export default function ConnectorStylesPanel() {
                   <button
                     key={style.label}
                     onClick={() => handleApply(style)}
-                    className="flex items-center gap-2 rounded-md border border-[#cfdbd5] px-2 py-1.5 text-left transition-colors hover:border-[#f5cb5c] hover:bg-[#f5cb5c]/20"
+                    className="flex items-center gap-2 rounded-md border border-[var(--color-sage)] px-2 py-1.5 text-left transition-colors hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/20"
                   >
                     <StylePreview style={style} />
-                    <span className="text-[10.5px] leading-tight text-[#242423]">{style.label}</span>
+                    <span className="text-[10.5px] leading-tight text-[var(--color-ink)]">{style.label}</span>
                   </button>
                 ))}
               </div>

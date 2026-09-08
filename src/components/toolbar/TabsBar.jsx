@@ -38,14 +38,14 @@ export default function TabsBar() {
   return (
     <div
       className="no-scrollbar flex h-6 shrink-0 items-center gap-1 overflow-x-auto border-b px-2"
-      style={{ backgroundColor: '#cfdbd5', borderColor: '#b8c4bd' }}
+      style={{ backgroundColor: 'var(--color-sage)', borderColor: '#b8c4bd' }}
     >
       <button
         onClick={openDashboard}
         title="All projects"
         className="flex shrink-0 items-center justify-center rounded-md p-1 hover:bg-white/50"
       >
-        <LayoutGrid size={13} color="#242423" />
+        <LayoutGrid size={13} color="var(--color-ink)" />
       </button>
       <AnimatePresence initial={false}>
         {openTabs.map((id) => {
@@ -63,9 +63,9 @@ export default function TabsBar() {
               onClick={() => handleSwitch(id)}
               title={project.name}
               className={`group flex shrink-0 items-center gap-1 rounded-t-md px-2 py-0.5 text-[10px] transition-colors ${
-                active ? 'font-medium' : 'text-[#333533]/70 hover:bg-white/40'
+                active ? 'font-medium' : 'text-[var(--color-slate)]/70 hover:bg-white/40'
               }`}
-              style={active ? { backgroundColor: '#e8eddf', color: '#242423' } : undefined}
+              style={active ? { backgroundColor: 'var(--color-cream)', color: 'var(--color-ink)' } : undefined}
             >
               <span className="max-w-[120px] truncate">{project.name}</span>
               <span
@@ -86,7 +86,7 @@ export default function TabsBar() {
         title="New project"
         className="flex shrink-0 items-center justify-center rounded-md p-1 hover:bg-white/50"
       >
-        <Plus size={13} color="#242423" />
+        <Plus size={13} color="var(--color-ink)" />
       </button>
     </div>
   )

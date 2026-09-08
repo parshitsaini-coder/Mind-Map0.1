@@ -23,7 +23,7 @@ export default function CommentsPanel() {
 
   if (!selectedNode) {
     return (
-      <p className="text-xs text-[#333533]">
+      <p className="text-xs text-[var(--color-slate)]">
         Select a node to view or add comments. Use @name to mention a collaborator.
       </p>
     )
@@ -39,11 +39,11 @@ export default function CommentsPanel() {
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="truncate text-[10px] font-medium uppercase tracking-wide text-[#333533]">
+      <p className="truncate text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">
         On "{selectedNode.data.label}"
       </p>
       <ul className="flex max-h-48 flex-col gap-1.5 overflow-y-auto">
-        {comments.length === 0 && <p className="text-[10px] text-[#333533]">No comments yet.</p>}
+        {comments.length === 0 && <p className="text-[10px] text-[var(--color-slate)]">No comments yet.</p>}
         <AnimatePresence initial={false}>
           {comments.map((c) => (
             <motion.li
@@ -53,7 +53,7 @@ export default function CommentsPanel() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.16 }}
-              className="rounded-md bg-[#cfdbd5]/25 px-2 py-1 text-[10px]"
+              className="rounded-md bg-[var(--color-sage)]/25 px-2 py-1 text-[10px]"
             >
               <p className="font-medium">{c.author}</p>
               <p>{renderWithMentions(c.text)}</p>
@@ -67,9 +67,9 @@ export default function CommentsPanel() {
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && submit()}
           placeholder="Add a comment, @mention someone…"
-          className="flex-1 rounded-md border border-[#cfdbd5] bg-white/60 px-2 py-1 text-[10px] outline-none focus:border-[#f5cb5c]"
+          className="flex-1 rounded-md border border-[var(--color-sage)] bg-white/60 px-2 py-1 text-[10px] outline-none focus:border-[var(--color-accent)]"
         />
-        <button onClick={submit} className="rounded-md border border-[#333533] px-2" title="Post comment">
+        <button onClick={submit} className="rounded-md border border-[var(--color-slate)] px-2" title="Post comment">
           <MessageSquare size={12} />
         </button>
       </div>

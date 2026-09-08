@@ -14,7 +14,7 @@ export default function IconLibrary({ onSelect, activeIcon }) {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search icons…"
-        className="rounded-md border border-[#cfdbd5] bg-white/60 px-2 py-1 text-[11px] outline-none focus:border-[#f5cb5c]"
+        className="rounded-md border border-[var(--color-sage)] bg-white/60 px-2 py-1 text-[11px] outline-none focus:border-[var(--color-accent)]"
       />
       <div className="grid max-h-40 grid-cols-6 gap-1 overflow-y-auto pr-1">
         {filtered.map((name) => {
@@ -25,19 +25,19 @@ export default function IconLibrary({ onSelect, activeIcon }) {
               title={name}
               onClick={() => onSelect(name)}
               className={`flex h-7 w-7 items-center justify-center rounded-md border ${
-                activeIcon === name ? 'border-[#f5cb5c] bg-[#f5cb5c]/30' : 'border-transparent hover:bg-[#cfdbd5]/50'
+                activeIcon === name ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/30' : 'border-transparent hover:bg-[var(--color-sage)]/50'
               }`}
             >
-              <Icon size={14} color="#242423" />
+              <Icon size={14} color="var(--color-ink)" />
             </button>
           )
         })}
-        {filtered.length === 0 && <p className="col-span-6 text-[10px] text-[#333533]">No icons found.</p>}
+        {filtered.length === 0 && <p className="col-span-6 text-[10px] text-[var(--color-slate)]">No icons found.</p>}
       </div>
       {activeIcon && (
         <button
           onClick={() => onSelect(null)}
-          className="self-start text-[10px] text-[#333533] underline hover:text-[#242423]"
+          className="self-start text-[10px] text-[var(--color-slate)] underline hover:text-[var(--color-ink)]"
         >
           Remove icon
         </button>

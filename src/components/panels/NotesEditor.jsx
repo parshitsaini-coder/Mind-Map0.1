@@ -25,7 +25,7 @@ function ToolbarBtn({ icon: Icon, active, onClick, title }) {
     <button
       onClick={onClick}
       title={title}
-      className={`rounded p-1 ${active ? 'bg-[#f5cb5c]' : 'hover:bg-[#cfdbd5]/60'}`}
+      className={`rounded p-1 ${active ? 'bg-[var(--color-accent)]' : 'hover:bg-[var(--color-sage)]/60'}`}
     >
       <Icon size={12} />
     </button>
@@ -114,9 +114,9 @@ export default function NotesEditor({ nodeId, data }) {
     <div className="flex flex-col gap-3">
       {/* Rich text notes */}
       <div>
-        <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[#333533]">Notes</p>
-        <div className="rounded-md border border-[#cfdbd5] bg-white/50">
-          <div className="flex gap-0.5 border-b border-[#cfdbd5] p-1">
+        <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Notes</p>
+        <div className="rounded-md border border-[var(--color-sage)] bg-white/50">
+          <div className="flex gap-0.5 border-b border-[var(--color-sage)] p-1">
             <ToolbarBtn icon={Bold} title="Bold" active={editor?.isActive('bold')} onClick={() => editor?.chain().focus().toggleBold().run()} />
             <ToolbarBtn icon={Italic} title="Italic" active={editor?.isActive('italic')} onClick={() => editor?.chain().focus().toggleItalic().run()} />
             <ToolbarBtn icon={UnderlineIcon} title="Underline" active={editor?.isActive('underline')} onClick={() => editor?.chain().focus().toggleUnderline().run()} />
@@ -128,14 +128,14 @@ export default function NotesEditor({ nodeId, data }) {
 
       {/* File attachments */}
       <div>
-        <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[#333533]">Attachments</p>
-        <label className="flex w-fit cursor-pointer items-center gap-1 rounded-md border border-dashed border-[#333533] px-2 py-1 text-[10px] hover:bg-[#cfdbd5]/30">
+        <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Attachments</p>
+        <label className="flex w-fit cursor-pointer items-center gap-1 rounded-md border border-dashed border-[var(--color-slate)] px-2 py-1 text-[10px] hover:bg-[var(--color-sage)]/30">
           <Paperclip size={10} /> Attach file
           <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" onChange={handleAttachment} className="hidden" />
         </label>
         <ul className="mt-1 flex flex-col gap-1">
           {(data.attachments || []).map((att, i) => (
-            <li key={i} className="flex items-center justify-between rounded bg-[#cfdbd5]/30 px-1.5 py-0.5 text-[10px]">
+            <li key={i} className="flex items-center justify-between rounded bg-[var(--color-sage)]/30 px-1.5 py-0.5 text-[10px]">
               <a href={att.dataUrl} download={att.name} className="truncate hover:underline">{att.name}</a>
               <button onClick={() => removeAttachment(i)}><X size={10} /></button>
             </li>
@@ -145,12 +145,12 @@ export default function NotesEditor({ nodeId, data }) {
 
       {/* Audio note */}
       <div>
-        <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[#333533]">Audio note</p>
+        <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Audio note</p>
         <div className="flex items-center gap-2">
           <button
             onClick={toggleRecording}
             className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] ${
-              recording ? 'border-red-500 bg-red-500/10 text-red-600' : 'border-[#333533]'
+              recording ? 'border-red-500 bg-red-500/10 text-red-600' : 'border-[var(--color-slate)]'
             }`}
           >
             {recording ? <Square size={10} /> : <Mic size={10} />}
@@ -162,7 +162,7 @@ export default function NotesEditor({ nodeId, data }) {
 
       {/* YouTube video embed */}
       <div>
-        <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[#333533]">Video embed</p>
+        <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Video embed</p>
         {data.videoEmbed ? (
           <div className="relative">
             <iframe
@@ -173,7 +173,7 @@ export default function NotesEditor({ nodeId, data }) {
             />
             <button
               onClick={() => updateNodeData(nodeId, { videoEmbed: null })}
-              className="absolute -top-2 -right-2 rounded-full bg-[#e8eddf] p-0.5 shadow"
+              className="absolute -top-2 -right-2 rounded-full bg-[var(--color-cream)] p-0.5 shadow"
             >
               <X size={10} />
             </button>
@@ -184,9 +184,9 @@ export default function NotesEditor({ nodeId, data }) {
               value={videoInput}
               onChange={(e) => setVideoInput(e.target.value)}
               placeholder="Paste YouTube link…"
-              className="flex-1 rounded-md border border-[#cfdbd5] bg-white/60 px-2 py-1 text-[10px] outline-none focus:border-[#f5cb5c]"
+              className="flex-1 rounded-md border border-[var(--color-sage)] bg-white/60 px-2 py-1 text-[10px] outline-none focus:border-[var(--color-accent)]"
             />
-            <button onClick={attachVideo} className="rounded-md border border-[#333533] px-2" title="Embed">
+            <button onClick={attachVideo} className="rounded-md border border-[var(--color-slate)] px-2" title="Embed">
               <VideoIcon size={12} />
             </button>
           </div>

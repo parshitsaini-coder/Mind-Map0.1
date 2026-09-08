@@ -28,16 +28,16 @@ function ProjectCard({ project, isActive, onOpen, onRename, onDelete }) {
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.15 }}
       className="flex flex-col overflow-hidden rounded-lg border shadow-sm"
-      style={{ borderColor: isActive ? '#f5cb5c' : '#cfdbd5', backgroundColor: '#fff' }}
+      style={{ borderColor: isActive ? 'var(--color-accent)' : 'var(--color-sage)', backgroundColor: '#fff' }}
     >
       <button
         onClick={() => onOpen(project.id)}
         className="flex h-24 w-full flex-col items-center justify-center gap-1"
-        style={{ backgroundColor: '#e8eddf' }}
+        style={{ backgroundColor: 'var(--color-cream)' }}
         title="Open project"
       >
-        <Brain size={22} color="#f5cb5c" />
-        <span className="text-[10px] text-[#333533]/70">
+        <Brain size={22} color="var(--color-accent)" />
+        <span className="text-[10px] text-[var(--color-slate)]/70">
           {nodeCount} {nodeCount === 1 ? 'node' : 'nodes'}
         </span>
       </button>
@@ -49,17 +49,17 @@ function ProjectCard({ project, isActive, onOpen, onRename, onDelete }) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && commitRename()}
-              className="min-w-0 flex-1 rounded border border-[#f5cb5c] bg-white px-1.5 py-0.5 text-xs outline-none"
+              className="min-w-0 flex-1 rounded border border-[var(--color-accent)] bg-white px-1.5 py-0.5 text-xs outline-none"
             />
             <button onClick={commitRename} title="Save"><Check size={13} /></button>
             <button onClick={() => setEditing(false)} title="Cancel"><X size={13} /></button>
           </div>
         ) : (
-          <button onClick={() => onOpen(project.id)} className="truncate text-left text-xs font-medium" style={{ color: '#242423' }}>
+          <button onClick={() => onOpen(project.id)} className="truncate text-left text-xs font-medium" style={{ color: 'var(--color-ink)' }}>
             {project.name}
           </button>
         )}
-        <span className="text-[10px] text-[#333533]/60">Edited {formatDate(project.updatedAt)}</span>
+        <span className="text-[10px] text-[var(--color-slate)]/60">Edited {formatDate(project.updatedAt)}</span>
         <div className="mt-1 flex items-center gap-2">
           <button onClick={() => onOpen(project.id)} className="flex items-center gap-1 text-[10px] hover:underline">
             <FolderOpen size={11} /> Open
@@ -135,7 +135,7 @@ export default function ProjectsDashboard() {
           style={{ backgroundColor: '#f5f5f0' }}
         >
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-base font-semibold" style={{ color: '#242423' }}>🧠 Your Mind Maps</h2>
+            <h2 className="text-base font-semibold" style={{ color: 'var(--color-ink)' }}>🧠 Your Mind Maps</h2>
             {openTabs.length > 0 && (
               <button onClick={closeDashboard} className="rounded-md p-1 hover:bg-black/5">
                 <X size={16} />
@@ -149,19 +149,19 @@ export default function ProjectsDashboard() {
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
               placeholder="Name your new mind map…"
-              className="flex-1 rounded-md border border-[#cfdbd5] bg-white px-3 py-2 text-sm outline-none focus:border-[#f5cb5c]"
+              className="flex-1 rounded-md border border-[var(--color-sage)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
             />
             <button
               onClick={handleCreate}
               className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium"
-              style={{ backgroundColor: '#f5cb5c', color: '#242423' }}
+              style={{ backgroundColor: 'var(--color-accent)', color: 'var(--color-ink)' }}
             >
               <Plus size={15} /> New Project
             </button>
           </div>
 
           {sorted.length === 0 ? (
-            <p className="py-8 text-center text-sm text-[#333533]/60">No mind maps yet — create your first one above.</p>
+            <p className="py-8 text-center text-sm text-[var(--color-slate)]/60">No mind maps yet — create your first one above.</p>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <AnimatePresence>

@@ -142,7 +142,7 @@ function FlowInner() {
         <MiniMap
           pannable
           zoomable
-          nodeColor={() => '#f5cb5c'}
+          nodeColor={() => 'var(--color-accent)'}
           maskColor="rgba(236,235,228,0.6)"
           className="!rounded-md !shadow-md"
         />

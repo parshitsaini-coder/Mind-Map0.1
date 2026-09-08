@@ -25,14 +25,14 @@ function BoundaryGroup({ id, data, selected }) {
       style={{
         width: data.width,
         height: data.height,
-        borderColor: selected ? '#f5cb5c' : `${data.color}88`,
+        borderColor: selected ? 'var(--color-accent)' : `${data.color}88`,
         backgroundColor: 'rgba(207, 219, 213, 0.15)',
       }}
     >
       <div
         onDoubleClick={() => setEditing(true)}
         className="pointer-events-auto absolute -top-6 left-1 rounded-t-md px-1.5 py-0.5 text-[10px] font-medium"
-        style={{ color: '#333533' }}
+        style={{ color: 'var(--color-slate)' }}
       >
         {editing ? (
           <input

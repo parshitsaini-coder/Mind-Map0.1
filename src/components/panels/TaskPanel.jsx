@@ -5,9 +5,9 @@ import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
 
 const PRIORITY_COLOR = (p) => {
-  if (!p) return '#cfdbd5'
+  if (!p) return 'var(--color-sage)'
   if (p <= 3) return '#8fbf9f'
-  if (p <= 6) return '#f5cb5c'
+  if (p <= 6) return 'var(--color-accent)'
   return '#e07856'
 }
 
@@ -31,7 +31,7 @@ export default function TaskPanel() {
 
   if (taskNodes.length === 0) {
     return (
-      <p className="text-xs text-[#333533]">
+      <p className="text-xs text-[var(--color-slate)]">
         No tasks yet. Select a node, open its inspector, and enable the "To-do" marker to turn it
         into a task.
       </p>
@@ -53,7 +53,7 @@ export default function TaskPanel() {
         <button
           onClick={() => setView('list')}
           className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] ${
-            view === 'list' ? 'border-[#f5cb5c] bg-[#f5cb5c]/30' : 'border-[#cfdbd5]'
+            view === 'list' ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/30' : 'border-[var(--color-sage)]'
           }`}
         >
           <List size={10} /> List
@@ -61,7 +61,7 @@ export default function TaskPanel() {
         <button
           onClick={() => setView('gantt')}
           className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] ${
-            view === 'gantt' ? 'border-[#f5cb5c] bg-[#f5cb5c]/30' : 'border-[#cfdbd5]'
+            view === 'gantt' ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/30' : 'border-[var(--color-sage)]'
           }`}
         >
           <GanttChartSquare size={10} /> Gantt
@@ -80,7 +80,7 @@ export default function TaskPanel() {
                 exit={{ opacity: 0, x: 8 }}
                 whileHover={{ scale: 1.02 }}
                 transition={{ duration: 0.16 }}
-                className="flex items-center gap-1.5 rounded-md bg-[#cfdbd5]/25 px-1.5 py-1 text-[10px]"
+                className="flex items-center gap-1.5 rounded-md bg-[var(--color-sage)]/25 px-1.5 py-1 text-[10px]"
               >
                 <button onClick={() => toggleDone(n)}>
                   {n.data.task.done ? <CheckSquare size={13} /> : <Square size={13} />}
@@ -94,13 +94,13 @@ export default function TaskPanel() {
                 {n.data.task.assignee && (
                   <span
                     title={n.data.task.assignee}
-                    className="flex h-4 w-4 items-center justify-center rounded-full bg-[#f5cb5c] text-[8px] font-bold"
+                    className="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--color-accent)] text-[8px] font-bold"
                   >
                     {n.data.task.assignee[0].toUpperCase()}
                   </span>
                 )}
                 {n.data.task.dueDate && (
-                  <span className="shrink-0 text-[9px] text-[#333533]">{n.data.task.dueDate}</span>
+                  <span className="shrink-0 text-[9px] text-[var(--color-slate)]">{n.data.task.dueDate}</span>
                 )}
               </motion.li>
             ))}
@@ -108,7 +108,7 @@ export default function TaskPanel() {
         </ul>
       ) : (
         <div className="flex flex-col gap-1.5">
-          <p className="text-[9px] text-[#333533]">
+          <p className="text-[9px] text-[var(--color-slate)]">
             Today → {maxDate.toISOString().slice(0, 10)}
           </p>
           {taskNodes.map((n) => {
@@ -118,13 +118,13 @@ export default function TaskPanel() {
             return (
               <button key={n.id} onClick={() => focusNode(n.id)} className="text-left">
                 <p className="mb-0.5 truncate text-[10px]">{n.data.label}</p>
-                <div className="h-3 w-full rounded-full bg-[#cfdbd5]/40">
+                <div className="h-3 w-full rounded-full bg-[var(--color-sage)]/40">
                   <div
                     className="h-3 rounded-full"
                     style={{
                       width: `${widthPct}%`,
                       backgroundColor: PRIORITY_COLOR(n.data.badges?.priority),
-                      backgroundImage: `linear-gradient(90deg, #242423 ${progress}%, transparent ${progress}%)`,
+                      backgroundImage: `linear-gradient(90deg, var(--color-ink) ${progress}%, transparent ${progress}%)`,
                       backgroundBlendMode: 'overlay',
                     }}
                   />
