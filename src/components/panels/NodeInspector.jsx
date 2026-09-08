@@ -50,6 +50,34 @@ function ColorSwatch({ color, active, onClick }) {
   )
 }
 
+// Custom color picker — wraps a native <input type="color"> so it always
+// reads as "pick any color" (conic-gradient ring + centered swatch) rather
+// than just another flat swatch, since the browser's native color-input
+// rendering alone can be easy to miss next to the preset palette.
+function CustomColorInput({ value, onChange, title }) {
+  return (
+    <label
+      className="relative flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full"
+      style={{
+        background:
+          'conic-gradient(from 0deg, #f5cb5c, #e57373, #ba68c8, #64b5f6, #81c784, #f5cb5c)',
+      }}
+      title={title || 'Custom color'}
+    >
+      <span
+        className="pointer-events-none h-4 w-4 rounded-full border border-white/70"
+        style={{ backgroundColor: value }}
+      />
+      <input
+        type="color"
+        value={value}
+        onChange={onChange}
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+      />
+    </label>
+  )
+}
+
 export default function NodeInspector() {
   const nodes = useMapStore((s) => s.nodes)
   const edges = useMapStore((s) => s.edges)
@@ -95,10 +123,9 @@ export default function NodeInspector() {
             {PALETTE.map((color) => (
               <ColorSwatch key={color} color={color} active={false} onClick={() => updateNodesData(ids, { color })} />
             ))}
-            <input
-              type="color"
+            <CustomColorInput
+              value="#f5cb5c"
               onChange={(e) => updateNodesData(ids, { color: e.target.value })}
-              className="h-6 w-6 cursor-pointer rounded-full border-0 bg-transparent p-0"
               title="Custom color"
             />
           </div>
@@ -114,10 +141,9 @@ export default function NodeInspector() {
                 onClick={() => updateNodesData(ids, { textColor: color })}
               />
             ))}
-            <input
-              type="color"
+            <CustomColorInput
+              value="#242423"
               onChange={(e) => updateNodesData(ids, { textColor: e.target.value })}
-              className="h-6 w-6 cursor-pointer rounded-full border-0 bg-transparent p-0"
               title="Custom text color"
             />
           </div>
@@ -174,11 +200,9 @@ export default function NodeInspector() {
                 onClick={() => updateNodeData(selectedNode.id, { color })}
               />
             ))}
-            <input
-              type="color"
+            <CustomColorInput
               value={selectedNode.data.color}
               onChange={(e) => updateNodeData(selectedNode.id, { color: e.target.value })}
-              className="h-6 w-6 cursor-pointer rounded-full border-0 bg-transparent p-0"
               title="Custom color"
             />
           </div>
@@ -195,11 +219,9 @@ export default function NodeInspector() {
                 onClick={() => updateNodeData(selectedNode.id, { textColor: color })}
               />
             ))}
-            <input
-              type="color"
+            <CustomColorInput
               value={selectedNode.data.textColor || '#242423'}
               onChange={(e) => updateNodeData(selectedNode.id, { textColor: e.target.value })}
-              className="h-6 w-6 cursor-pointer rounded-full border-0 bg-transparent p-0"
               title="Custom text color"
             />
           </div>
@@ -438,6 +460,11 @@ export default function NodeInspector() {
                 onClick={() => updateEdgeStyle(selectedEdge.id, { stroke: color })}
               />
             ))}
+            <CustomColorInput
+              value={stroke}
+              onChange={(e) => updateEdgeStyle(selectedEdge.id, { stroke: e.target.value })}
+              title="Custom branch color"
+            />
           </div>
         </div>
         <div>

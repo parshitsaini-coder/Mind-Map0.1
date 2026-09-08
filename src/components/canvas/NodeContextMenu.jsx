@@ -1,12 +1,16 @@
-import { Plus, CornerDownRight, Copy, Trash2, ChevronsUpDown } from 'lucide-react'
+import { Plus, CornerDownRight, Copy, Trash2, ChevronsUpDown, Scissors } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 
 export default function NodeContextMenu({ id, x, y, onClose }) {
   const node = useMapStore((s) => s.nodes.find((n) => n.id === id))
+  const hasChildren = useMapStore(
+    (s) => s.edges.some((e) => e.source === id && e.type !== 'crossEdge')
+  )
   const addChildNode = useMapStore((s) => s.addChildNode)
   const addSiblingNode = useMapStore((s) => s.addSiblingNode)
   const duplicateNode = useMapStore((s) => s.duplicateNode)
   const deleteNode = useMapStore((s) => s.deleteNode)
+  const deleteChildren = useMapStore((s) => s.deleteChildren)
   const toggleCollapse = useMapStore((s) => s.toggleCollapse)
 
   if (!node) return null
@@ -26,6 +30,14 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
       onClick: () => run(() => toggleCollapse(id)),
     },
   ]
+  if (hasChildren) {
+    items.push({
+      icon: Scissors,
+      label: 'Delete children',
+      danger: true,
+      onClick: () => run(() => deleteChildren(id)),
+    })
+  }
   if (!node.data?.isRoot) {
     items.push({ icon: Trash2, label: 'Delete node', danger: true, onClick: () => run(() => deleteNode(id)) })
   }

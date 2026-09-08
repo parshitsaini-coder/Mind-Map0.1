@@ -378,6 +378,36 @@ export const useMapStore = create(
         get().logActivity(`🗑️ Deleted "${node?.data?.label || id}"`)
       },
 
+      // Right-click context menu — delete a node's entire branch (all of
+      // its descendants) but keep the node itself. Walks down the tree
+      // edges (ignores crossEdge relationship links, same as the
+      // presentation-mode traversal) collecting every descendant id first.
+      deleteChildren: (id) => {
+        const node = get().nodes.find((n) => n.id === id)
+        const edges = get().edges
+        const descendantIds = new Set()
+        const visit = (parentId) => {
+          edges
+            .filter((e) => e.source === parentId && e.type !== 'crossEdge')
+            .forEach((e) => {
+              if (!descendantIds.has(e.target)) {
+                descendantIds.add(e.target)
+                visit(e.target)
+              }
+            })
+        }
+        visit(id)
+        if (descendantIds.size === 0) return
+        get().pushSnapshot()
+        set({
+          nodes: get().nodes.filter((n) => !descendantIds.has(n.id)),
+          edges: get().edges.filter(
+            (e) => !descendantIds.has(e.source) && !descendantIds.has(e.target)
+          ),
+        })
+        get().logActivity(`🗑️ Deleted children of "${node?.data?.label || id}"`)
+      },
+
       // Right-click context menu — clone a node (and give it a fresh id) a
       // little below/right of the original. Doesn't copy any incoming edge,
       // so it starts as a floating duplicate the user can re-attach.
