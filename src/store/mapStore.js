@@ -1,0 +1,319 @@
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import { applyNodeChanges, applyEdgeChanges, addEdge as rfAddEdge } from '@xyflow/react'
+import { useUiStore } from './uiStore'
+import { runLayout } from '../hooks/useAutoLayout'
+import { buildConnectorDemo } from '../utils/connectorDemoData'
+
+let idCounter = 1
+const nextId = () => `node_${Date.now()}_${idCounter++}`
+const nextGroupId = () => `group_${Date.now()}_${idCounter++}`
+
+const initialNodes = [
+  {
+    id: 'root',
+    type: 'mindNode',
+    position: { x: 0, y: 0 },
+    data: { label: 'Central Idea', shape: 'oval', color: '#f5cb5c', isRoot: true },
+  },
+]
+
+const DEFAULT_NODE_W = 130
+const DEFAULT_NODE_H = 36
+const GROUP_PADDING = 28
+
+export const useMapStore = create(
+  persist(
+    (set, get) => ({
+      nodes: initialNodes,
+      edges: [],
+      groups: [],
+      history: { past: [], future: [] },
+      activityLog: [],
+
+      // Section 4.7 — local activity log. Called from the actions below.
+      logActivity: (message) => {
+        set((s) => ({
+          activityLog: [{ id: `a_${Date.now()}_${idCounter++}`, ts: Date.now(), message }, ...s.activityLog].slice(0, 100),
+        }))
+      },
+
+      // Section 4.7 — comments & @mentions on a node.
+      addComment: (nodeId, author, text) => {
+        if (!text?.trim()) return
+        const mentions = [...text.matchAll(/@(\w+)/g)].map((m) => m[1])
+        const comment = { id: `c_${Date.now()}`, author: author || 'You', text, mentions, ts: Date.now() }
+        set({
+          nodes: get().nodes.map((n) =>
+            n.id === nodeId ? { ...n, data: { ...n.data, comments: [...(n.data.comments || []), comment] } } : n
+          ),
+        })
+        const node = get().nodes.find((n) => n.id === nodeId)
+        get().logActivity(`💬 ${author || 'You'} commented on "${node?.data?.label}"${mentions.length ? ` mentioning ${mentions.map((m) => '@' + m).join(', ')}` : ''}`)
+      },
+
+      // Section 4.7 — team workspaces/folders: named local saves of the whole map.
+      saveWorkspace: (name) => {
+        const key = 'mindmap-workspaces'
+        const existing = JSON.parse(localStorage.getItem(key) || '[]')
+        const workspace = { name, nodes: get().nodes, edges: get().edges, savedAt: Date.now() }
+        const updated = [workspace, ...existing.filter((w) => w.name !== name)].slice(0, 30)
+        localStorage.setItem(key, JSON.stringify(updated))
+        get().logActivity(`📁 Saved workspace "${name}"`)
+      },
+      loadWorkspace: (name) => {
+        const key = 'mindmap-workspaces'
+        const existing = JSON.parse(localStorage.getItem(key) || '[]')
+        const workspace = existing.find((w) => w.name === name)
+        if (!workspace) return
+        get().pushSnapshot()
+        set({ nodes: workspace.nodes, edges: workspace.edges })
+        get().logActivity(`📂 Loaded workspace "${name}"`)
+      },
+
+      // Section 4.6 — undo/redo (Ctrl+Z / Ctrl+Y). Snapshots are taken before
+      // structural changes (add/delete/layout/group) and at drag-end, not on
+      // every intermediate event, to keep the stack meaningful.
+      pushSnapshot: () => {
+        const { nodes, edges, history } = get()
+        set({
+          history: {
+            past: [...history.past.slice(-49), { nodes, edges }],
+            future: [],
+          },
+        })
+      },
+      undo: () => {
+        const { history, nodes, edges } = get()
+        if (history.past.length === 0) return
+        const previous = history.past[history.past.length - 1]
+        set({
+          nodes: previous.nodes,
+          edges: previous.edges,
+          history: {
+            past: history.past.slice(0, -1),
+            future: [{ nodes, edges }, ...history.future].slice(0, 50),
+          },
+        })
+      },
+      redo: () => {
+        const { history, nodes, edges } = get()
+        if (history.future.length === 0) return
+        const next = history.future[0]
+        set({
+          nodes: next.nodes,
+          edges: next.edges,
+          history: {
+            past: [...history.past, { nodes, edges }].slice(-50),
+            future: history.future.slice(1),
+          },
+        })
+      },
+
+      onNodesChange: (changes) => {
+        // Snapshot once at the end of a drag (not on every intermediate move).
+        const dragEnd = changes.some((c) => c.type === 'position' && c.dragging === false)
+        if (dragEnd) get().pushSnapshot()
+        set({ nodes: applyNodeChanges(changes, get().nodes) })
+      },
+      onEdgesChange: (changes) => set({ edges: applyEdgeChanges(changes, get().edges) }),
+      onConnect: (connection) => {
+        // Relationship mode (toolbar toggle) creates a dashed cross-branch
+        // relationship edge instead of a normal parent-child tree edge —
+        // useful for linking nodes that aren't in the same branch.
+        get().pushSnapshot()
+        const relationshipMode = useUiStore.getState().relationshipMode
+        set({
+          edges: rfAddEdge(
+            {
+              ...connection,
+              type: relationshipMode ? 'crossEdge' : 'mindEdge',
+              animated: !relationshipMode,
+            },
+            get().edges
+          ),
+        })
+      },
+
+      // Section 4.6 — expand/collapse branches.
+      toggleCollapse: (id) => {
+        get().pushSnapshot()
+        set({
+          nodes: get().nodes.map((n) =>
+            n.id === id ? { ...n, data: { ...n.data, collapsed: !n.data.collapsed } } : n
+          ),
+        })
+      },
+
+      // Section 4.6 — search & replace across node labels.
+      replaceInLabels: (query, replacement) => {
+        if (!query) return
+        get().pushSnapshot()
+        set({
+          nodes: get().nodes.map((n) =>
+            n.data?.label?.includes(query)
+              ? { ...n, data: { ...n.data, label: n.data.label.split(query).join(replacement) } }
+              : n
+          ),
+        })
+        get().logActivity(`🔎 Replaced "${query}" with "${replacement}"`)
+      },
+
+      // Section 4.1 — multiple central topics / multi-map support on one canvas.
+      addCentralTopic: () => {
+        get().pushSnapshot()
+        const roots = get().nodes.filter((n) => n.data?.isRoot)
+        const id = nextId()
+        const offset = roots.length
+        const newNode = {
+          id,
+          type: 'mindNode',
+          position: { x: offset * 60, y: (offset + 1) * 260 },
+          data: { label: 'New Central Topic', shape: 'oval', color: '#f5cb5c', isRoot: true },
+        }
+        set({ nodes: [...get().nodes, newNode] })
+        get().logActivity('🎯 Added a new central topic')
+        return id
+      },
+
+      // Section 4.1 — boundary/frame grouping. Draws a dashed box/circle
+      // around currently-selected nodes.
+      addGroupFromSelection: (shape = 'box') => {
+        const selected = get().nodes.filter((n) => n.selected && n.type !== 'boundaryGroup')
+        if (selected.length < 2) return null
+        get().pushSnapshot()
+
+        const xs = selected.map((n) => n.position.x)
+        const ys = selected.map((n) => n.position.y)
+        const xEnds = selected.map((n) => n.position.x + (n.measured?.width ?? DEFAULT_NODE_W))
+        const yEnds = selected.map((n) => n.position.y + (n.measured?.height ?? DEFAULT_NODE_H))
+
+        const minX = Math.min(...xs) - GROUP_PADDING
+        const minY = Math.min(...ys) - GROUP_PADDING
+        const maxX = Math.max(...xEnds) + GROUP_PADDING
+        const maxY = Math.max(...yEnds) + GROUP_PADDING
+
+        const id = nextGroupId()
+        const groupNode = {
+          id,
+          type: 'boundaryGroup',
+          position: { x: minX, y: minY },
+          data: {
+            width: maxX - minX,
+            height: maxY - minY,
+            shape,
+            label: 'Group',
+            color: '#333533',
+          },
+          draggable: false,
+          selectable: true,
+          zIndex: -1,
+        }
+        // Insert at the start so it renders (and stacks) behind regular nodes.
+        set({ nodes: [groupNode, ...get().nodes] })
+        get().logActivity('⬚ Grouped nodes into a boundary')
+        return id
+      },
+
+      renameGroup: (id, label) => {
+        set({
+          nodes: get().nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, label } } : n)),
+        })
+      },
+
+      // Section 4.2 — apply a layout algorithm to every node's position.
+      // The visual "smooth repositioning transition" is handled by a CSS
+      // transition class toggled in MindMapCanvas around this call.
+      applyLayout: (layoutId, direction) => {
+        get().pushSnapshot()
+        const dir = direction || useUiStore.getState().treeDirection
+        set({ nodes: runLayout(layoutId, get().nodes, get().edges, dir) })
+        get().logActivity(`🔀 Switched layout to "${layoutId}"`)
+      },
+
+      addChildNode: (parentId) => {
+        const parent = get().nodes.find((n) => n.id === parentId)
+        if (!parent) return
+        get().pushSnapshot()
+        const id = nextId()
+        const newNode = {
+          id,
+          type: 'mindNode',
+          position: {
+            x: parent.position.x + 220,
+            y: parent.position.y + (Math.random() * 80 - 40),
+          },
+          data: { label: 'New Node', shape: 'rectangle', color: '#e8eddf' },
+        }
+        const newEdge = {
+          id: `e_${parentId}_${id}`,
+          source: parentId,
+          target: id,
+          type: 'mindEdge',
+          animated: true,
+        }
+        set({ nodes: [...get().nodes, newNode], edges: [...get().edges, newEdge] })
+        get().logActivity(`➕ Added "${newNode.data.label}" under "${parent.data.label}"`)
+        return id
+      },
+
+      // Section 4.6 — Enter = add sibling (a new child of the same parent).
+      addSiblingNode: (nodeId) => {
+        const parentEdge = get().edges.find((e) => e.target === nodeId && e.type !== 'crossEdge')
+        if (!parentEdge) return get().addFloatingNode()
+        return get().addChildNode(parentEdge.source)
+      },
+
+      addFloatingNode: () => {
+        get().pushSnapshot()
+        const id = nextId()
+        const newNode = {
+          id,
+          type: 'mindNode',
+          position: { x: Math.random() * 300, y: Math.random() * 300 + 200 },
+          data: { label: 'Floating Note', shape: 'cloud', color: '#cfdbd5' },
+        }
+        set({ nodes: [...get().nodes, newNode] })
+        return id
+      },
+
+      updateNodeData: (id, patch) => {
+        set({
+          nodes: get().nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)),
+        })
+      },
+
+      // Section 4.3 — custom branch (edge) color & thickness.
+      updateEdgeStyle: (id, patch) => {
+        set({
+          edges: get().edges.map((e) =>
+            e.id === id ? { ...e, style: { ...e.style, ...patch } } : e
+          ),
+        })
+      },
+
+      deleteNode: (id) => {
+        const node = get().nodes.find((n) => n.id === id)
+        get().pushSnapshot()
+        set({
+          nodes: get().nodes.filter((n) => n.id !== id),
+          edges: get().edges.filter((e) => e.source !== id && e.target !== id),
+        })
+        get().logActivity(`🗑️ Deleted "${node?.data?.label || id}"`)
+      },
+
+      setNodesPositions: (nodes) => set({ nodes }),
+
+      // Section 4.8 — connector line styles showcase (curved, straight,
+      // dashed, arrows, icon-in-middle, animated flow…). Swaps the canvas
+      // to a generated sample map; current map is pushed to undo history.
+      loadConnectorDemo: () => {
+        get().pushSnapshot()
+        const { nodes, edges } = buildConnectorDemo()
+        set({ nodes, edges })
+        get().logActivity('🔗 Loaded connector-styles demo map (18 line styles)')
+      },
+    }),
+    { name: 'mindmap-storage', partialize: (state) => ({ nodes: state.nodes, edges: state.edges, groups: state.groups, activityLog: state.activityLog }) }
+  )
+)
