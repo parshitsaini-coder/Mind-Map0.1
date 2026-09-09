@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, SlidersHorizontal, ShieldPlus, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, SlidersHorizontal, ShieldPlus, ChevronLeft, ChevronRight, Table2, LineChart } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useIsMobile } from '../../hooks/useIsMobile'
@@ -9,10 +9,51 @@ import ValidationRulesModal from './ValidationRulesModal'
 import EditTradeModal from './EditTradeModal'
 import FiltersPopover, { countActiveFilters } from './FiltersPopover'
 import ThemePicker from './ThemePicker'
+import AnalysisTab from './analysis/AnalysisTab'
 import { tradeThemeCssVars } from '../../theme/tradeAnalysisThemes'
 
 const SIDEBAR_WIDTH = 230
 const SIDEBAR_SPRING = { type: 'spring', stiffness: 340, damping: 32 }
+
+// Step 1 of trade-analysis-analytics-master-prompt.md — Table/Analysis
+// segmented toggle for the top bar. Sits between the title and the
+// Filters/Add Validation Rule buttons (which only make sense in Table
+// view, since they act on rows the Analysis tab doesn't show).
+function ViewSwitch({ activeView, onChange }) {
+  const tabs = [
+    { id: 'table', label: 'Table', icon: Table2 },
+    { id: 'analysis', label: 'Analysis', icon: LineChart },
+  ]
+  return (
+    <div
+      className="ml-1 flex shrink-0 items-center gap-0.5 rounded-full p-0.5"
+      style={{ backgroundColor: 'var(--ta-bg)' }}
+    >
+      {tabs.map((tab) => {
+        const active = activeView === tab.id
+        return (
+          <button
+            key={tab.id}
+            onClick={() => onChange(tab.id)}
+            className="relative flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors"
+            style={{ color: active ? '#fffcf2' : 'var(--ta-ink)' }}
+          >
+            {active && (
+              <motion.span
+                layoutId="ta-view-switch-pill"
+                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                className="absolute inset-0 rounded-full"
+                style={{ backgroundColor: 'var(--ta-accent)' }}
+              />
+            )}
+            <tab.icon size={10} className="relative" />
+            <span className="relative">{tab.label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 // Trade Analysis — a separate full-screen feature (own overlay, own left
 // "new trade" form, own entries table), isolated from the mind-map canvas
@@ -30,6 +71,7 @@ export default function TradeAnalysis() {
   const sidebarOpen = useTradeAnalysisStore((s) => s.sidebarOpen)
   const filters = useTradeAnalysisStore((s) => s.filters)
   const theme = useTradeAnalysisStore((s) => s.theme)
+  const activeView = useTradeAnalysisStore((s) => s.activeView)
   const [rulesModalOpen, setRulesModalOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const activeFilterCount = countActiveFilters(filters)
@@ -103,48 +145,65 @@ export default function TradeAnalysis() {
 
             <ThemePicker />
 
-            <div className="ml-auto flex shrink-0 items-center gap-1">
-              <div className="relative">
+            <ViewSwitch
+              activeView={activeView}
+              onChange={(v) => useTradeAnalysisStore.getState().setActiveView(v)}
+            />
+
+            {/* Filters / Add Validation Rule act on table rows, so they
+                only make sense (and only render) in Table view — Step 1. */}
+            {activeView === 'table' && (
+              <div className="ml-auto flex shrink-0 items-center gap-1">
+                <div className="relative">
+                  <motion.button
+                    whileTap={{ scale: 0.94 }}
+                    title="Filters"
+                    onClick={() => setFiltersOpen((o) => !o)}
+                    className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium transition-colors hover:brightness-95"
+                    style={
+                      filtersOpen || activeFilterCount > 0
+                        ? { backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }
+                        : { backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }
+                    }
+                  >
+                    <SlidersHorizontal size={11} />
+                    Filters
+                    {activeFilterCount > 0 && (
+                      <span
+                        className="flex h-3 min-w-[12px] items-center justify-center rounded-full px-1 text-[8px] font-bold"
+                        style={{ backgroundColor: '#fffcf2', color: 'var(--ta-accent)' }}
+                      >
+                        {activeFilterCount}
+                      </span>
+                    )}
+                  </motion.button>
+                  <FiltersPopover open={filtersOpen} onClose={() => setFiltersOpen(false)} />
+                </div>
                 <motion.button
                   whileTap={{ scale: 0.94 }}
-                  title="Filters"
-                  onClick={() => setFiltersOpen((o) => !o)}
-                  className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium transition-colors hover:brightness-95"
-                  style={
-                    filtersOpen || activeFilterCount > 0
-                      ? { backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }
-                      : { backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }
-                  }
+                  title="Add / manage validation rules"
+                  onClick={() => setRulesModalOpen(true)}
+                  className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium text-white transition-colors hover:brightness-110"
+                  style={{ backgroundColor: 'var(--ta-accent)' }}
                 >
-                  <SlidersHorizontal size={11} />
-                  Filters
-                  {activeFilterCount > 0 && (
-                    <span
-                      className="flex h-3 min-w-[12px] items-center justify-center rounded-full px-1 text-[8px] font-bold"
-                      style={{ backgroundColor: '#fffcf2', color: 'var(--ta-accent)' }}
-                    >
-                      {activeFilterCount}
-                    </span>
-                  )}
+                  <ShieldPlus size={11} />
+                  Add Validation Rule
                 </motion.button>
-                <FiltersPopover open={filtersOpen} onClose={() => setFiltersOpen(false)} />
               </div>
-              <motion.button
-                whileTap={{ scale: 0.94 }}
-                title="Add / manage validation rules"
-                onClick={() => setRulesModalOpen(true)}
-                className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium text-white transition-colors hover:brightness-110"
-                style={{ backgroundColor: 'var(--ta-accent)' }}
-              >
-                <ShieldPlus size={11} />
-                Add Validation Rule
-              </motion.button>
-            </div>
+            )}
           </div>
 
           {/* Body — panels sit in a padded gap now so every border has
               room to curve at its corners instead of meeting the
-              viewport edge (or each other) as a hard right angle. */}
+              viewport edge (or each other) as a hard right angle.
+              Analysis view (Step 2 of the analytics master prompt)
+              replaces the form+table layout entirely with the read-only
+              dashboard — it has no left form, so it just fills the row. */}
+          {activeView === 'analysis' ? (
+            <div className="relative min-h-0 flex-1 overflow-hidden">
+              <AnalysisTab />
+            </div>
+          ) : (
           <div className="relative flex min-h-0 flex-1 gap-2 p-2" style={{ backgroundColor: '#ffffff' }}>
             {/* Left panel — "New Trade" form (Step 3). Collapsible shell
                 from Step 2; TradeForm.jsx owns the actual fields. */}
@@ -195,6 +254,7 @@ export default function TradeAnalysis() {
               <TradesTable />
             </motion.div>
           </div>
+          )}
         </motion.div>
         )}
       </AnimatePresence>

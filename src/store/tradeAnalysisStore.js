@@ -15,6 +15,12 @@ const initialState = {
   isOpen: false,
   sidebarOpen: true,
 
+  // Step 1 of trade-analysis-analytics-master-prompt.md — which tab the
+  // overlay's top bar shows: the existing entries table, or the new
+  // read-only Analysis dashboard. Persisted like sidebarOpen/theme so
+  // reopening the overlay remembers where you left off.
+  activeView: 'table', // 'table' | 'analysis'
+
   // Selected color theme id for the whole feature — see
   // src/theme/tradeAnalysisThemes.js for the palette list. Applied as CSS
   // var overrides on the overlay root in TradeAnalysis.jsx.
@@ -53,6 +59,7 @@ export const useTradeAnalysisStore = create(
       close: () => set({ isOpen: false, editingTradeId: null }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       setTheme: (theme) => set({ theme }),
+      setActiveView: (activeView) => set({ activeView }),
 
       // Step 3 — "Add" button on the New Trade form. `trade` is the field
       // payload assembled by TradeForm.jsx; this just stamps an id/status/
@@ -181,6 +188,7 @@ export const useTradeAnalysisStore = create(
         validationRules: state.validationRules,
         sidebarOpen: state.sidebarOpen,
         theme: state.theme,
+        activeView: state.activeView,
       }),
     }
   )
