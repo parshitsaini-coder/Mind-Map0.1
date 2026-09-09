@@ -39,6 +39,7 @@ function ViewerInner() {
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
+        onNodeClick={() => {}}
         panOnDrag
         fitView
         minZoom={0.15}

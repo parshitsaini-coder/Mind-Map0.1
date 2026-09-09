@@ -92,7 +92,7 @@ function ViewerNode({ id, data }) {
             useUiStore.getState().openImageLightbox(data.image)
           }}
           title="Click to view full size"
-          className="nodrag nopan h-5 w-5 shrink-0 cursor-zoom-in rounded object-cover"
+          className="nodrag nopan pointer-events-auto h-5 w-5 shrink-0 cursor-zoom-in rounded object-cover"
         />
       )}
       {!data.image && data.emoji && <span className="shrink-0">{data.emoji}</span>}
@@ -118,7 +118,7 @@ function ViewerNode({ id, data }) {
             e.stopPropagation()
             toggleCollapse(id)
           }}
-          className="nodrag nopan absolute -right-5 top-1/2 z-10 flex h-5 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-[var(--color-cream)] shadow hover:bg-[var(--color-sage)]"
+          className="nodrag nopan pointer-events-auto absolute -right-5 top-1/2 z-10 flex h-5 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-[var(--color-cream)] shadow hover:bg-[var(--color-sage)]"
           title={data.collapsed ? `Expand (${childCount} hidden)` : 'Collapse branch'}
         >
           {data.collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
