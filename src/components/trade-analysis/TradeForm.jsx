@@ -40,17 +40,19 @@ const formFromTrade = (trade) => ({
 })
 
 // Step 3 of trade-analysis-master-prompt.md — the "New Trade" form, fields
-// 1-11 in order. Lives inside the Step 2 sidebar shell. Step 8 adds editing:
-// clicking Edit on a table row sets `editingTradeId` in the store, which
-// this form watches and prefills from below, switching into "editing trade
-// #N" mode (title/button copy change, a Cancel option appears) until the
-// edit is saved or cancelled.
-export default function TradeForm() {
+// 1-11 in order. Lives inside the Step 2 sidebar shell, always in "Add"
+// mode there (mode="sidebar", the default). Step 8's edit flow now opens
+// this same form inside EditTradeModal.jsx instead (mode="modal"), where
+// it prefills from the store's `editingTradeId` and saves via
+// `updateTrade`; the sidebar copy ignores `editingTradeId` entirely so it
+// stays a blank "New Trade" form no matter what's being edited elsewhere.
+export default function TradeForm({ mode = 'sidebar' }) {
   const validationRules = useTradeAnalysisStore((s) => s.validationRules)
   const activeRules = useMemo(() => validationRules.filter((r) => r.active), [validationRules])
-  const editingTradeId = useTradeAnalysisStore((s) => s.editingTradeId)
+  const globalEditingTradeId = useTradeAnalysisStore((s) => s.editingTradeId)
+  const editingTradeId = mode === 'modal' ? globalEditingTradeId : null
   const editingTrade = useTradeAnalysisStore((s) =>
-    s.editingTradeId ? s.trades.find((t) => t.id === s.editingTradeId) : null
+    mode === 'modal' && s.editingTradeId ? s.trades.find((t) => t.id === s.editingTradeId) : null
   )
 
   const [form, setForm] = useState(blankForm)
@@ -242,9 +244,11 @@ export default function TradeForm() {
 
   return (
     <div className="flex h-full flex-col gap-2">
-      <p className="text-[11px] font-semibold" style={{ color: 'var(--ta-ink)' }}>
-        {editingTradeId ? 'Edit Trade' : 'New Trade'}
-      </p>
+      {mode !== 'modal' && (
+        <p className="text-[11px] font-semibold" style={{ color: 'var(--ta-ink)' }}>
+          {editingTradeId ? 'Edit Trade' : 'New Trade'}
+        </p>
+      )}
 
       {/* 2. Date */}
       <label className="flex flex-col gap-1">
@@ -306,29 +310,34 @@ export default function TradeForm() {
         <AnimatePresence>
           {pairOpen && instrumentList.length > 0 && (
             <motion.ul
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.12 }}
-              className="absolute left-0 right-0 top-full z-20 mt-1 max-h-40 overflow-y-auto rounded-md border shadow-md"
-              style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)' }}
+              initial={{ opacity: 0, y: -6, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.97 }}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
+              className="absolute left-0 right-0 top-full z-20 mt-1 flex max-h-44 flex-col gap-1 overflow-y-auto rounded-lg border p-1.5 shadow-lg"
+              style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)', transformOrigin: 'top' }}
             >
               {filteredInstruments.length === 0 ? (
                 <li className="px-2 py-1 text-[9px]" style={{ color: 'var(--ta-slate)' }}>No matches</li>
               ) : (
-                filteredInstruments.map((i) => (
-                  <li key={i.symbol}>
+                filteredInstruments.map((i, idx) => (
+                  <motion.li
+                    key={i.symbol}
+                    initial={{ opacity: 0, x: -6 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.14, delay: Math.min(idx, 8) * 0.02 }}
+                  >
                     <button
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => { patch({ pair: i.symbol }); setPairOpen(false); setPairQuery('') }}
-                      className="flex w-full flex-col items-start px-1.5 py-1 text-left text-[9px] hover:bg-black/5"
-                      style={{ color: 'var(--ta-ink)' }}
+                      className="flex w-full flex-col items-start gap-0.5 rounded-md border px-2 py-1.5 text-left text-[9px] transition-colors hover:border-[#eb5e28] hover:bg-[rgba(235,94,40,0.08)]"
+                      style={{ borderColor: 'rgba(43,41,37,0.16)', color: 'var(--ta-ink)' }}
                     >
-                      <span className="font-medium">{i.symbol}</span>
-                      <span style={{ color: 'var(--ta-slate)' }}>{i.name}</span>
+                      <span className="font-semibold">{i.symbol}</span>
+                      <span className="text-[8px]" style={{ color: 'var(--ta-slate)' }}>{i.name}</span>
                     </button>
-                  </li>
+                  </motion.li>
                 ))
               )}
             </motion.ul>
@@ -457,7 +466,7 @@ export default function TradeForm() {
             No validation rules yet — add some from the ✚ button up top.
           </p>
         ) : (
-          <div className="flex flex-col gap-1">
+          <div className="flex max-h-[100px] flex-col gap-1 overflow-y-auto pr-0.5">
             {activeRules.map((rule) => {
               const checked = form.validationRuleIds.includes(rule.id)
               return (

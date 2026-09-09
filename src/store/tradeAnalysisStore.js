@@ -109,15 +109,14 @@ export const useTradeAnalysisStore = create(
           ),
         })),
 
-      // Step 8 — edit / delete row flow. `setEditingTrade`/`cancelEditingTrade`
-      // just point the Step 3 form at an existing trade (or back to blank);
-      // TradeForm.jsx owns prefilling itself from `editingTradeId` +
-      // `trades`. `updateTrade` merges a patch into the existing row instead
-      // of appending a new one, `deleteTrade` removes it outright (the
-      // table's exit animation handles the visual removal).
-      // Also opens the sidebar if it was collapsed, so the form the user
-      // is about to edit is actually visible.
-      setEditingTrade: (id) => set({ editingTradeId: id, sidebarOpen: true }),
+      // Step 8 (revised) — edit / delete row flow. `setEditingTrade` just
+      // records which trade is being edited; EditTradeModal.jsx renders
+      // whenever `editingTradeId` is set and owns prefilling itself (via
+      // TradeForm in mode="modal") from that id + `trades`. `updateTrade`
+      // merges a patch into the existing row instead of appending a new
+      // one, `deleteTrade` removes it outright (the table's exit
+      // animation handles the visual removal).
+      setEditingTrade: (id) => set({ editingTradeId: id }),
       cancelEditingTrade: () => set({ editingTradeId: null }),
       updateTrade: (id, patch) =>
         set((s) => ({

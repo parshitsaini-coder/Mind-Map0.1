@@ -6,6 +6,7 @@ import { useIsMobile } from '../../hooks/useIsMobile'
 import TradeForm from './TradeForm'
 import TradesTable from './TradesTable'
 import ValidationRulesModal from './ValidationRulesModal'
+import EditTradeModal from './EditTradeModal'
 import FiltersPopover, { countActiveFilters } from './FiltersPopover'
 
 const SIDEBAR_WIDTH = 230
@@ -179,6 +180,7 @@ export default function TradeAnalysis() {
         )}
       </AnimatePresence>
       <ValidationRulesModal open={rulesModalOpen} onClose={() => setRulesModalOpen(false)} />
+      <EditTradeModal />
     </>
   )
 }
