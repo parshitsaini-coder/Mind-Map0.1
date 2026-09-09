@@ -110,7 +110,7 @@ export default function TradesTable() {
     )
   }
 
-  const th = 'sticky top-0 z-10 whitespace-nowrap px-2 py-1 text-left text-[8px] font-semibold uppercase tracking-wide'
+  const th = 'group relative sticky top-0 z-10 whitespace-nowrap px-2 py-1.5 text-left text-[8.5px] font-extrabold uppercase tracking-wider transition-colors'
   const td = 'whitespace-nowrap px-2 py-1 align-middle text-[9px]'
 
   return (
@@ -120,8 +120,18 @@ export default function TradesTable() {
           <tr style={{ backgroundColor: 'var(--ta-surface)' }}>
             {['No.', 'Date', 'Stock/Forex', 'Type', 'Time frame', 'Direction', 'Price', 'Screenshot', 'Status', 'Validation', 'Notes', 'Result', 'Actions'].map(
               (h) => (
-                <th key={h} className={th} style={{ color: 'var(--ta-slate)', borderBottom: '1px solid var(--ta-slate)' }}>
-                  {h}
+                <th
+                  key={h}
+                  className={th}
+                  style={{ color: 'var(--ta-ink)', borderBottom: '2px solid var(--ta-slate)' }}
+                >
+                  <span className="relative inline-block pb-0.5">
+                    {h}
+                    <span
+                      className="absolute -bottom-[3px] left-0 h-[2px] w-full origin-left scale-x-0 transition-transform duration-200 ease-out group-hover:scale-x-100"
+                      style={{ backgroundColor: 'var(--ta-accent)' }}
+                    />
+                  </span>
                 </th>
               )
             )}
