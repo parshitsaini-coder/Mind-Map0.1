@@ -5,6 +5,7 @@ import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useUiStore } from '../../store/uiStore'
 import { uploadTradeImage } from '../../lib/imageUpload'
 import { INDIAN_STOCKS, FOREX_PAIRS, COMMODITIES } from '../../data/instruments'
+import DatePicker from './DatePicker'
 
 const INSTRUMENT_TYPES = ['Equity', 'Forex', 'Commodity']
 const TIMEFRAMES = ['1m', '3m', '5m', '15m', '30m', '60m', '75m', '2h', '3h', '4h', '1D', '1W', '1M']
@@ -251,16 +252,10 @@ export default function TradeForm({ mode = 'sidebar' }) {
       )}
 
       {/* 2. Date */}
-      <label className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1">
         <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Date</span>
-        <input
-          type="date"
-          value={form.date}
-          onChange={(e) => patch({ date: e.target.value })}
-          className={inputCls}
-          style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
-        />
-      </label>
+        <DatePicker value={form.date} onChange={(d) => patch({ date: d })} inputCls={inputCls} />
+      </div>
 
       {/* 4. Type (placed above pair so it can filter the pair list) */}
       <div className="flex flex-col gap-1">

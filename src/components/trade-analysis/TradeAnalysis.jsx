@@ -137,14 +137,17 @@ export default function TradeAnalysis() {
             </div>
           </div>
 
-          {/* Body */}
-          <div className="relative flex min-h-0 flex-1">
+          {/* Body — panels sit in a padded gap now so every border has
+              room to curve at its corners instead of meeting the
+              viewport edge (or each other) as a hard right angle. */}
+          <div className="relative flex min-h-0 flex-1 gap-2 p-2" style={{ backgroundColor: '#ffffff' }}>
             {/* Left panel — "New Trade" form (Step 3). Collapsible shell
                 from Step 2; TradeForm.jsx owns the actual fields. */}
             <motion.aside
-              animate={{ width: sidebarOpen ? SIDEBAR_WIDTH : 0 }}
+              animate={{ width: sidebarOpen ? SIDEBAR_WIDTH : 0, marginRight: sidebarOpen ? 0 : -8 }}
+              whileHover={{ borderColor: '#eb5e28' }}
               transition={SIDEBAR_SPRING}
-              className="h-full shrink-0 overflow-hidden border-r"
+              className="h-full shrink-0 overflow-hidden rounded-2xl border shadow-sm"
               style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)' }}
             >
               <motion.div
@@ -158,23 +161,31 @@ export default function TradeAnalysis() {
             </motion.aside>
 
             {/* Sidebar collapse/expand tab — stays put on the panel's
-                trailing edge regardless of open/closed state. */}
+                trailing edge regardless of open/closed state. Hovering
+                nudges it into a fuller, glowing curve (bigger scale +
+                accent-colored border) instead of sitting flat. */}
             <motion.button
               onClick={() => useTradeAnalysisStore.getState().toggleSidebar()}
-              animate={{ left: sidebarOpen ? SIDEBAR_WIDTH - 12 : 0 }}
+              animate={{ left: sidebarOpen ? SIDEBAR_WIDTH + 8 - 12 : 8 }}
               transition={SIDEBAR_SPRING}
+              whileHover={{ scale: 1.12, borderColor: '#eb5e28', boxShadow: '0 2px 10px rgba(235,94,40,0.35)' }}
               whileTap={{ scale: 0.88 }}
               title={sidebarOpen ? 'Hide panel' : 'Show panel'}
-              className="absolute top-1/2 z-10 flex h-7 w-6 -translate-y-1/2 items-center justify-center rounded-r-md border shadow-sm"
+              className="absolute top-1/2 z-10 flex h-7 w-6 -translate-y-1/2 items-center justify-center rounded-full border shadow-sm transition-colors"
               style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
             >
               {sidebarOpen ? <ChevronLeft size={13} /> : <ChevronRight size={13} />}
             </motion.button>
 
             {/* Right panel — entries table (Step 6). */}
-            <div className="min-w-0 flex-1">
+            <motion.div
+              whileHover={{ borderColor: '#eb5e28' }}
+              transition={{ duration: 0.2 }}
+              className="min-w-0 flex-1 overflow-hidden rounded-2xl border shadow-sm"
+              style={{ borderColor: 'var(--ta-slate)', backgroundColor: 'var(--ta-surface)' }}
+            >
               <TradesTable />
-            </div>
+            </motion.div>
           </div>
         </motion.div>
         )}
