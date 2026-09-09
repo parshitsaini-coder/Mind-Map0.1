@@ -9,11 +9,27 @@ import { create } from 'zustand'
 export const useViewerStore = create((set) => ({
   nodes: [],
   edges: [],
+  // Denormalized snapshots embedded in the share link itself (see
+  // utils/exportShareLink.js) — the viewer never touches the real
+  // checklistStore/tradeAnalysisStore, so any checklist a node carries or
+  // any trade a node links to has to travel inside the map payload.
   checklists: [],
   trades: [],
+  validationRules: [],
 
-  setMap: (nodes, edges, checklists, trades) =>
-    set({ nodes: nodes || [], edges: edges || [], checklists: checklists || [], trades: trades || [] }),
+  // Read-only counterpart to uiStore's tradeDetail: which trade's popup is
+  // currently open, keyed off the embedded `trades` snapshot above rather
+  // than the editor's live store.
+  tradeDetail: null, // { tradeId } | null
+
+  setMap: (nodes, edges, extra = {}) =>
+    set({
+      nodes: nodes || [],
+      edges: edges || [],
+      checklists: extra.checklists || [],
+      trades: extra.trades || [],
+      validationRules: extra.validationRules || [],
+    }),
 
   toggleCollapse: (id) =>
     set((s) => ({
@@ -21,4 +37,7 @@ export const useViewerStore = create((set) => ({
         n.id === id ? { ...n, data: { ...n.data, collapsed: !n.data.collapsed } } : n
       ),
     })),
+
+  openTradeDetail: (tradeId) => set({ tradeDetail: { tradeId } }),
+  closeTradeDetail: () => set({ tradeDetail: null }),
 }))

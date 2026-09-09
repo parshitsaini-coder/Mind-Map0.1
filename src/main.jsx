@@ -24,6 +24,7 @@ function Root() {
           edges={decoded.edges || []}
           checklists={decoded.checklists || []}
           trades={decoded.trades || []}
+          validationRules={decoded.validationRules || []}
         />
       )
     }

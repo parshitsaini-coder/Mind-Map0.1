@@ -1,7 +1,7 @@
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import { Handle, Position } from '@xyflow/react'
-import { motion } from 'framer-motion'
-import { ChevronRight, ChevronDown, CheckSquare, Square, Star, FileText, TrendingUp, ListChecks } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { ChevronRight, ChevronDown, CheckSquare, Square, Star, FileText, ListChecks, TrendingUp } from 'lucide-react'
 import { useViewerStore } from '../../store/viewerStore'
 import { useUiStore } from '../../store/uiStore'
 import { ICONS } from '../../theme/iconSet'
@@ -40,26 +40,24 @@ function ProgressRing({ percent }) {
 
 // Read-only counterpart to canvas/CustomNode.jsx, used only by the
 // shared-link viewer (SharedMapView). Shows everything a node can carry
-// (shape, colors, icon/emoji/image, task state, badges, notes indicator)
-// but strips every editing affordance — no rename, no add/delete child, no
-// dragging, no task toggling. The single interactive bit kept is the
-// expand/collapse chevron, per the "only open/close children" requirement.
+// (shape, colors, icon/emoji/image, task state, badges, notes indicator,
+// applied checklists, linked trade) but strips every editing affordance —
+// no rename, no add/delete child, no dragging, no task toggling, no
+// ticking checklist items. The interactive bits kept are the
+// expand/collapse chevron (branch + per-checklist) and the linked-trade
+// badge, which opens a read-only trade detail popup (ViewerTradeDetailModal)
+// sourced from the checklists/trades snapshot embedded in the share link.
 function ViewerNode({ id, data }) {
   const toggleCollapse = useViewerStore((s) => s.toggleCollapse)
   const childCount = useViewerStore(
     (s) => s.edges.filter((e) => e.source === id && e.type !== 'crossEdge').length
   )
-  // Section — Checklist Library / Linked Trade, read-only mirror of
-  // CustomNode.jsx. The share link embeds only the checklist defs and
-  // trade summaries actually referenced by some node (see
-  // exportShareLink.js), so lookups here can come back empty for an old
-  // link created before this data was included — the badge/section then
-  // just doesn't render rather than erroring.
   const appliedChecklists = data.checklists || []
   const allChecklists = useViewerStore((s) => s.checklists)
   const linkedTrade = useViewerStore((s) =>
     data.linkedTradeId ? s.trades.find((t) => t.id === data.linkedTradeId) : null
   )
+  const [collapsedChecklists, setCollapsedChecklists] = useState({})
 
   const IconComp = data.icon ? ICONS[data.icon] : null
   const badges = data.badges || {}
@@ -115,14 +113,18 @@ function ViewerNode({ id, data }) {
         </span>
 
         {linkedTrade && (
-          <span
-            className="flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              useViewerStore.getState().openTradeDetail(linkedTrade.id)
+            }}
+            className="nodrag nopan pointer-events-auto flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
             style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
-            title={`Linked trade: ${linkedTrade.pair}`}
+            title={`Linked trade: ${linkedTrade.pair} — click to view details`}
           >
             <TrendingUp size={9} />
             {linkedTrade.pair}
-          </span>
+          </button>
         )}
 
         {task?.assignee && (
@@ -152,40 +154,73 @@ function ViewerNode({ id, data }) {
         )}
       </div>
 
-      {/* Section — Checklist Library, read-only: shows every item and its
-          checked state (from the node's own data.checklists progress) but
-          nothing here is clickable — matches the rest of the shared viewer. */}
+      {/* Applied checklists — mirrors CustomNode's full-body checklist
+          display, but every checkbox here is inert (span, not a button):
+          this view never mutates node data, so ticking items has to stay
+          in the real editor. Collapsing a checklist's item list is purely
+          local/visual, same as the editor. */}
       {appliedChecklists.length > 0 && (
-        <div className="w-full border-t px-2.5 py-1.5 text-left" style={{ borderColor: 'rgba(0,0,0,0.12)' }}>
+        <div
+          className="nodrag nopan pointer-events-auto w-full cursor-default border-t px-2.5 py-1.5"
+          style={{ borderColor: 'rgba(0,0,0,0.12)', textAlign: 'left' }}
+        >
           {appliedChecklists.map((applied) => {
             const def = allChecklists.find((c) => c.id === applied.checklistId)
             if (!def) return null
             const checkedCount = applied.checkedItemIds.filter((cid) => def.items.some((it) => it.id === cid)).length
             const percent = def.items.length ? Math.round((checkedCount / def.items.length) * 100) : 0
+            const isCollapsed = Boolean(collapsedChecklists[applied.checklistId])
             return (
               <div key={applied.checklistId} className="mb-1.5 last:mb-0">
                 <div className="mb-0.5 flex w-full items-center gap-1 text-[10px] font-semibold" style={{ color: 'var(--color-slate)' }}>
-                  <ListChecks size={10} className="shrink-0" />
-                  <span className="flex-1 truncate">{def.name}</span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setCollapsedChecklists((prev) => ({ ...prev, [applied.checklistId]: !prev[applied.checklistId] }))
+                    }}
+                    className="shrink-0"
+                    title={isCollapsed ? 'Show checkboxes' : 'Hide checkboxes'}
+                  >
+                    {isCollapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
+                  </button>
+                  <span className="flex flex-1 items-center gap-1 truncate text-left">
+                    <ListChecks size={10} className="shrink-0" />
+                    <span className="flex-1 truncate">{def.name}</span>
+                  </span>
                   <span className="shrink-0" title={`${checkedCount}/${def.items.length} checked`}>
                     <ProgressRing percent={percent} />
                   </span>
                 </div>
-                <div className="flex flex-col gap-0.5">
-                  {def.items.map((item) => {
-                    const isChecked = applied.checkedItemIds.includes(item.id)
-                    return (
-                      <div key={item.id} className="flex w-full items-center gap-1.5 px-0.5 py-0.5 text-left text-[11px]">
-                        {isChecked ? (
-                          <CheckSquare size={12} className="shrink-0" color="var(--color-accent)" />
-                        ) : (
-                          <Square size={12} className="shrink-0" color="var(--color-slate)" />
+                <AnimatePresence initial={false}>
+                  {!isCollapsed && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.18, ease: 'easeInOut' }}
+                      className="overflow-hidden"
+                    >
+                      <div className="flex flex-col gap-0.5">
+                        {def.items.length === 0 && (
+                          <p className="pl-4 text-[10px] italic opacity-60">No checkboxes yet.</p>
                         )}
-                        <span className={isChecked ? 'line-through opacity-60' : ''}>{item.label}</span>
+                        {def.items.map((item) => {
+                          const isChecked = applied.checkedItemIds.includes(item.id)
+                          return (
+                            <span key={item.id} className="flex w-full items-center gap-1.5 px-0.5 py-0.5 text-left text-[11px]">
+                              {isChecked ? (
+                                <CheckSquare size={12} className="shrink-0" color="var(--color-accent)" />
+                              ) : (
+                                <Square size={12} className="shrink-0" color="var(--color-slate)" />
+                              )}
+                              <span className={isChecked ? 'line-through opacity-60' : ''}>{item.label}</span>
+                            </span>
+                          )
+                        })}
                       </div>
-                    )
-                  })}
-                </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             )
           })}

@@ -17,6 +17,7 @@ import ConnectorDemoEdge from '../canvas/ConnectorDemoEdge'
 import { computeHidden } from '../../utils/graphUtils'
 import { applyThemeVars } from '../../theme/tokens'
 import ImageLightbox from '../common/ImageLightbox'
+import ViewerTradeDetailModal from './ViewerTradeDetailModal'
 
 function ViewerInner() {
   const nodes = useViewerStore((s) => s.nodes)
@@ -72,16 +73,17 @@ function ViewerInner() {
 // shared link only ever sees the mind map itself (canvas + expand/collapse),
 // with no top toolbar, tabs bar, or side panels, and never touches the
 // viewer's own saved projects.
-export default function SharedMapView({ nodes, edges, checklists, trades }) {
+export default function SharedMapView({ nodes, edges, checklists = [], trades = [], validationRules = [] }) {
   useEffect(() => {
     applyThemeVars('default')
-    useViewerStore.getState().setMap(nodes, edges, checklists, trades)
-  }, [nodes, edges, checklists, trades])
+    useViewerStore.getState().setMap(nodes, edges, { checklists, trades, validationRules })
+  }, [nodes, edges, checklists, trades, validationRules])
 
   return (
     <ReactFlowProvider>
       <ViewerInner />
       <ImageLightbox />
+      <ViewerTradeDetailModal />
     </ReactFlowProvider>
   )
 }
