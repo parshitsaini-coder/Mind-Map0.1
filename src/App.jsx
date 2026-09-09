@@ -13,6 +13,7 @@ import { useMapStore } from './store/mapStore'
 import { useProjectsStore } from './store/projectsStore'
 import { useAuthStore } from './store/authStore'
 import { applyThemeVars } from './theme/tokens'
+import { isSupabaseConfigured } from './lib/supabaseClient'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
 export default function App() {
@@ -30,6 +31,18 @@ export default function App() {
   useEffect(() => {
     useAuthStore.getState().init()
   }, [])
+
+  // Section — nudge signed-out visitors to log in, once per visit. Without
+  // an account the map lives only in this browser's localStorage — clearing
+  // site data or opening on another device loses it — so as soon as we know
+  // for sure no one's signed in, prompt once rather than relying on someone
+  // noticing the small account icon in the toolbar.
+  const hasPromptedLogin = useRef(false)
+  useEffect(() => {
+    if (!authInitialized || user || !isSupabaseConfigured || hasPromptedLogin.current) return
+    hasPromptedLogin.current = true
+    useUiStore.getState().toggleAuthModal()
+  }, [authInitialized, user])
 
   // Section — multi-project support. Sets up (or migrates) the projects
   // list once, then loads whichever project was last active straight onto

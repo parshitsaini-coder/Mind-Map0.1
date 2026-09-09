@@ -22,19 +22,22 @@ import {
   Spline,
   Download,
   FileDown,
+  FileJson,
+  Upload,
   GitBranch,
   User,
   UserCheck,
   LayoutDashboard,
   Sparkles,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
 import { useAuthStore } from '../../store/authStore'
 import { useProjectsStore } from '../../store/projectsStore'
 import { buildShareUrl } from '../../utils/exportShareLink'
 import { exportMapAsPng, exportMapAsPdf } from '../../utils/exportImage'
+import { downloadMapBackup, readMapBackup } from '../../utils/exportImportBackup'
 
 const IconBtn = ({ icon: Icon, label, onClick, active }) => (
   <motion.button
@@ -76,9 +79,13 @@ export default function TopToolbar() {
   const showToast = useUiStore((s) => s.showToast)
   const nodes = useMapStore((s) => s.nodes)
   const edges = useMapStore((s) => s.edges)
+  const groups = useMapStore((s) => s.groups)
+  const activityLog = useMapStore((s) => s.activityLog)
+  const loadMapData = useMapStore((s) => s.loadMapData)
   const loadConnectorDemo = useMapStore((s) => s.loadConnectorDemo)
   const openProjectsDashboard = useProjectsStore((s) => s.openDashboard)
   const [exporting, setExporting] = useState(false)
+  const backupInputRef = useRef(null)
 
   const handleConnectorDemo = () => {
     if (
@@ -133,6 +140,33 @@ export default function TopToolbar() {
     }
   }
 
+  const handleExportJson = () => {
+    downloadMapBackup({ nodes, edges, groups, activityLog })
+    showToast('Backup downloaded (.json)')
+  }
+
+  const handleImportJsonClick = () => backupInputRef.current?.click()
+
+  const handleImportJsonFile = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (
+      !window.confirm(
+        'Import this backup? It will replace your current map — your current map stays in undo history (Ctrl+Z).'
+      )
+    ) {
+      return
+    }
+    try {
+      const data = await readMapBackup(file)
+      loadMapData(data)
+      showToast('Backup imported')
+    } catch (err) {
+      showToast(err.message || 'Could not import that file')
+    }
+  }
+
   return (
     <div
       className="flex h-8 shrink-0 items-center gap-1 border-b px-2"
@@ -171,6 +205,15 @@ export default function TopToolbar() {
         <IconBtn icon={Share2} label="Copy share link" onClick={handleShare} />
         <IconBtn icon={Download} label="Export as PNG image" onClick={handleExportPng} />
         <IconBtn icon={FileDown} label="Export as PDF" onClick={handleExportPdf} />
+        <IconBtn icon={FileJson} label="Download backup (.json) — full map, restorable" onClick={handleExportJson} />
+        <IconBtn icon={Upload} label="Import backup (.json)" onClick={handleImportJsonClick} />
+        <input
+          ref={backupInputRef}
+          type="file"
+          accept="application/json,.json"
+          onChange={handleImportJsonFile}
+          className="hidden"
+        />
         <IconBtn icon={Spline} label="Connector styles demo (18 line styles)" onClick={handleConnectorDemo} />
         <IconBtn
           icon={GitBranch}

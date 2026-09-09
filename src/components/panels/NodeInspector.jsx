@@ -14,6 +14,7 @@ import IconLibrary from './IconLibrary'
 // eager main bundle no longer pays for them.
 const NotesEditor = lazy(() => import('./NotesEditor'))
 const EmojiPicker = lazy(() => import('emoji-picker-react'))
+const WhiteboardEditor = lazy(() => import('./WhiteboardEditor'))
 
 function PanelLoading() {
   return <p className="px-1 py-2 text-[10px] text-[var(--color-slate)]">Loading…</p>
@@ -166,6 +167,7 @@ export default function NodeInspector() {
   const [showNotes, setShowNotes] = useState(false)
   const [showLinks, setShowLinks] = useState(false)
   const [linkPickerOpen, setLinkPickerOpen] = useState(false)
+  const [whiteboardOpen, setWhiteboardOpen] = useState(false)
 
   const selectedNodes = nodes.filter((n) => n.selected && n.type !== 'boundaryGroup')
   const selectedNode = selectedNodes.length === 1 ? selectedNodes[0] : null
@@ -405,6 +407,45 @@ export default function NodeInspector() {
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
+
+        {/* Whiteboard — a freeform pen/shapes/text drawing board attached to
+            this node. Vector elements + a rendered thumbnail are stored on
+            data.whiteboard; the modal itself is lazy-loaded like NotesEditor
+            since it's not needed until someone actually opens it. */}
+        <div>
+          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Whiteboard</p>
+          {selectedNode.data.whiteboard?.thumbnail ? (
+            <div className="flex flex-col gap-1.5">
+              <img
+                src={selectedNode.data.whiteboard.thumbnail}
+                alt="Whiteboard preview"
+                onClick={() => setWhiteboardOpen(true)}
+                className="w-full cursor-pointer rounded-md border border-[var(--color-sage)] object-contain hover:opacity-90"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setWhiteboardOpen(true)}
+                  className="rounded-md border border-[var(--color-slate)] px-2 py-1 text-[10px] hover:bg-[var(--color-sage)]/30"
+                >
+                  Edit whiteboard
+                </button>
+                <button
+                  onClick={() => updateNodeData(selectedNode.id, { whiteboard: null })}
+                  className="flex items-center gap-1 text-[10px] text-[var(--color-slate)] underline hover:text-[var(--color-ink)]"
+                >
+                  <XIcon size={10} /> Remove
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setWhiteboardOpen(true)}
+              className="rounded-md border border-dashed border-[var(--color-slate)] px-2 py-1.5 text-[10px] text-[var(--color-slate)] hover:bg-[var(--color-sage)]/30"
+            >
+              + Open whiteboard
+            </button>
+          )}
         </div>
 
         {/* Section — Node Linking / Backlinks. Outgoing links are stored on
@@ -683,6 +724,16 @@ export default function NodeInspector() {
         </div>
 
         <p className="text-[10px] text-[var(--color-slate)]">Double-click the node on canvas to edit its label.</p>
+
+        {whiteboardOpen && (
+          <Suspense fallback={null}>
+            <WhiteboardEditor
+              nodeId={selectedNode.id}
+              data={selectedNode.data}
+              onClose={() => setWhiteboardOpen(false)}
+            />
+          </Suspense>
+        )}
       </div>
     )
   }

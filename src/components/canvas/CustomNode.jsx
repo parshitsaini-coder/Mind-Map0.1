@@ -60,7 +60,7 @@ function CustomNode({ id, data, selected }) {
   const IconComp = data.icon ? ICONS[data.icon] : null
   const badges = data.badges || {}
   const hasNotes = (data.notes || '').replace(/<[^>]*>/g, '').trim().length > 0
-  const hasExtras = hasNotes || (data.attachments || []).length > 0 || data.audioNote || data.videoEmbed
+  const hasExtras = hasNotes || (data.attachments || []).length > 0 || data.audioNote || data.videoEmbed || !!data.whiteboard?.thumbnail
   const task = data.task
   const overdue = task?.dueDate && !task.done && new Date(task.dueDate) < new Date()
   const textStyle = nodeTextStyle(data)
@@ -185,7 +185,7 @@ function CustomNode({ id, data, selected }) {
         </span>
       )}
       {hasExtras && (
-        <FileText size={11} className="absolute -top-1.5 right-3" color="var(--color-slate)" title="Has notes/attachments" />
+        <FileText size={11} className="absolute -top-1.5 right-3" color="var(--color-slate)" title="Has notes/attachments/whiteboard" />
       )}
       {(data.links || []).length > 0 && (
         <Link2

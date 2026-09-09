@@ -50,6 +50,20 @@ export const useMapStore = create(
       // (switching projects isn't something you'd want to Ctrl+Z through)
       // and resets the undo/redo history, since it belongs to the project
       // being left.
+      // Section — JSON backup import. Replaces the live canvas with data
+      // from an exported .json backup file (see exportShareLink.js's
+      // sibling, exportImportBackup.js). Pushes an undo snapshot first so
+      // importing over the wrong map can still be undone with Ctrl+Z.
+      loadMapData: ({ nodes, edges, groups, activityLog }) => {
+        get().pushSnapshot()
+        set({
+          nodes: nodes?.length ? nodes : initialNodes,
+          edges: edges || [],
+          groups: groups || [],
+          activityLog: activityLog || [],
+        })
+      },
+
       loadProject: (projectId) => {
         const data = readProjectData(projectId)
         set({
