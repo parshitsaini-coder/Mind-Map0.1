@@ -31,6 +31,16 @@ export const useUiStore = create(
       tradeLinkPickerNodeId: null,
       tradeDetail: null, // { nodeId, tradeId } | null
 
+      // Section — Checklist Library panel (left side, mirrors
+      // ConnectorStylesPanel's slide-in). `checklistPanelNodeId` is set
+      // when opened from a specific node's right-click "Checklist" item,
+      // so the panel can show that node's applied checklists with live
+      // checkboxes plus an "apply another" list; it stays null when opened
+      // from the toolbar for library-only management (create/edit/delete
+      // checklists, no node to apply to yet).
+      checklistPanelOpen: false,
+      checklistPanelNodeId: null,
+
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       toggleConnectorPanel: () => set((s) => ({ connectorPanelOpen: !s.connectorPanelOpen })),
       toggleAuthModal: () => set((s) => ({ authModalOpen: !s.authModalOpen })),
@@ -51,6 +61,8 @@ export const useUiStore = create(
       closeTradeLinkPicker: () => set({ tradeLinkPickerNodeId: null }),
       openTradeDetail: (nodeId, tradeId) => set({ tradeDetail: { nodeId, tradeId } }),
       closeTradeDetail: () => set({ tradeDetail: null }),
+      openChecklistPanel: (nodeId = null) => set({ checklistPanelOpen: true, checklistPanelNodeId: nodeId }),
+      closeChecklistPanel: () => set({ checklistPanelOpen: false, checklistPanelNodeId: null }),
       jumpToNode: (id) => set({ jumpToken: { id, ts: Date.now() }, activePanel: 'inspector', sidebarOpen: true }),
       showToast: (toastMessage) => {
         set({ toastMessage })

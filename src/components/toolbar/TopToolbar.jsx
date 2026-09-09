@@ -29,6 +29,7 @@ import {
   Sparkles,
   PenSquare,
   CandlestickChart,
+  ListChecks,
 } from 'lucide-react'
 import { useState, useRef } from 'react'
 import { useMapStore } from '../../store/mapStore'
@@ -179,6 +180,11 @@ export default function TopToolbar() {
           icon={CandlestickChart}
           label="Trade Analysis — log trades with screenshots, notes & a validation checklist"
           onClick={() => useTradeAnalysisStore.getState().open()}
+        />
+        <IconBtn
+          icon={ListChecks}
+          label="Checklists — build reusable checkbox lists and apply them to any node"
+          onClick={() => useUiStore.getState().openChecklistPanel()}
         />
         <IconBtn icon={Target} label="Add central topic" onClick={addCentralTopic} />
         <IconBtn icon={StickyNote} label="Add floating note" onClick={addFloatingNode} />

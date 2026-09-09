@@ -650,6 +650,62 @@ export const useMapStore = create(
         })
       },
 
+      // Section — Checklist Library "apply to node" actions. A checklist's
+      // own name/items live in checklistStore (its own persisted store);
+      // what's stored here on the node is just which checklists are
+      // attached and which of their items are checked *for this node*, so
+      // the same checklist template can be applied to many nodes with
+      // independent progress. node.data.checklists: [{ checklistId,
+      // checkedItemIds: [] }].
+      applyChecklistToNode: (nodeId, checklistId) => {
+        const node = get().nodes.find((n) => n.id === nodeId)
+        if (!node) return
+        if ((node.data.checklists || []).some((c) => c.checklistId === checklistId)) return
+        get().pushSnapshot()
+        set({
+          nodes: get().nodes.map((n) =>
+            n.id === nodeId
+              ? {
+                  ...n,
+                  data: { ...n.data, checklists: [...(n.data.checklists || []), { checklistId, checkedItemIds: [] }] },
+                }
+              : n
+          ),
+        })
+        get().logActivity(`✅ Applied a checklist to "${node.data?.label || nodeId}"`)
+      },
+
+      removeChecklistFromNode: (nodeId, checklistId) => {
+        get().pushSnapshot()
+        set({
+          nodes: get().nodes.map((n) =>
+            n.id === nodeId
+              ? { ...n, data: { ...n.data, checklists: (n.data.checklists || []).filter((c) => c.checklistId !== checklistId) } }
+              : n
+          ),
+        })
+      },
+
+      toggleChecklistItemOnNode: (nodeId, checklistId, itemId) => {
+        get().pushSnapshotBurst()
+        set({
+          nodes: get().nodes.map((n) => {
+            if (n.id !== nodeId) return n
+            const checklists = (n.data.checklists || []).map((c) => {
+              if (c.checklistId !== checklistId) return c
+              const isChecked = c.checkedItemIds.includes(itemId)
+              return {
+                ...c,
+                checkedItemIds: isChecked
+                  ? c.checkedItemIds.filter((x) => x !== itemId)
+                  : [...c.checkedItemIds, itemId],
+              }
+            })
+            return { ...n, data: { ...n.data, checklists } }
+          }),
+        })
+      },
+
       // Section — Style Library. Applies a preset from nodeStyles.js onto
       // the selected node(s), or every node on the canvas if none are
       // selected (same targeting rule as applyLineStyleToSelectedEdges, so

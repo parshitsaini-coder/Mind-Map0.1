@@ -5,6 +5,7 @@ import Sidebar from './components/panels/Sidebar'
 import ConnectorStylesPanel from './components/panels/ConnectorStylesPanel'
 import ProjectsDashboard from './components/panels/ProjectsDashboard'
 import StyleLibraryPanel from './components/panels/StyleLibraryPanel'
+import ChecklistPanel from './components/panels/ChecklistPanel'
 import AuthPanel from './components/auth/AuthPanel'
 import ImageLightbox from './components/common/ImageLightbox'
 import Whiteboard from './components/whiteboard/Whiteboard'
@@ -171,6 +172,7 @@ export default function App() {
       <TradeAnalysis />
       <TradeLinkPickerModal />
       <TradeDetailModal />
+      <ChecklistPanel />
     </div>
   )
 }

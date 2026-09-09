@@ -1,4 +1,4 @@
-import { Plus, CornerDownRight, Copy, Trash2, ChevronsUpDown, Scissors, TrendingUp } from 'lucide-react'
+import { Plus, CornerDownRight, Copy, Trash2, ChevronsUpDown, Scissors, TrendingUp, ListChecks } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
 
@@ -55,6 +55,14 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
           },
         ]
       : []),
+    // Section — Checklist Library. Opens the left-side ChecklistPanel
+    // scoped to this node, where any saved checklist can be applied (and
+    // new ones created) — see ChecklistPanel.jsx / checklistStore.js.
+    {
+      icon: ListChecks,
+      label: 'Checklist',
+      onClick: () => run(() => useUiStore.getState().openChecklistPanel(id)),
+    },
     {
       icon: ChevronsUpDown,
       label: node.data?.collapsed ? 'Expand branch' : 'Collapse branch',

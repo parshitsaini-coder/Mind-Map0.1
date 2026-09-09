@@ -1,10 +1,11 @@
 import { memo, useState, useCallback } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import { motion } from 'framer-motion'
-import { Plus, Trash2, Star, FileText, CheckSquare, Square, ChevronRight, ChevronDown, Link2, Pin, TrendingUp } from 'lucide-react'
+import { Plus, Trash2, Star, FileText, CheckSquare, Square, ChevronRight, ChevronDown, Link2, Pin, TrendingUp, ListChecks } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
+import { useChecklistStore } from '../../store/checklistStore'
 import { ICONS } from '../../theme/iconSet'
 import { nodeTextStyle } from '../../utils/textStyle'
 
@@ -61,6 +62,24 @@ function CustomNode({ id, data, selected }) {
   // badge rather than erroring.
   const linkedTrade = useTradeAnalysisStore((s) =>
     data.linkedTradeId ? s.trades.find((t) => t.id === data.linkedTradeId) : null
+  )
+
+  // Section — Checklist Library badge. Sums checked/total across every
+  // checklist applied to this node (data.checklists), looking each
+  // template's items up live in checklistStore so edits/deletes there
+  // show up immediately. Clicking it reopens ChecklistPanel scoped to
+  // this node so items can be ticked off without leaving the canvas.
+  const appliedChecklists = data.checklists || []
+  const allChecklists = useChecklistStore((s) => s.checklists)
+  const checklistTotals = appliedChecklists.reduce(
+    (acc, applied) => {
+      const def = allChecklists.find((c) => c.id === applied.checklistId)
+      if (!def) return acc
+      acc.total += def.items.length
+      acc.checked += applied.checkedItemIds.filter((cid) => def.items.some((it) => it.id === cid)).length
+      return acc
+    },
+    { total: 0, checked: 0 }
   )
 
   const commit = useCallback(() => {
@@ -167,6 +186,20 @@ function CustomNode({ id, data, selected }) {
         >
           <TrendingUp size={9} />
           {linkedTrade.pair}
+        </button>
+      )}
+      {appliedChecklists.length > 0 && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            useUiStore.getState().openChecklistPanel(id)
+          }}
+          className="flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
+          style={{ backgroundColor: 'var(--color-sage)', color: 'var(--color-ink)' }}
+          title={`${checklistTotals.checked}/${checklistTotals.total} checked — click to open checklist`}
+        >
+          <ListChecks size={9} />
+          {checklistTotals.checked}/{checklistTotals.total}
         </button>
       )}
       {task?.assignee && (
