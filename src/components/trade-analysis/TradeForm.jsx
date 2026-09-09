@@ -56,6 +56,8 @@ export default function TradeForm() {
   const [form, setForm] = useState(blankForm)
   const [pairQuery, setPairQuery] = useState('')
   const [pairOpen, setPairOpen] = useState(false)
+  const [timeframeOpen, setTimeframeOpen] = useState(false)
+  const timeframeRef = useRef(null)
   const [screenshot, setScreenshot] = useState(null) // { file, previewUrl } — a newly-picked replacement image
   // The trade's already-uploaded screenshot, while editing. Separate from
   // `screenshot` above so re-opening the form doesn't force a re-upload of
@@ -131,6 +133,16 @@ export default function TradeForm() {
       if (screenshot?.previewUrl) URL.revokeObjectURL(screenshot.previewUrl)
     }
   }, [screenshot])
+
+  // Close the timeframe dropdown on outside click.
+  useEffect(() => {
+    if (!timeframeOpen) return
+    const onClick = (e) => {
+      if (timeframeRef.current && !timeframeRef.current.contains(e.target)) setTimeframeOpen(false)
+    }
+    window.addEventListener('mousedown', onClick)
+    return () => window.removeEventListener('mousedown', onClick)
+  }, [timeframeOpen])
 
   const attachFile = (file) => {
     if (!file.type.startsWith('image/')) return
@@ -324,20 +336,71 @@ export default function TradeForm() {
         </AnimatePresence>
       </div>
 
-      {/* 5. Time frame */}
-      <label className="flex flex-col gap-1">
+      {/* 5. Time frame + Price — side by side */}
+      <div className="grid grid-cols-2 gap-2">
+      <div className="relative flex flex-col gap-1" ref={timeframeRef}>
         <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Time frame</span>
-        <select
-          value={form.timeframe}
-          onChange={(e) => patch({ timeframe: e.target.value })}
-          className={inputCls}
+        <button
+          type="button"
+          onClick={() => setTimeframeOpen((v) => !v)}
+          className={`${inputCls} flex items-center justify-between text-left`}
           style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
         >
-          {TIMEFRAMES.map((tf) => (
-            <option key={tf} value={tf}>{tf}</option>
-          ))}
-        </select>
+          {form.timeframe}
+          <motion.span animate={{ rotate: timeframeOpen ? 180 : 0 }} transition={{ duration: 0.15 }}>
+            <ChevronDown size={13} style={{ color: 'var(--ta-slate)' }} />
+          </motion.span>
+        </button>
+        <AnimatePresence>
+          {timeframeOpen && (
+            <motion.ul
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.12 }}
+              className="absolute left-0 right-0 top-full z-20 mt-1 grid max-h-44 grid-cols-2 gap-1 overflow-y-auto rounded-md border p-1.5 shadow-md"
+              style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)' }}
+            >
+              {TIMEFRAMES.map((tf) => {
+                const active = tf === form.timeframe
+                return (
+                  <li key={tf}>
+                    <button
+                      type="button"
+                      onClick={() => { patch({ timeframe: tf }); setTimeframeOpen(false) }}
+                      className="w-full rounded-md py-1 text-[9px] font-medium transition-colors hover:bg-black/5"
+                      style={
+                        active
+                          ? { backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }
+                          : { color: 'var(--ta-ink)' }
+                      }
+                      onMouseDown={(e) => e.preventDefault()}
+                    >
+                      {tf}
+                    </button>
+                  </li>
+                )
+              })}
+            </motion.ul>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Price */}
+      <label className="flex flex-col gap-1">
+        <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Price</span>
+        <input
+          type="number"
+          step="any"
+          inputMode="decimal"
+          value={form.price}
+          onChange={(e) => patch({ price: e.target.value })}
+          placeholder="Entry price"
+          className={inputCls}
+          style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
+        />
       </label>
+      </div>
 
       {/* 6. Direction */}
       <div className="flex flex-col gap-1">
@@ -363,22 +426,7 @@ export default function TradeForm() {
         </div>
       </div>
 
-      {/* 7. Price */}
-      <label className="flex flex-col gap-1">
-        <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Price</span>
-        <input
-          type="number"
-          step="any"
-          inputMode="decimal"
-          value={form.price}
-          onChange={(e) => patch({ price: e.target.value })}
-          placeholder="Entry price"
-          className={inputCls}
-          style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
-        />
-      </label>
-
-      {/* 8. Notes */}
+      {/* 7. Notes */}
       <label className="flex flex-col gap-1">
         <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Notes</span>
         <textarea
