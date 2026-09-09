@@ -8,7 +8,7 @@ import TradesTable from './TradesTable'
 import ValidationRulesModal from './ValidationRulesModal'
 import FiltersPopover, { countActiveFilters } from './FiltersPopover'
 
-const SIDEBAR_WIDTH = 300
+const SIDEBAR_WIDTH = 230
 const SIDEBAR_SPRING = { type: 'spring', stiffness: 340, damping: 32 }
 
 // Trade Analysis — a separate full-screen feature (own overlay, own left
@@ -73,7 +73,7 @@ export default function TradeAnalysis() {
           exit={{ opacity: 0, scale: 0.98 }}
           transition={{ duration: 0.18, ease: 'easeOut' }}
           className="fixed inset-0 z-[60] flex flex-col"
-          style={{ backgroundColor: 'var(--ta-bg)' }}
+          style={{ backgroundColor: '#ffffff' }}
         >
           {/* Top bar */}
           <div
@@ -150,7 +150,7 @@ export default function TradeAnalysis() {
                 animate={{ opacity: sidebarOpen ? 1 : 0 }}
                 transition={{ duration: 0.15, delay: sidebarOpen ? 0.12 : 0 }}
                 style={{ width: SIDEBAR_WIDTH }}
-                className="h-full overflow-y-auto p-3"
+                className="h-full overflow-y-auto p-2"
               >
                 <TradeForm />
               </motion.div>

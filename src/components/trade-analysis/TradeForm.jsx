@@ -224,13 +224,13 @@ export default function TradeForm() {
     }
   }
 
-  const fieldLabelCls = 'text-[10px] font-medium uppercase tracking-wide'
+  const fieldLabelCls = 'text-[9px] font-medium uppercase tracking-wide'
   const inputCls =
-    'w-full rounded-md border bg-white/70 px-2 py-1.5 text-[11px] outline-none transition-colors focus:ring-1'
+    'w-full rounded-md border bg-white/70 px-1.5 py-1 text-[10px] outline-none transition-colors focus:ring-1'
 
   return (
-    <div className="flex h-full flex-col gap-3">
-      <p className="text-xs font-semibold" style={{ color: 'var(--ta-ink)' }}>
+    <div className="flex h-full flex-col gap-2">
+      <p className="text-[11px] font-semibold" style={{ color: 'var(--ta-ink)' }}>
         {editingTradeId ? 'Edit Trade' : 'New Trade'}
       </p>
 
@@ -259,7 +259,7 @@ export default function TradeForm() {
                 patch({ instrumentType: t, pair: '' })
                 setPairQuery('')
               }}
-              className="rounded-md border py-1 text-[10px] font-medium transition-colors"
+              className="rounded-md border py-0.5 text-[9px] font-medium transition-colors"
               style={
                 form.instrumentType === t
                   ? { backgroundColor: 'var(--ta-accent)', borderColor: 'var(--ta-accent)', color: '#fffcf2' }
@@ -302,7 +302,7 @@ export default function TradeForm() {
               style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)' }}
             >
               {filteredInstruments.length === 0 ? (
-                <li className="px-2 py-1.5 text-[10px]" style={{ color: 'var(--ta-slate)' }}>No matches</li>
+                <li className="px-2 py-1 text-[9px]" style={{ color: 'var(--ta-slate)' }}>No matches</li>
               ) : (
                 filteredInstruments.map((i) => (
                   <li key={i.symbol}>
@@ -310,7 +310,7 @@ export default function TradeForm() {
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => { patch({ pair: i.symbol }); setPairOpen(false); setPairQuery('') }}
-                      className="flex w-full flex-col items-start px-2 py-1 text-left text-[10px] hover:bg-black/5"
+                      className="flex w-full flex-col items-start px-1.5 py-1 text-left text-[9px] hover:bg-black/5"
                       style={{ color: 'var(--ta-ink)' }}
                     >
                       <span className="font-medium">{i.symbol}</span>
@@ -354,7 +354,7 @@ export default function TradeForm() {
               }}
               transition={{ duration: 0.16 }}
               onClick={() => patch({ direction: d })}
-              className="rounded-md border py-1 text-[10px] font-semibold"
+              className="rounded-md border py-0.5 text-[9px] font-semibold"
               style={{ borderColor: form.direction === d ? (d === 'Buy' ? '#16a34a' : '#dc2626') : 'var(--ta-slate)' }}
             >
               {d}
@@ -397,7 +397,7 @@ export default function TradeForm() {
           <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Validation</span>
           {scorePct !== null && (
             <span
-              className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
+              className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold"
               style={{ backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }}
             >
               {checkedCount}/{activeRules.length} ({scorePct}%)
@@ -405,7 +405,7 @@ export default function TradeForm() {
           )}
         </div>
         {activeRules.length === 0 ? (
-          <p className="rounded-md border border-dashed px-2 py-1.5 text-[10px]" style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-slate)' }}>
+          <p className="rounded-md border border-dashed px-1.5 py-1 text-[9px]" style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-slate)' }}>
             No validation rules yet — add some from the ✚ button up top.
           </p>
         ) : (
@@ -418,7 +418,7 @@ export default function TradeForm() {
                   type="button"
                   whileTap={{ scale: 0.97 }}
                   onClick={() => toggleRule(rule.id)}
-                  className="flex items-center gap-1.5 rounded-md border px-1.5 py-1 text-left text-[10px] transition-colors"
+                  className="flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-left text-[9px] transition-colors"
                   style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
                 >
                   <span
@@ -458,7 +458,7 @@ export default function TradeForm() {
         <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Screenshot</span>
         {screenshot ? (
           <div className="relative overflow-hidden rounded-md border" style={{ borderColor: 'var(--ta-slate)' }}>
-            <img src={screenshot.previewUrl} alt="Screenshot preview" className="h-24 w-full object-cover" />
+            <img src={screenshot.previewUrl} alt="Screenshot preview" className="h-16 w-full object-cover" />
             <motion.button
               type="button"
               whileTap={{ scale: 0.88 }}
@@ -471,7 +471,7 @@ export default function TradeForm() {
           </div>
         ) : existingScreenshot ? (
           <div className="relative overflow-hidden rounded-md border" style={{ borderColor: 'var(--ta-slate)' }}>
-            <img src={existingScreenshot.url} alt="Current screenshot" className="h-24 w-full object-cover" />
+            <img src={existingScreenshot.url} alt="Current screenshot" className="h-16 w-full object-cover" />
             <motion.button
               type="button"
               whileTap={{ scale: 0.88 }}
@@ -489,14 +489,14 @@ export default function TradeForm() {
             onDragOver={(e) => { e.preventDefault(); setDragActive(true) }}
             onDragLeave={() => setDragActive(false)}
             onDrop={handleDrop}
-            className="flex cursor-pointer flex-col items-center gap-1 rounded-md border border-dashed px-2 py-3 text-center transition-colors"
+            className="flex cursor-pointer flex-col items-center gap-1 rounded-md border border-dashed px-2 py-2 text-center transition-colors"
             style={{
               borderColor: dragActive ? 'var(--ta-accent)' : 'var(--ta-slate)',
               backgroundColor: dragActive ? 'rgba(235,94,40,0.08)' : 'transparent',
             }}
           >
             <ImagePlus size={16} style={{ color: 'var(--ta-slate)' }} />
-            <p className="text-[9px]" style={{ color: 'var(--ta-slate)' }}>
+            <p className="text-[8px]" style={{ color: 'var(--ta-slate)' }}>
               Drop, click to browse, or paste (Ctrl+V)
             </p>
           </div>
@@ -515,7 +515,7 @@ export default function TradeForm() {
       </div>
 
       {error && (
-        <p className="text-[10px] font-medium" style={{ color: '#dc2626' }}>{error}</p>
+        <p className="text-[9px] font-medium" style={{ color: '#dc2626' }}>{error}</p>
       )}
 
       {/* 11. Add / Update button — Cancel sits alongside it while editing. */}
@@ -526,7 +526,7 @@ export default function TradeForm() {
             whileTap={{ scale: 0.96 }}
             onClick={handleCancelEdit}
             disabled={saving}
-            className="rounded-md border py-2 px-3 text-xs font-medium transition-colors hover:bg-black/5 disabled:opacity-60"
+            className="rounded-md border py-1.5 px-2.5 text-[10px] font-medium transition-colors hover:bg-black/5 disabled:opacity-60"
             style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
           >
             Cancel
@@ -538,7 +538,7 @@ export default function TradeForm() {
           whileTap={{ scale: 0.97 }}
           onClick={handleAdd}
           disabled={saving}
-          className="flex-1 rounded-md py-2 text-xs font-semibold text-white transition-colors hover:brightness-110 disabled:opacity-60"
+          className="flex-1 rounded-md py-1.5 text-[10px] font-semibold text-white transition-colors hover:brightness-110 disabled:opacity-60"
           style={{ backgroundColor: 'var(--ta-accent)' }}
         >
           {saving ? (editingTradeId ? 'Saving…' : 'Adding…') : editingTradeId ? 'Save changes' : 'Add'}
