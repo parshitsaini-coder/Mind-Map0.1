@@ -35,6 +35,7 @@ function FlowInner() {
   const presentationMode = useUiStore((s) => s.presentationMode)
   const presentationIndex = useUiStore((s) => s.presentationIndex)
   const showMockCursors = useUiStore((s) => s.showMockCursors)
+  const jumpToken = useUiStore((s) => s.jumpToken)
   const [transitioning, setTransitioning] = useState(false)
   const [contextMenu, setContextMenu] = useState(null)
   const { fitView } = useReactFlow()
@@ -84,6 +85,25 @@ function FlowInner() {
       fitView({ nodes: [{ id }], duration: 600, padding: 0.6 })
     }
   }, [presentationMode, presentationIndex, presentationOrder, fitView])
+
+  // Section — Node Linking / Backlinks: jump to a node picked from the
+  // Node Inspector's Linked Nodes / Backlinks list. Expands any collapsed
+  // ancestor along the way first so the target is actually on-canvas
+  // before centering the view on it.
+  useEffect(() => {
+    if (!jumpToken?.id) return
+    const targetId = jumpToken.id
+    const { nodes: liveNodes, edges: liveEdges, toggleCollapse } = useMapStore.getState()
+    const parentOf = new Map(liveEdges.filter((e) => e.type !== 'crossEdge').map((e) => [e.target, e.source]))
+    let cursor = parentOf.get(targetId)
+    while (cursor) {
+      const ancestor = liveNodes.find((n) => n.id === cursor)
+      if (ancestor?.data?.collapsed) toggleCollapse(cursor)
+      cursor = parentOf.get(cursor)
+    }
+    const t = setTimeout(() => fitView({ nodes: [{ id: targetId }], duration: 500, padding: 0.6 }), 50)
+    return () => clearTimeout(t)
+  }, [jumpToken, fitView])
 
   const visibleNodes = nodes
     .filter((n) => !hiddenNodeIds.has(n.id))

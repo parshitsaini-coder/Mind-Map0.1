@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { useUiStore } from '../../store/uiStore'
 import { useMapStore } from '../../store/mapStore'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { LAYOUTS, THEME_PRESETS } from '../../theme/tokens'
 import NodeInspector from './NodeInspector'
 import TaskPanel from './TaskPanel'
@@ -138,6 +139,7 @@ export default function Sidebar() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen)
   const activePanel = useUiStore((s) => s.activePanel)
   const toggleSidebar = useUiStore((s) => s.toggleSidebar)
+  const isMobile = useIsMobile()
 
   return (
     <AnimatePresence>
@@ -154,37 +156,79 @@ export default function Sidebar() {
             onClick={toggleSidebar}
             className="fixed inset-0 top-11 z-30 bg-black/30 sm:hidden"
           />
-          <motion.aside
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 220, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-            className="fixed top-11 right-0 bottom-0 z-40 h-auto shrink-0 overflow-hidden border-l shadow-xl sm:static sm:z-auto sm:h-full sm:shadow-none"
-            style={{ backgroundColor: 'var(--color-cream)', borderColor: 'var(--color-sage)' }}
-          >
-            <div className="flex h-full w-[220px] flex-col p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-xs font-semibold" style={{ color: 'var(--color-ink)' }}>
-                  {PANEL_TITLES[activePanel]}
-                </h2>
-                <button onClick={toggleSidebar} className="rounded p-0.5 hover:bg-[var(--color-sage)]">
-                  <X size={13} />
-                </button>
+
+          {isMobile ? (
+            // Section — Mobile touch UI: a bottom sheet instead of a narrow
+            // side overlay. Full-width, capped at 70vh so the map behind it
+            // stays partly visible/reachable, with a drag-handle affordance
+            // and larger (py-2) tap targets throughout the header.
+            <motion.aside
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 300, damping: 32 }}
+              className="fixed inset-x-0 bottom-0 z-40 flex max-h-[70vh] flex-col overflow-hidden rounded-t-2xl border-t shadow-2xl"
+              style={{ backgroundColor: 'var(--color-cream)', borderColor: 'var(--color-sage)' }}
+            >
+              <div className="flex shrink-0 justify-center pt-2">
+                <div className="h-1 w-10 rounded-full" style={{ backgroundColor: 'var(--color-sage)' }} />
               </div>
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activePanel}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.18, ease: 'easeOut' }}
-                  className="min-h-0 flex-1 overflow-y-auto pr-0.5"
-                >
-                  <PanelBody panel={activePanel} />
-                </motion.div>
-              </AnimatePresence>
-            </div>
-          </motion.aside>
+              <div className="flex min-h-0 flex-1 flex-col p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <h2 className="text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
+                    {PANEL_TITLES[activePanel]}
+                  </h2>
+                  <button onClick={toggleSidebar} className="rounded-full p-1.5 hover:bg-[var(--color-sage)]">
+                    <X size={16} />
+                  </button>
+                </div>
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activePanel}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.18, ease: 'easeOut' }}
+                    className="min-h-0 flex-1 overflow-y-auto pb-2 pr-0.5 text-sm"
+                  >
+                    <PanelBody panel={activePanel} />
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+            </motion.aside>
+          ) : (
+            <motion.aside
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 220, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+              className="fixed top-11 right-0 bottom-0 z-40 h-auto shrink-0 overflow-hidden border-l shadow-xl sm:static sm:z-auto sm:h-full sm:shadow-none"
+              style={{ backgroundColor: 'var(--color-cream)', borderColor: 'var(--color-sage)' }}
+            >
+              <div className="flex h-full w-[220px] flex-col p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <h2 className="text-xs font-semibold" style={{ color: 'var(--color-ink)' }}>
+                    {PANEL_TITLES[activePanel]}
+                  </h2>
+                  <button onClick={toggleSidebar} className="rounded p-0.5 hover:bg-[var(--color-sage)]">
+                    <X size={13} />
+                  </button>
+                </div>
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activePanel}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.18, ease: 'easeOut' }}
+                    className="min-h-0 flex-1 overflow-y-auto pr-0.5"
+                  >
+                    <PanelBody panel={activePanel} />
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+            </motion.aside>
+          )}
         </>
       )}
     </AnimatePresence>

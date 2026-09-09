@@ -1,7 +1,9 @@
 import { lazy, Suspense, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Star, X as XIcon, Bold, Italic, Underline, Minus, Plus } from 'lucide-react'
+import { Star, X as XIcon, Bold, Italic, Underline, Minus, Plus, Link2, ArrowUpRight } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
+import { useUiStore } from '../../store/uiStore'
+import { uploadNodeImage } from '../../lib/imageUpload'
 import { COLORS, NODE_SHAPES } from '../../theme/tokens'
 import { FONT_FAMILIES, MIN_FONT_SIZE, MAX_FONT_SIZE, DEFAULT_FONT_SIZE } from '../../utils/textStyle'
 import IconLibrary from './IconLibrary'
@@ -155,22 +157,42 @@ export default function NodeInspector() {
   const nodes = useMapStore((s) => s.nodes)
   const edges = useMapStore((s) => s.edges)
   const updateNodeData = useMapStore((s) => s.updateNodeData)
+  const linkNode = useMapStore((s) => s.linkNode)
+  const unlinkNode = useMapStore((s) => s.unlinkNode)
   const updateNodesData = useMapStore((s) => s.updateNodesData)
   const updateEdgeStyle = useMapStore((s) => s.updateEdgeStyle)
   const [showEmoji, setShowEmoji] = useState(false)
   const [showIcons, setShowIcons] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
+  const [showLinks, setShowLinks] = useState(false)
+  const [linkPickerOpen, setLinkPickerOpen] = useState(false)
 
   const selectedNodes = nodes.filter((n) => n.selected && n.type !== 'boundaryGroup')
   const selectedNode = selectedNodes.length === 1 ? selectedNodes[0] : null
   const selectedEdge = edges.find((e) => e.selected)
 
-  const handleImageUpload = (e) => {
+  const [imageUploading, setImageUploading] = useState(false)
+
+  const handleImageUpload = async (e) => {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file || !selectedNode) return
-    const reader = new FileReader()
-    reader.onload = () => updateNodeData(selectedNode.id, { image: reader.result })
-    reader.readAsDataURL(file)
+    setImageUploading(true)
+    try {
+      const { url, hosted, error } = await uploadNodeImage(file)
+      updateNodeData(selectedNode.id, { image: url })
+      if (!hosted) {
+        useUiStore
+          .getState()
+          .showToast(
+            error
+              ? 'Image saved locally — upload failed, so it won\u2019t appear in share links.'
+              : 'Image saved locally — connect Supabase Storage so it appears in share links too.'
+          )
+      }
+    } finally {
+      setImageUploading(false)
+    }
   }
 
   // Multiple nodes selected (Shift-drag box-select or Ctrl/Cmd-click) — show
@@ -385,7 +407,142 @@ export default function NodeInspector() {
           </AnimatePresence>
         </div>
 
-        {/* Section 4.3 — icon / clip-art library */}
+        {/* Section — Node Linking / Backlinks. Outgoing links are stored on
+            this node (data.links); backlinks (who points at this node) are
+            derived on the fly by scanning every other node's data.links. */}
+        <div>
+          <button
+            onClick={() => setShowLinks((v) => !v)}
+            className="mb-1 flex w-full items-center justify-between text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]"
+          >
+            <span>Linked nodes</span>
+            <span>{showLinks ? '−' : '+'}</span>
+          </button>
+          <AnimatePresence initial={false}>
+            {showLinks && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
+                className="overflow-hidden"
+              >
+                {(() => {
+                  const outgoingIds = (selectedNode.data.links || []).filter((id) => nodes.some((n) => n.id === id))
+                  const backlinkNodes = nodes.filter(
+                    (n) => n.id !== selectedNode.id && (n.data.links || []).includes(selectedNode.id)
+                  )
+                  const linkableNodes = nodes.filter(
+                    (n) =>
+                      n.id !== selectedNode.id &&
+                      n.type !== 'boundaryGroup' &&
+                      !outgoingIds.includes(n.id)
+                  )
+                  const jump = (id) => {
+                    useMapStore.getState().selectNodeOnly(id)
+                    useUiStore.getState().jumpToNode(id)
+                  }
+                  return (
+                    <div className="flex flex-col gap-2 rounded-md border border-[var(--color-sage)] bg-white/40 p-2">
+                      <div>
+                        <p className="mb-1 text-[9px] font-medium uppercase tracking-wide text-[var(--color-slate)]">
+                          Links to ({outgoingIds.length})
+                        </p>
+                        {outgoingIds.length === 0 && (
+                          <p className="text-[10px] text-[var(--color-slate)]">No outgoing links yet.</p>
+                        )}
+                        <div className="flex flex-col gap-1">
+                          {outgoingIds.map((id) => {
+                            const target = nodes.find((n) => n.id === id)
+                            return (
+                              <div
+                                key={id}
+                                className="flex items-center gap-1 rounded border border-[var(--color-sage)] bg-white/70 px-1.5 py-1 text-[10px]"
+                              >
+                                <button
+                                  onClick={() => jump(id)}
+                                  className="flex flex-1 items-center gap-1 truncate text-left hover:underline"
+                                  title="Jump to this node"
+                                >
+                                  <ArrowUpRight size={11} className="shrink-0" />
+                                  <span className="truncate">{target?.data?.label || 'Untitled'}</span>
+                                </button>
+                                <button
+                                  onClick={() => unlinkNode(selectedNode.id, id)}
+                                  title="Remove link"
+                                  className="shrink-0 text-[var(--color-slate)] hover:text-[var(--color-ink)]"
+                                >
+                                  <XIcon size={11} />
+                                </button>
+                              </div>
+                            )
+                          })}
+                        </div>
+
+                        {linkPickerOpen ? (
+                          <div className="mt-1.5 flex flex-col gap-1">
+                            <div className="max-h-32 overflow-y-auto rounded border border-[var(--color-sage)] bg-white/70">
+                              {linkableNodes.length === 0 && (
+                                <p className="px-1.5 py-1 text-[10px] text-[var(--color-slate)]">No other nodes to link.</p>
+                              )}
+                              {linkableNodes.map((n) => (
+                                <button
+                                  key={n.id}
+                                  onClick={() => {
+                                    linkNode(selectedNode.id, n.id)
+                                    setLinkPickerOpen(false)
+                                  }}
+                                  className="block w-full truncate px-1.5 py-1 text-left text-[10px] hover:bg-[var(--color-sage)]/40"
+                                >
+                                  {n.data?.label || 'Untitled'}
+                                </button>
+                              ))}
+                            </div>
+                            <button
+                              onClick={() => setLinkPickerOpen(false)}
+                              className="w-fit text-[10px] text-[var(--color-slate)] underline hover:text-[var(--color-ink)]"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setLinkPickerOpen(true)}
+                            className="mt-1.5 flex items-center gap-1 rounded-md border border-dashed border-[var(--color-slate)] px-2 py-1 text-[10px] hover:bg-[var(--color-sage)]/30"
+                          >
+                            <Link2 size={11} /> Link to another node
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="border-t border-[var(--color-sage)] pt-1.5">
+                        <p className="mb-1 text-[9px] font-medium uppercase tracking-wide text-[var(--color-slate)]">
+                          Backlinks ({backlinkNodes.length})
+                        </p>
+                        {backlinkNodes.length === 0 && (
+                          <p className="text-[10px] text-[var(--color-slate)]">No other node links here yet.</p>
+                        )}
+                        <div className="flex flex-col gap-1">
+                          {backlinkNodes.map((n) => (
+                            <button
+                              key={n.id}
+                              onClick={() => jump(n.id)}
+                              className="flex items-center gap-1 truncate rounded border border-[var(--color-sage)] bg-white/70 px-1.5 py-1 text-left text-[10px] hover:underline"
+                              title="Jump to this node"
+                            >
+                              <ArrowUpRight size={11} className="shrink-0" />
+                              <span className="truncate">{n.data?.label || 'Untitled'}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
         <div>
           <button
             onClick={() => { setShowIcons((v) => !v); setShowEmoji(false) }}
@@ -453,7 +610,9 @@ export default function NodeInspector() {
         {/* Section 4.3 — image upload into nodes */}
         <div>
           <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Image</p>
-          {selectedNode.data.image ? (
+          {imageUploading ? (
+            <p className="text-[10px] text-[var(--color-slate)]">Uploading…</p>
+          ) : selectedNode.data.image ? (
             <div className="flex items-center gap-2">
               <img src={selectedNode.data.image} alt="" className="h-8 w-8 rounded object-cover" />
               <button
@@ -469,7 +628,14 @@ export default function NodeInspector() {
               <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
             </label>
           )}
+          {selectedNode.data.image && !imageUploading && !selectedNode.data.image.startsWith('data:') && (
+            <p className="mt-1 text-[9px] text-[var(--color-slate)]">✓ Hosted — will show up in share links.</p>
+          )}
+          {selectedNode.data.image && !imageUploading && selectedNode.data.image.startsWith('data:') && (
+            <p className="mt-1 text-[9px] text-[var(--color-slate)]">⚠ Embedded locally — may be left out of share links if the map is large.</p>
+          )}
         </div>
+
 
         {/* Section 4.3 — sticker/badge markers */}
         <div>

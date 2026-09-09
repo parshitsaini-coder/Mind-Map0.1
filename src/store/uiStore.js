@@ -20,6 +20,7 @@ export const useUiStore = create(
       authModalOpen: false,
       styleLibraryOpen: false,
       imageLightboxUrl: null, // set to an image URL to open it fullscreen; null when closed
+      jumpToken: null, // { id, ts } — set to ask the canvas to pan/zoom to and select a node (used by Linked Nodes / Backlinks jump buttons)
 
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       toggleConnectorPanel: () => set((s) => ({ connectorPanelOpen: !s.connectorPanelOpen })),
@@ -37,6 +38,7 @@ export const useUiStore = create(
       toggleMockCursors: () => set((s) => ({ showMockCursors: !s.showMockCursors })),
       openImageLightbox: (url) => set({ imageLightboxUrl: url }),
       closeImageLightbox: () => set({ imageLightboxUrl: null }),
+      jumpToNode: (id) => set({ jumpToken: { id, ts: Date.now() }, activePanel: 'inspector', sidebarOpen: true }),
       showToast: (toastMessage) => {
         set({ toastMessage })
         setTimeout(() => set((s) => (s.toastMessage === toastMessage ? { toastMessage: null } : {})), 2200)

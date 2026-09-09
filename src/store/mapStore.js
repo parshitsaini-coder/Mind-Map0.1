@@ -356,6 +356,46 @@ export const useMapStore = create(
         return id
       },
 
+      // Section — Node Linking / Backlinks. A "link" is a one-way pointer
+      // stored as an id in the *source* node's data.links array; backlinks
+      // (which nodes point AT a given node) are derived on the fly by
+      // scanning every node's data.links rather than stored separately, so
+      // there's a single source of truth and no risk of the two getting
+      // out of sync.
+      linkNode: (fromId, toId) => {
+        if (!toId || fromId === toId) return
+        get().pushSnapshot()
+        set({
+          nodes: get().nodes.map((n) => {
+            if (n.id !== fromId) return n
+            const links = n.data.links || []
+            if (links.includes(toId)) return n
+            return { ...n, data: { ...n.data, links: [...links, toId] } }
+          }),
+        })
+      },
+
+      unlinkNode: (fromId, toId) => {
+        get().pushSnapshot()
+        set({
+          nodes: get().nodes.map((n) =>
+            n.id === fromId
+              ? { ...n, data: { ...n.data, links: (n.data.links || []).filter((id) => id !== toId) } }
+              : n
+          ),
+        })
+      },
+
+      // Selects exactly one node (clearing any other node/edge selection) —
+      // used by the "jump to node" buttons in the Linked Nodes / Backlinks
+      // section of the Node Inspector.
+      selectNodeOnly: (id) => {
+        set({
+          nodes: get().nodes.map((n) => ({ ...n, selected: n.id === id })),
+          edges: get().edges.map((e) => ({ ...e, selected: false })),
+        })
+      },
+
       updateNodeData: (id, patch) => {
         get().pushSnapshotBurst()
         set({

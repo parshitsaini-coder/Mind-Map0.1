@@ -51,7 +51,8 @@ export function decodeMapFromParam(param) {
 // large (image, file attachment, recorded audio note). `videoEmbed` is
 // just a short YouTube id, so it's left alone.
 function hasEmbeddedMedia(data) {
-  return Boolean(data?.image || data?.audioNote || (data?.attachments || []).length)
+  const hasImageData = typeof data?.image === 'string' && data.image.startsWith('data:')
+  return Boolean(hasImageData || data?.audioNote || (data?.attachments || []).length)
 }
 
 // Returns a copy of nodes with embedded image/attachment/audio-note data
@@ -61,11 +62,13 @@ function hasEmbeddedMedia(data) {
 function stripHeavyMedia(nodes) {
   return nodes.map((n) => {
     if (!hasEmbeddedMedia(n.data)) return n
+    const isDataImage = typeof n.data?.image === 'string' && n.data.image.startsWith('data:')
     const { image, audioNote, attachments, ...rest } = n.data
     return {
       ...n,
       data: {
         ...rest,
+        ...(isDataImage ? {} : { image }),
         sharedMediaOmitted: true,
       },
     }

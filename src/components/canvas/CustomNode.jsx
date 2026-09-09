@@ -1,7 +1,7 @@
 import { memo, useState, useCallback } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import { motion } from 'framer-motion'
-import { Plus, Trash2, Star, FileText, CheckSquare, Square, ChevronRight, ChevronDown } from 'lucide-react'
+import { Plus, Trash2, Star, FileText, CheckSquare, Square, ChevronRight, ChevronDown, Link2 } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
 import { ICONS } from '../../theme/iconSet'
@@ -187,8 +187,16 @@ function CustomNode({ id, data, selected }) {
       {hasExtras && (
         <FileText size={11} className="absolute -top-1.5 right-3" color="var(--color-slate)" title="Has notes/attachments" />
       )}
+      {(data.links || []).length > 0 && (
+        <Link2
+          size={11}
+          className="absolute -top-1.5 right-8"
+          color="var(--color-slate)"
+          title={`Linked to ${data.links.length} node${data.links.length > 1 ? 's' : ''}`}
+        />
+      )}
 
-      <div className="absolute -top-2 -right-2 hidden group-hover:flex gap-1">
+      <div className={`absolute -top-2 -right-2 gap-1 group-hover:flex ${selected ? 'flex' : 'hidden'}`}>
         <button
           onClick={() => addChildNode(id)}
           className="rounded-full bg-[var(--color-accent)] p-0.5 shadow hover:brightness-95"
