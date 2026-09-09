@@ -6,57 +6,41 @@ import { Position } from '@xyflow/react'
 // pinned to whatever handle (left/right/top/bottom) it happened to be
 // created on. React Flow's default behaviour is the latter — a node
 // dragged above/left of its parent still connects right-edge → left-edge,
-// producing the long looping curves seen when a child ends up "behind"
-// its parent.
+// producing long looping curves.
 //
-// This computes, on every render, where a straight line between the two
-// nodes' centers crosses each node's own rectangle border — that
-// intersection point (and which side it lands on) becomes the edge's
-// actual endpoint/Position, so CustomEdge/CrossEdge always draw from the
-// nearest facing sides no matter how the nodes get moved around.
-// Adapted from React Flow's own "floating edges" example.
+// First pass here computed the *exact* geometric intersection of the
+// source→target line with each node's rectangle border. That picks the
+// correct side, but the landing point can slide anywhere along that side
+// (including right where the expand/collapse chevron or the add/delete
+// buttons sit), and several siblings converging on the same parent each
+// land at a slightly different spot — messy and overlapping the node's
+// own controls, instead of the single clean dot a fixed Handle gives you.
+//
+// So instead: pick the side the same way (whichever of the four faces the
+// other node), but always attach at the MIDPOINT of that side — exactly
+// where the old fixed Left/Right/Top/Bottom handles sat. Only the choice
+// of *which* side auto-adjusts; the point on it never moves.
 
-function getNodeIntersection(intersectionNode, targetNode) {
-  const intersectionNodeWidth = intersectionNode.measured?.width ?? intersectionNode.width ?? 140
-  const intersectionNodeHeight = intersectionNode.measured?.height ?? intersectionNode.height ?? 40
-  const intersectionNodePosition = intersectionNode.internals?.positionAbsolute ?? intersectionNode.position
-  const targetPosition = targetNode.internals?.positionAbsolute ?? targetNode.position
-  const targetWidth = targetNode.measured?.width ?? targetNode.width ?? 140
-  const targetHeight = targetNode.measured?.height ?? targetNode.height ?? 40
-
-  const w = intersectionNodeWidth / 2
-  const h = intersectionNodeHeight / 2
-
-  const x2 = intersectionNodePosition.x + w
-  const y2 = intersectionNodePosition.y + h
-  const x1 = targetPosition.x + targetWidth / 2
-  const y1 = targetPosition.y + targetHeight / 2
-
-  const xx1 = (x1 - x2) / (2 * w) - (y1 - y2) / (2 * h)
-  const yy1 = (x1 - x2) / (2 * w) + (y1 - y2) / (2 * h)
-  const a = 1 / (Math.abs(xx1) + Math.abs(yy1) || 1)
-  const xx3 = a * xx1
-  const yy3 = a * yy1
-  const x = w * (xx3 + yy3) + x2
-  const y = h * (-xx3 + yy3) + y2
-
-  return { x, y }
-}
-
-function getEdgePosition(node, intersectionPoint) {
+function getNodeBox(node) {
   const position = node.internals?.positionAbsolute ?? node.position
   const width = node.measured?.width ?? node.width ?? 140
   const height = node.measured?.height ?? node.height ?? 40
-  const nx = Math.round(position.x)
-  const ny = Math.round(position.y)
-  const px = Math.round(intersectionPoint.x)
-  const py = Math.round(intersectionPoint.y)
+  return { x: position.x, y: position.y, width, height }
+}
 
-  if (px <= nx + 1) return Position.Left
-  if (px >= nx + width - 1) return Position.Right
-  if (py <= ny + 1) return Position.Top
-  if (py >= ny + height - 1) return Position.Bottom
-  return Position.Top
+// Midpoint of the given side, plus which Position it is.
+function sideMidpoint(box, side) {
+  switch (side) {
+    case Position.Left:
+      return { x: box.x, y: box.y + box.height / 2, pos: Position.Left }
+    case Position.Right:
+      return { x: box.x + box.width, y: box.y + box.height / 2, pos: Position.Right }
+    case Position.Top:
+      return { x: box.x + box.width / 2, y: box.y, pos: Position.Top }
+    case Position.Bottom:
+    default:
+      return { x: box.x + box.width / 2, y: box.y + box.height, pos: Position.Bottom }
+  }
 }
 
 // Returns null if either node hasn't been measured/positioned yet (e.g.
@@ -64,19 +48,33 @@ function getEdgePosition(node, intersectionPoint) {
 // fall back to the fixed-handle coordinates React Flow already passed in.
 export function getFloatingEdgeParams(sourceNode, targetNode) {
   if (!sourceNode || !targetNode) return null
-  const sourcePos = sourceNode.internals?.positionAbsolute ?? sourceNode.position
-  const targetPos = targetNode.internals?.positionAbsolute ?? targetNode.position
-  if (!sourcePos || !targetPos) return null
+  const sourceBox = getNodeBox(sourceNode)
+  const targetBox = getNodeBox(targetNode)
+  if (!sourceBox || !targetBox) return null
 
-  const sourceIntersectionPoint = getNodeIntersection(sourceNode, targetNode)
-  const targetIntersectionPoint = getNodeIntersection(targetNode, sourceNode)
+  const sourceCenterX = sourceBox.x + sourceBox.width / 2
+  const sourceCenterY = sourceBox.y + sourceBox.height / 2
+  const targetCenterX = targetBox.x + targetBox.width / 2
+  const targetCenterY = targetBox.y + targetBox.height / 2
+
+  const dx = targetCenterX - sourceCenterX
+  const dy = targetCenterY - sourceCenterY
+
+  // Dominant axis decides left/right vs top/bottom, same idea as
+  // whichever quadrant the target sits in relative to the source.
+  const horizontal = Math.abs(dx) >= Math.abs(dy)
+  const sourceSide = horizontal ? (dx >= 0 ? Position.Right : Position.Left) : dy >= 0 ? Position.Bottom : Position.Top
+  const targetSide = horizontal ? (dx >= 0 ? Position.Left : Position.Right) : dy >= 0 ? Position.Top : Position.Bottom
+
+  const source = sideMidpoint(sourceBox, sourceSide)
+  const target = sideMidpoint(targetBox, targetSide)
 
   return {
-    sx: sourceIntersectionPoint.x,
-    sy: sourceIntersectionPoint.y,
-    tx: targetIntersectionPoint.x,
-    ty: targetIntersectionPoint.y,
-    sourcePos: getEdgePosition(sourceNode, sourceIntersectionPoint),
-    targetPos: getEdgePosition(targetNode, targetIntersectionPoint),
+    sx: source.x,
+    sy: source.y,
+    tx: target.x,
+    ty: target.y,
+    sourcePos: source.pos,
+    targetPos: target.pos,
   }
 }
