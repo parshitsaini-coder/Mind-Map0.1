@@ -71,16 +71,8 @@ function CustomNode({ id, data, selected }) {
   // this node so items can be ticked off without leaving the canvas.
   const appliedChecklists = data.checklists || []
   const allChecklists = useChecklistStore((s) => s.checklists)
-  const checklistTotals = appliedChecklists.reduce(
-    (acc, applied) => {
-      const def = allChecklists.find((c) => c.id === applied.checklistId)
-      if (!def) return acc
-      acc.total += def.items.length
-      acc.checked += applied.checkedItemIds.filter((cid) => def.items.some((it) => it.id === cid)).length
-      return acc
-    },
-    { total: 0, checked: 0 }
-  )
+
+  const toggleChecklistItemOnNode = useMapStore((s) => s.toggleChecklistItemOnNode)
 
   const commit = useCallback(() => {
     setEditing(false)
@@ -110,7 +102,7 @@ function CustomNode({ id, data, selected }) {
       exit={{ opacity: 0, scale: 0.7 }}
       whileHover={{ scale: 1.02 }}
       transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-      className={`group relative flex items-center gap-1.5 border px-3 py-1.5 text-xs font-medium shadow-sm ${shapeClass[data.shape] || 'rounded-md'} ${data.animationClass || ''}`}
+      className={`group relative flex flex-col border text-xs font-medium shadow-sm ${shapeClass[data.shape] || 'rounded-md'} ${data.animationClass || ''}`}
       style={{
         background: data.customBg || data.color || 'var(--color-cream)',
         backgroundSize: data.bgSize,
@@ -120,110 +112,184 @@ function CustomNode({ id, data, selected }) {
         boxShadow: glowShadow || undefined,
         '--sonar-color': data.glowColor ? `${data.glowColor}8c` : undefined,
         color: data.textColor || 'var(--color-ink)',
-        minWidth: 90,
+        minWidth: appliedChecklists.length > 0 ? 180 : 90,
         textAlign: 'center',
       }}
       onDoubleClick={() => setEditing(true)}
     >
       <Handle type="target" position={Position.Left} className="!bg-slate-600 !w-1.5 !h-1.5" />
 
-      {task && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            updateNodeData(id, { task: { ...task, done: !task.done } })
-          }}
-          className="shrink-0"
-          title={task.dueDate ? `Due ${task.dueDate}` : 'To-do'}
-        >
-          {task.done ? (
-            <CheckSquare size={13} color="var(--color-ink)" />
-          ) : (
-            <Square size={13} color={overdue ? '#c1443c' : 'var(--color-ink)'} />
-          )}
-        </button>
-      )}
+      {/* Header row — label, icon/emoji, linked-trade tag, assignee. Kept as
+          its own row (rather than the whole card) so the Section — Checklist
+          Library body below can render full-width beneath it. */}
+      <div className="relative flex w-full items-center gap-1.5 px-3 py-1.5">
+        {task && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              updateNodeData(id, { task: { ...task, done: !task.done } })
+            }}
+            className="shrink-0"
+            title={task.dueDate ? `Due ${task.dueDate}` : 'To-do'}
+          >
+            {task.done ? (
+              <CheckSquare size={13} color="var(--color-ink)" />
+            ) : (
+              <Square size={13} color={overdue ? '#c1443c' : 'var(--color-ink)'} />
+            )}
+          </button>
+        )}
 
-      {data.image && (
-        <img
-          src={data.image}
-          alt=""
-          onClick={(e) => {
-            e.stopPropagation()
-            useUiStore.getState().openImageLightbox(data.image)
-          }}
-          title="Click to view full size"
-          className="h-5 w-5 shrink-0 cursor-zoom-in rounded object-cover"
-        />
-      )}
-      {!data.image && data.emoji && <span className="shrink-0">{data.emoji}</span>}
-      {!data.image && !data.emoji && IconComp && <IconComp size={13} className="shrink-0" />}
+        {data.image && (
+          <img
+            src={data.image}
+            alt=""
+            onClick={(e) => {
+              e.stopPropagation()
+              useUiStore.getState().openImageLightbox(data.image)
+            }}
+            title="Click to view full size"
+            className="h-5 w-5 shrink-0 cursor-zoom-in rounded object-cover"
+          />
+        )}
+        {!data.image && data.emoji && <span className="shrink-0">{data.emoji}</span>}
+        {!data.image && !data.emoji && IconComp && <IconComp size={13} className="shrink-0" />}
 
-      {editing ? (
-        <input
-          autoFocus
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => e.key === 'Enter' && commit()}
-          style={textStyle}
-          className="w-full bg-transparent text-center outline-none"
-        />
-      ) : (
-        <span className={`flex-1 ${task?.done ? 'line-through opacity-60' : ''}`} style={textStyle}>
-          {data.label}
-        </span>
-      )}
-      {linkedTrade && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            useUiStore.getState().openTradeDetail(id, linkedTrade.id)
-          }}
-          className="flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
-          style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
-          title={`Linked trade: ${linkedTrade.pair} — click to view details`}
-        >
-          <TrendingUp size={9} />
-          {linkedTrade.pair}
-        </button>
-      )}
+        {editing ? (
+          <input
+            autoFocus
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => e.key === 'Enter' && commit()}
+            style={textStyle}
+            className="w-full bg-transparent text-center outline-none"
+          />
+        ) : (
+          <span className={`flex-1 ${task?.done ? 'line-through opacity-60' : ''}`} style={textStyle}>
+            {data.label}
+          </span>
+        )}
+        {linkedTrade && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              useUiStore.getState().openTradeDetail(id, linkedTrade.id)
+            }}
+            className="flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
+            style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
+            title={`Linked trade: ${linkedTrade.pair} — click to view details`}
+          >
+            <TrendingUp size={9} />
+            {linkedTrade.pair}
+          </button>
+        )}
+        {task?.assignee && (
+          <span
+            title={task.assignee}
+            className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-[8px] font-bold"
+          >
+            {task.assignee[0].toUpperCase()}
+          </span>
+        )}
+
+        {childCount > 0 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              toggleCollapse(id)
+            }}
+            className="absolute -right-4 top-1/2 -translate-y-1/2 rounded-full bg-[var(--color-cream)] p-0.5 shadow"
+            title={data.collapsed ? `Expand (${childCount} hidden)` : 'Collapse branch'}
+          >
+            {data.collapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
+          </button>
+        )}
+
+        {hasExtras && (
+          <FileText size={11} className="absolute -top-1.5 right-3" color="var(--color-slate)" title="Has notes/attachments" />
+        )}
+        {(data.links || []).length > 0 && (
+          <Link2
+            size={11}
+            className="absolute -top-1.5 right-8"
+            color="var(--color-slate)"
+            title={`Linked to ${data.links.length} node${data.links.length > 1 ? 's' : ''}`}
+          />
+        )}
+        {(data.whiteboardNotes || []).length > 0 && (
+          <Pin
+            size={11}
+            className="absolute -top-1.5 right-[52px]"
+            color="var(--color-slate)"
+            title={`${data.whiteboardNotes.length} whiteboard note${data.whiteboardNotes.length > 1 ? 's' : ''} attached`}
+          />
+        )}
+      </div>
+
+      {/* Section — Checklist Library, shown in full on the node itself (every
+          item, tickable right here) instead of just a "checked/total" badge.
+          Clicking a checklist's title still opens ChecklistPanel to add
+          checklists, rename items, or remove one from this node. */}
       {appliedChecklists.length > 0 && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            useUiStore.getState().openChecklistPanel(id)
-          }}
-          className="flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
-          style={{ backgroundColor: 'var(--color-sage)', color: 'var(--color-ink)' }}
-          title={`${checklistTotals.checked}/${checklistTotals.total} checked — click to open checklist`}
+        <div
+          className="w-full cursor-default border-t px-2.5 py-1.5"
+          style={{ borderColor: 'rgba(0,0,0,0.12)', textAlign: 'left' }}
+          onDoubleClick={(e) => e.stopPropagation()}
         >
-          <ListChecks size={9} />
-          {checklistTotals.checked}/{checklistTotals.total}
-        </button>
+          {appliedChecklists.map((applied) => {
+            const def = allChecklists.find((c) => c.id === applied.checklistId)
+            if (!def) return null
+            const checkedCount = applied.checkedItemIds.filter((cid) => def.items.some((it) => it.id === cid)).length
+            return (
+              <div key={applied.checklistId} className="mb-1.5 last:mb-0">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    useUiStore.getState().openChecklistPanel(id)
+                  }}
+                  className="mb-0.5 flex w-full items-center gap-1 text-[10px] font-semibold"
+                  style={{ color: 'var(--color-slate)' }}
+                  title="Manage this checklist"
+                >
+                  <ListChecks size={10} className="shrink-0" />
+                  <span className="flex-1 truncate text-left">{def.name}</span>
+                  <span className="shrink-0">
+                    {checkedCount}/{def.items.length}
+                  </span>
+                </button>
+                <div className="flex flex-col gap-0.5">
+                  {def.items.length === 0 && (
+                    <p className="pl-4 text-[10px] italic opacity-60">No checkboxes yet.</p>
+                  )}
+                  {def.items.map((item) => {
+                    const isChecked = applied.checkedItemIds.includes(item.id)
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleChecklistItemOnNode(id, applied.checklistId, item.id)
+                        }}
+                        className="flex w-full items-center gap-1.5 rounded px-0.5 py-0.5 text-left text-[11px] hover:bg-black/5"
+                      >
+                        {isChecked ? (
+                          <CheckSquare size={12} className="shrink-0" color="var(--color-accent)" />
+                        ) : (
+                          <Square size={12} className="shrink-0" color="var(--color-slate)" />
+                        )}
+                        <span className={isChecked ? 'line-through opacity-60' : ''}>{item.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </div>
       )}
-      {task?.assignee && (
-        <span
-          title={task.assignee}
-          className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-[8px] font-bold"
-        >
-          {task.assignee[0].toUpperCase()}
-        </span>
-      )}
-      <Handle type="source" position={Position.Right} className="!bg-slate-600 !w-1.5 !h-1.5" />
 
-      {childCount > 0 && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            toggleCollapse(id)
-          }}
-          className="absolute -right-4 top-1/2 -translate-y-1/2 rounded-full bg-[var(--color-cream)] p-0.5 shadow"
-          title={data.collapsed ? `Expand (${childCount} hidden)` : 'Collapse branch'}
-        >
-          {data.collapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
-        </button>
-      )}
+      <Handle type="source" position={Position.Right} className="!bg-slate-600 !w-1.5 !h-1.5" />
 
       {/* Section 4.3/4.5 — sticker/badge markers */}
       {badges.priority && (
@@ -241,25 +307,6 @@ function CustomNode({ id, data, selected }) {
         <span className="badge-pop absolute -bottom-2 -right-2">
           <ProgressRing percent={badges.progress} />
         </span>
-      )}
-      {hasExtras && (
-        <FileText size={11} className="absolute -top-1.5 right-3" color="var(--color-slate)" title="Has notes/attachments" />
-      )}
-      {(data.links || []).length > 0 && (
-        <Link2
-          size={11}
-          className="absolute -top-1.5 right-8"
-          color="var(--color-slate)"
-          title={`Linked to ${data.links.length} node${data.links.length > 1 ? 's' : ''}`}
-        />
-      )}
-      {(data.whiteboardNotes || []).length > 0 && (
-        <Pin
-          size={11}
-          className="absolute -top-1.5 right-[52px]"
-          color="var(--color-slate)"
-          title={`${data.whiteboardNotes.length} whiteboard note${data.whiteboardNotes.length > 1 ? 's' : ''} attached`}
-        />
       )}
 
       <div className={`absolute -top-6 right-0 gap-1 group-hover:flex ${selected ? 'flex' : 'hidden'}`}>
