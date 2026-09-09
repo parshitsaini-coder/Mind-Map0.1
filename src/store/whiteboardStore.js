@@ -26,6 +26,15 @@ export const WHITEBOARD_COLORS = [
   '#ffffff', // white
 ]
 
+export const BOARD_BG_PRESETS = [
+  '#ecebe4', // default (--color-bg-main)
+  '#ffffff', // white
+  '#e8eddf', // cream
+  '#cfdbd5', // sage
+  '#242423', // ink (dark board)
+  '#111214', // near-black
+]
+
 const initialState = {
   isOpen: false,
   elements: [], // { id, type: 'text'|'sticky'|'path', x, y, width, height, content, color, fontSize, points, strokeWidth }
@@ -35,6 +44,7 @@ const initialState = {
   strokeWidth: 3,
   pan: { x: 0, y: 0 },
   zoom: 1,
+  boardColor: null, // null = default themed background (--color-bg-main); otherwise a custom hex the user picked
   history: { past: [], future: [] },
 }
 
@@ -53,6 +63,7 @@ export const useWhiteboardStore = create(
       setZoom: (zoom) => set({ zoom: Math.min(3, Math.max(0.25, zoom)) }),
       resetView: () => set({ pan: { x: 0, y: 0 }, zoom: 1 }),
       selectElement: (selectedId) => set({ selectedId }),
+      setBoardColor: (boardColor) => set({ boardColor }),
 
       // Snapshots the whole element list — used for every discrete action
       // (add/delete/clear) and once at the start of a drag/resize/typing
@@ -141,7 +152,7 @@ export const useWhiteboardStore = create(
       name: 'mindmap-whiteboard-storage',
       // Only the actual drawing survives a refresh — open/selection/tool
       // state and undo history are transient per-session concerns.
-      partialize: (state) => ({ elements: state.elements, color: state.color, strokeWidth: state.strokeWidth }),
+      partialize: (state) => ({ elements: state.elements, color: state.color, strokeWidth: state.strokeWidth, boardColor: state.boardColor }),
     }
   )
 )

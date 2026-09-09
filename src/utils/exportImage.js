@@ -80,6 +80,58 @@ export async function exportMapAsPng(nodes, filename = 'mindmap.png') {
   downloadDataUrl(dataUrl, filename)
 }
 
+function getWhiteboardElementBounds(el) {
+  if (el.type === 'path') {
+    const xs = el.points.map((p) => p.x)
+    const ys = el.points.map((p) => p.y)
+    return { x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) }
+  }
+  return { x: el.x, y: el.y, width: el.width, height: el.height }
+}
+
+/**
+ * Rasterizes just the drawn content of the free-form Whiteboard (not the
+ * whole viewport — only the area actually covered by notes/drawings, plus
+ * padding) to a PNG data URL, regardless of the board's current pan/zoom.
+ * Used by the whiteboard's "Add to node" button to save a snapshot of the
+ * board as a node's image (see Whiteboard.jsx).
+ */
+export async function captureWhiteboardAsDataUrl(elements, bgColor = CANVAS_BG) {
+  if (!elements.length) {
+    throw new Error('The whiteboard is empty — add a note or drawing first.')
+  }
+
+  const layerEl = document.querySelector('.whiteboard-elements-layer')
+  if (!layerEl) {
+    throw new Error('Could not find the whiteboard canvas to capture.')
+  }
+
+  const boundsList = elements.map(getWhiteboardElementBounds)
+  const minX = Math.min(...boundsList.map((b) => b.x)) - PADDING
+  const minY = Math.min(...boundsList.map((b) => b.y)) - PADDING
+  const maxX = Math.max(...boundsList.map((b) => b.x + b.width)) + PADDING
+  const maxY = Math.max(...boundsList.map((b) => b.y + b.height)) + PADDING
+  const rawWidth = Math.max(1, maxX - minX)
+  const rawHeight = Math.max(1, maxY - minY)
+
+  const scale = Math.min(1, MAX_DIMENSION / Math.max(rawWidth, rawHeight))
+  const imageWidth = Math.max(1, Math.round(rawWidth * scale))
+  const imageHeight = Math.max(1, Math.round(rawHeight * scale))
+
+  return toPng(layerEl, {
+    backgroundColor: bgColor,
+    width: imageWidth,
+    height: imageHeight,
+    pixelRatio: 2,
+    style: {
+      width: `${imageWidth}px`,
+      height: `${imageHeight}px`,
+      transform: `translate(${-minX * scale}px, ${-minY * scale}px) scale(${scale})`,
+      transformOrigin: '0 0',
+    },
+  })
+}
+
 export async function exportMapAsPdf(nodes, filename = 'mindmap.pdf') {
   const { dataUrl, imageWidth, imageHeight } = await renderMapToDataUrl(nodes)
   const orientation = imageWidth >= imageHeight ? 'landscape' : 'portrait'

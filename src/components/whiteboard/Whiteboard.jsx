@@ -16,10 +16,15 @@ import {
   Pin,
   Minus,
   Plus,
+  ImagePlus,
+  Loader2,
+  Palette,
 } from 'lucide-react'
-import { useWhiteboardStore, WHITEBOARD_COLORS } from '../../store/whiteboardStore'
+import { useWhiteboardStore, WHITEBOARD_COLORS, BOARD_BG_PRESETS } from '../../store/whiteboardStore'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
+import { uploadNodeImage } from '../../lib/imageUpload'
+import { captureWhiteboardAsDataUrl } from '../../utils/exportImage'
 import WhiteboardElement from './WhiteboardElement'
 
 const TOOLS = [
@@ -32,7 +37,6 @@ const TOOLS = [
 
 const TOOL_KEYS = { v: 'select', t: 'text', s: 'sticky', p: 'pen', e: 'eraser' }
 
-const GRID_SIZE = 22
 const ERASE_RADIUS = 16
 
 function ToolButton({ icon: Icon, label, active, onClick, disabled }) {
@@ -59,7 +63,61 @@ function getElementBounds(el) {
   return { x: el.x, y: el.y, width: el.width, height: el.height }
 }
 
-// Small searchable popover used by the selection toolbar's "Attach to node"
+// Small round "custom color" swatch — a rainbow-wheel circle that opens the
+// browser's native color picker on click, so any hex color can be picked
+// for a note/pen stroke/background, not just the fixed preset swatches.
+function CustomColorSwatch({ value, onChange, size = 'h-4 w-4', title = 'Custom color…' }) {
+  return (
+    <label
+      title={title}
+      className={`relative ${size} shrink-0 cursor-pointer overflow-hidden rounded-full border`}
+      style={{ borderColor: 'var(--color-slate)', background: 'conic-gradient(red, #fbbf24, #34d399, #38bdf8, #818cf8, #f472b6, red)' }}
+    >
+      <input
+        type="color"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onClick={(e) => e.stopPropagation()}
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+      />
+    </label>
+  )
+}
+
+// Popover for the toolbar's "Background" button — preset swatches plus a
+// custom color picker, targeting the whiteboard canvas's own background
+// (independent of note/pen colors). See useWhiteboardStore.boardColor.
+function BackgroundPicker({ current, onPick, onClose }) {
+  return (
+    <div
+      className="absolute top-full right-0 z-10 mt-1 flex flex-col gap-1.5 rounded-md border p-2 shadow-lg"
+      style={{ backgroundColor: 'var(--color-cream)', borderColor: 'var(--color-sage)' }}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Board background</p>
+      <div className="flex items-center gap-1.5">
+        {BOARD_BG_PRESETS.map((c) => (
+          <button
+            key={c}
+            onClick={() => onPick(c)}
+            title={c}
+            className={`h-5 w-5 shrink-0 rounded-full border ${current === c ? 'ring-2 ring-[var(--color-accent)] ring-offset-1' : ''}`}
+            style={{ backgroundColor: c, borderColor: 'var(--color-slate)' }}
+          />
+        ))}
+        <CustomColorSwatch value={current || '#ecebe4'} onChange={onPick} size="h-5 w-5" title="Custom background color…" />
+      </div>
+      <button
+        onClick={onClose}
+        className="mt-0.5 text-center text-[10px] text-[var(--color-slate)] hover:text-[var(--color-ink)]"
+      >
+        Done
+      </button>
+    </div>
+  )
+}
+
+
 // button — lets you pick any node on the current mind map to copy this
 // whiteboard note onto (see mapStore.attachWhiteboardNote).
 function NodePicker({ onPick, onClose }) {
@@ -140,6 +198,7 @@ function SelectionToolbar({ element, pan, zoom }) {
               title={c}
             />
           ))}
+          <CustomColorSwatch value={element.color} onChange={(c) => useWhiteboardStore.getState().setElementColor(element.id, c)} />
           <div className="mx-0.5 h-4 w-px" style={{ backgroundColor: 'var(--color-sage)' }} />
           <button onClick={() => useWhiteboardStore.getState().bumpFontSize(element.id, -2)} title="Smaller text" className="rounded p-0.5 hover:bg-[var(--color-sage)]">
             <Minus size={11} />
@@ -171,6 +230,7 @@ function SelectionToolbar({ element, pan, zoom }) {
               title={c}
             />
           ))}
+          <CustomColorSwatch value={element.color} onChange={(c) => useWhiteboardStore.getState().setElementColor(element.id, c)} />
         </>
       )}
       <div className="mx-0.5 h-4 w-px" style={{ backgroundColor: 'var(--color-sage)' }} />
@@ -195,9 +255,42 @@ export default function Whiteboard() {
   const pan = useWhiteboardStore((s) => s.pan)
   const zoom = useWhiteboardStore((s) => s.zoom)
   const history = useWhiteboardStore((s) => s.history)
+  const boardColor = useWhiteboardStore((s) => s.boardColor)
+
+  const [addToNodeOpen, setAddToNodeOpen] = useState(false)
+  const [savingToNode, setSavingToNode] = useState(false)
+  const [bgPickerOpen, setBgPickerOpen] = useState(false)
+
+  // "Add to node" toolbar button — rasterizes everything currently on the
+  // board into one PNG and saves it as the picked node's image (same
+  // node.data.image field / upload pipeline as a manual image upload in the
+  // Node Inspector), so a whole whiteboard sketch can live on a node instead
+  // of just individual text/sticky notes (see the Pin/"attach" flow above).
+  const handleAddWhiteboardToNode = async (nodeId, label) => {
+    setAddToNodeOpen(false)
+    setSavingToNode(true)
+    try {
+      const dataUrl = await captureWhiteboardAsDataUrl(useWhiteboardStore.getState().elements, useWhiteboardStore.getState().boardColor || undefined)
+      const blob = await (await fetch(dataUrl)).blob()
+      const file = new File([blob], 'whiteboard.png', { type: 'image/png' })
+      const { url, hosted, error } = await uploadNodeImage(file)
+      useMapStore.getState().updateNodeData(nodeId, { image: url })
+      useUiStore
+        .getState()
+        .showToast(
+          hosted
+            ? `Whiteboard image added to "${label || 'node'}"`
+            : 'Whiteboard image added — saved locally since no image host is configured, so it won\u2019t appear in share links.'
+        )
+      if (error) console.error('Whiteboard image upload fallback reason:', error)
+    } catch (err) {
+      useUiStore.getState().showToast(err.message || 'Could not save the whiteboard image to that node.')
+    } finally {
+      setSavingToNode(false)
+    }
+  }
 
   const canvasRef = useRef(null)
-  const panState = useRef(null)
   const drawState = useRef(null)
   const erasingRef = useRef(false)
   const erasedThisStroke = useRef(new Set())
@@ -237,7 +330,9 @@ export default function Whiteboard() {
 
     if (tool === 'select') {
       store.selectElement(null)
-      panState.current = { startClientX: e.clientX, startClientY: e.clientY, startPan: pan }
+      // Panning by dragging empty canvas is intentionally disabled — the
+      // board background stays fixed (see the wheel handler below and the
+      // black boundary border), so nothing needs to start here.
     } else if (tool === 'text') {
       const id = store.addElement({ type: 'text', x: x - 80, y: y - 16, width: 170, height: 40, content: '', color: store.color, fontSize: 15 })
       setJustCreatedId(id)
@@ -261,11 +356,7 @@ export default function Whiteboard() {
   }
 
   const handleCanvasMouseMove = (e) => {
-    if (panState.current) {
-      const dx = e.clientX - panState.current.startClientX
-      const dy = e.clientY - panState.current.startClientY
-      useWhiteboardStore.getState().setPan({ x: panState.current.startPan.x + dx, y: panState.current.startPan.y + dy })
-    } else if (drawState.current) {
+    if (drawState.current) {
       const { x, y } = toBoardCoords(e.clientX, e.clientY)
       useWhiteboardStore.getState().appendPointToPath(drawState.current, { x, y })
     } else if (erasingRef.current) {
@@ -279,23 +370,22 @@ export default function Whiteboard() {
   }
 
   const handleCanvasMouseUp = () => {
-    panState.current = null
     drawState.current = null
     erasingRef.current = false
   }
 
   // Native (non-passive) wheel listener so preventDefault reliably stops the
-  // page from scrolling while panning/zooming the board.
+  // page from scrolling while zooming the board. Plain scroll no longer pans
+  // the board — the background is fixed in place (Ctrl/Cmd + scroll, or the
+  // zoom buttons, still zoom in/out around the fixed origin).
   useEffect(() => {
     const el = canvasRef.current
     if (!isOpen || !el) return
     const onWheel = (e) => {
       e.preventDefault()
-      const store = useWhiteboardStore.getState()
       if (e.ctrlKey || e.metaKey) {
+        const store = useWhiteboardStore.getState()
         store.setZoom(store.zoom * (1 - e.deltaY * 0.001))
-      } else {
-        store.setPan({ x: store.pan.x - e.deltaX, y: store.pan.y - e.deltaY })
       }
     }
     el.addEventListener('wheel', onWheel, { passive: false })
@@ -383,6 +473,7 @@ export default function Whiteboard() {
                 style={{ backgroundColor: c, borderColor: 'var(--color-slate)' }}
               />
             ))}
+            <CustomColorSwatch value={color} onChange={(c) => useWhiteboardStore.getState().setColor(c)} size="h-5 w-5" />
           </div>
 
           {tool === 'pen' && (
@@ -413,6 +504,16 @@ export default function Whiteboard() {
             }}
           />
 
+          <div className="relative">
+            <ToolButton
+              icon={savingToNode ? (props) => <Loader2 {...props} className="animate-spin" /> : ImagePlus}
+              label="Add whiteboard image to a node"
+              disabled={!elements.length || savingToNode}
+              onClick={() => setAddToNodeOpen((v) => !v)}
+            />
+            {addToNodeOpen && <NodePicker onPick={handleAddWhiteboardToNode} onClose={() => setAddToNodeOpen(false)} />}
+          </div>
+
           <div className="ml-auto flex shrink-0 items-center gap-1">
             <ToolButton icon={ZoomOut} label="Zoom out" onClick={() => useWhiteboardStore.getState().setZoom(zoom - 0.15)} />
             <span className="w-9 select-none text-center text-[10px]" style={{ color: 'var(--color-slate)' }}>
@@ -420,6 +521,17 @@ export default function Whiteboard() {
             </span>
             <ToolButton icon={ZoomIn} label="Zoom in" onClick={() => useWhiteboardStore.getState().setZoom(zoom + 0.15)} />
             <ToolButton icon={RotateCcw} label="Reset view" onClick={() => useWhiteboardStore.getState().resetView()} />
+            <div className="mx-0.5 h-5 w-px" style={{ backgroundColor: 'var(--color-sage)' }} />
+            <div className="relative">
+              <ToolButton icon={Palette} label="Whiteboard background color" active={bgPickerOpen} onClick={() => setBgPickerOpen((v) => !v)} />
+              {bgPickerOpen && (
+                <BackgroundPicker
+                  current={boardColor}
+                  onPick={(c) => useWhiteboardStore.getState().setBoardColor(c)}
+                  onClose={() => setBgPickerOpen(false)}
+                />
+              )}
+            </div>
             <div className="mx-0.5 h-5 w-px" style={{ backgroundColor: 'var(--color-sage)' }} />
             <ToolButton icon={X} label="Close whiteboard (Esc)" onClick={() => useWhiteboardStore.getState().close()} />
           </div>
@@ -434,14 +546,15 @@ export default function Whiteboard() {
           onMouseLeave={handleCanvasMouseUp}
           className="relative min-h-0 flex-1 overflow-hidden select-none"
           style={{
-            backgroundImage: 'radial-gradient(circle, var(--color-slate) 1px, transparent 1px)',
-            backgroundSize: `${GRID_SIZE * zoom}px ${GRID_SIZE * zoom}px`,
-            backgroundPosition: `${pan.x}px ${pan.y}px`,
-            backgroundColor: 'var(--color-bg-main)',
+            backgroundColor: boardColor || 'var(--color-bg-main)',
+            border: '3px solid #000000',
             cursor: tool === 'select' ? 'default' : tool === 'eraser' ? 'cell' : tool === 'pen' ? 'crosshair' : 'copy',
           }}
         >
-          <div style={{ position: 'absolute', top: 0, left: 0, width: 0, height: 0, transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0' }}>
+          <div
+            className="whiteboard-elements-layer"
+            style={{ position: 'absolute', top: 0, left: 0, width: 0, height: 0, transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0' }}
+          >
             {elements.map((el) => (
               <WhiteboardElement
                 key={el.id}
