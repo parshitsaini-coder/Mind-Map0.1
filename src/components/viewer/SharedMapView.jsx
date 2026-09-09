@@ -13,6 +13,7 @@ import ViewerNode from './ViewerNode'
 import ViewerBoundaryGroup from './ViewerBoundaryGroup'
 import CustomEdge from '../canvas/CustomEdge'
 import CrossEdge from '../canvas/CrossEdge'
+import ConnectorDemoEdge from '../canvas/ConnectorDemoEdge'
 import { computeHidden } from '../../utils/graphUtils'
 import { applyThemeVars } from '../../theme/tokens'
 import ImageLightbox from '../common/ImageLightbox'
@@ -22,7 +23,7 @@ function ViewerInner() {
   const edges = useViewerStore((s) => s.edges)
 
   const nodeTypes = useMemo(() => ({ mindNode: ViewerNode, boundaryGroup: ViewerBoundaryGroup }), [])
-  const edgeTypes = useMemo(() => ({ mindEdge: CustomEdge, crossEdge: CrossEdge }), [])
+  const edgeTypes = useMemo(() => ({ mindEdge: CustomEdge, crossEdge: CrossEdge, demoEdge: ConnectorDemoEdge }), [])
 
   const { hiddenNodeIds, hiddenEdgeIds } = useMemo(() => computeHidden(nodes, edges), [nodes, edges])
   const visibleNodes = nodes.filter((n) => !hiddenNodeIds.has(n.id))

@@ -488,7 +488,7 @@ export const useMapStore = create(
             const baseWidth = e.data?.baseStrokeWidth ?? e.data?.strokeWidth ?? 2
             return {
               ...e,
-              type: e.type || 'demoEdge',
+              type: 'demoEdge',
               data: {
                 ...e.data,
                 baseStrokeWidth: baseWidth,
