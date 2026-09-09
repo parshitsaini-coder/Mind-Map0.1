@@ -1,6 +1,6 @@
 import { memo, useState, useCallback } from 'react'
 import { Handle, Position } from '@xyflow/react'
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Plus, Trash2, Star, FileText, CheckSquare, Square, ChevronRight, ChevronDown, Link2, Pin, TrendingUp, ListChecks } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
@@ -73,6 +73,11 @@ function CustomNode({ id, data, selected }) {
   const allChecklists = useChecklistStore((s) => s.checklists)
 
   const toggleChecklistItemOnNode = useMapStore((s) => s.toggleChecklistItemOnNode)
+  // Section — Checklist Library collapse state. Purely local/visual (not
+  // persisted): each applied checklist starts expanded; the chevron on its
+  // left toggles just that checklist's item list with a height/slide
+  // animation, independent of any other checklist on the same node.
+  const [collapsedChecklists, setCollapsedChecklists] = useState({})
 
   const commit = useCallback(() => {
     setEditing(false)
@@ -118,6 +123,8 @@ function CustomNode({ id, data, selected }) {
       onDoubleClick={() => setEditing(true)}
     >
       <Handle type="target" position={Position.Left} className="!bg-slate-600 !w-1.5 !h-1.5" />
+      <Handle type="target" position={Position.Top} id="top" className="!bg-slate-600 !w-1.5 !h-1.5" />
+      <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-slate-600 !w-1.5 !h-1.5" />
 
       {/* Header row — label, icon/emoji, linked-trade tag, assignee. Kept as
           its own row (rather than the whole card) so the Section — Checklist
@@ -241,48 +248,73 @@ function CustomNode({ id, data, selected }) {
             const def = allChecklists.find((c) => c.id === applied.checklistId)
             if (!def) return null
             const checkedCount = applied.checkedItemIds.filter((cid) => def.items.some((it) => it.id === cid)).length
+            const percent = def.items.length ? Math.round((checkedCount / def.items.length) * 100) : 0
+            const isCollapsed = Boolean(collapsedChecklists[applied.checklistId])
             return (
               <div key={applied.checklistId} className="mb-1.5 last:mb-0">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    useUiStore.getState().openChecklistPanel(id)
-                  }}
-                  className="mb-0.5 flex w-full items-center gap-1 text-[10px] font-semibold"
-                  style={{ color: 'var(--color-slate)' }}
-                  title="Manage this checklist"
-                >
-                  <ListChecks size={10} className="shrink-0" />
-                  <span className="flex-1 truncate text-left">{def.name}</span>
-                  <span className="shrink-0">
-                    {checkedCount}/{def.items.length}
+                <div className="mb-0.5 flex w-full items-center gap-1 text-[10px] font-semibold" style={{ color: 'var(--color-slate)' }}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setCollapsedChecklists((prev) => ({ ...prev, [applied.checklistId]: !prev[applied.checklistId] }))
+                    }}
+                    className="shrink-0"
+                    title={isCollapsed ? 'Show checkboxes' : 'Hide checkboxes'}
+                  >
+                    {isCollapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      useUiStore.getState().openChecklistPanel(id)
+                    }}
+                    className="flex flex-1 items-center gap-1 truncate text-left"
+                    title="Manage this checklist"
+                  >
+                    <ListChecks size={10} className="shrink-0" />
+                    <span className="flex-1 truncate">{def.name}</span>
+                  </button>
+                  <span className="shrink-0" title={`${checkedCount}/${def.items.length} checked`}>
+                    <ProgressRing percent={percent} />
                   </span>
-                </button>
-                <div className="flex flex-col gap-0.5">
-                  {def.items.length === 0 && (
-                    <p className="pl-4 text-[10px] italic opacity-60">No checkboxes yet.</p>
-                  )}
-                  {def.items.map((item) => {
-                    const isChecked = applied.checkedItemIds.includes(item.id)
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          toggleChecklistItemOnNode(id, applied.checklistId, item.id)
-                        }}
-                        className="flex w-full items-center gap-1.5 rounded px-0.5 py-0.5 text-left text-[11px] hover:bg-black/5"
-                      >
-                        {isChecked ? (
-                          <CheckSquare size={12} className="shrink-0" color="var(--color-accent)" />
-                        ) : (
-                          <Square size={12} className="shrink-0" color="var(--color-slate)" />
-                        )}
-                        <span className={isChecked ? 'line-through opacity-60' : ''}>{item.label}</span>
-                      </button>
-                    )
-                  })}
                 </div>
+                <AnimatePresence initial={false}>
+                  {!isCollapsed && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.18, ease: 'easeInOut' }}
+                      className="overflow-hidden"
+                    >
+                      <div className="flex flex-col gap-0.5">
+                        {def.items.length === 0 && (
+                          <p className="pl-4 text-[10px] italic opacity-60">No checkboxes yet.</p>
+                        )}
+                        {def.items.map((item) => {
+                          const isChecked = applied.checkedItemIds.includes(item.id)
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleChecklistItemOnNode(id, applied.checklistId, item.id)
+                              }}
+                              className="flex w-full items-center gap-1.5 rounded px-0.5 py-0.5 text-left text-[11px] hover:bg-black/5"
+                            >
+                              {isChecked ? (
+                                <CheckSquare size={12} className="shrink-0" color="var(--color-accent)" />
+                              ) : (
+                                <Square size={12} className="shrink-0" color="var(--color-slate)" />
+                              )}
+                              <span className={isChecked ? 'line-through opacity-60' : ''}>{item.label}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             )
           })}
@@ -308,6 +340,21 @@ function CustomNode({ id, data, selected }) {
           <ProgressRing percent={badges.progress} />
         </span>
       )}
+
+      <div
+        className={`absolute -bottom-6 left-1/2 -translate-x-1/2 gap-1 group-hover:flex ${selected ? 'flex' : 'hidden'}`}
+      >
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            addChildNode(id, { fromHandle: 'bottom' })
+          }}
+          className="rounded-full bg-[var(--color-accent)] p-0.5 shadow hover:brightness-95"
+          title="Add child below"
+        >
+          <Plus size={10} />
+        </button>
+      </div>
 
       <div className={`absolute -top-6 right-0 gap-1 group-hover:flex ${selected ? 'flex' : 'hidden'}`}>
         <button

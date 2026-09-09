@@ -36,6 +36,7 @@ import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
 import { useWhiteboardStore } from '../../store/whiteboardStore'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
+import { useChecklistStore } from '../../store/checklistStore'
 import { useAuthStore } from '../../store/authStore'
 import { useProjectsStore } from '../../store/projectsStore'
 import { buildShareUrl } from '../../utils/exportShareLink'
@@ -88,7 +89,9 @@ export default function TopToolbar() {
   const backupInputRef = useRef(null)
 
   const handleShare = async () => {
-    const result = buildShareUrl(nodes, edges)
+    const checklists = useChecklistStore.getState().checklists
+    const trades = useTradeAnalysisStore.getState().trades
+    const result = buildShareUrl(nodes, edges, checklists, trades)
     if (result.error) {
       showToast(result.error)
       return

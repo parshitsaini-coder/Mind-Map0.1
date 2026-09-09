@@ -23,8 +23,37 @@ import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from
 // after the domain/path prefix.
 const MAX_URL_PARAM_LENGTH = 7000
 
-export function encodeMapToParam(nodes, edges) {
-  const json = JSON.stringify({ nodes, edges })
+// Only the checklists actually applied to some node need to travel with the
+// link — the shared viewer needs their name/items to render Section —
+// Checklist Library bodies, but the rest of the creator's checklist library
+// is irrelevant to this map.
+function collectUsedChecklists(nodes, checklists) {
+  const usedIds = new Set()
+  nodes.forEach((n) => (n.data?.checklists || []).forEach((c) => usedIds.add(c.checklistId)))
+  return checklists.filter((c) => usedIds.has(c.id))
+}
+
+// Same idea for linked trades, but trimmed to just the fields the viewer's
+// trade tag needs — a trade can carry a screenshot/result image as a large
+// base64 data URL, which would blow the URL budget for no visual benefit
+// (the shared view only shows a small "pair" tag, not the full trade).
+function collectUsedTrades(nodes, trades) {
+  const usedIds = new Set()
+  nodes.forEach((n) => {
+    if (n.data?.linkedTradeId) usedIds.add(n.data.linkedTradeId)
+  })
+  return trades
+    .filter((t) => usedIds.has(t.id))
+    .map((t) => ({ id: t.id, pair: t.pair, direction: t.direction, status: t.status }))
+}
+
+export function encodeMapToParam(nodes, edges, checklists = [], trades = []) {
+  const json = JSON.stringify({
+    nodes,
+    edges,
+    checklists: collectUsedChecklists(nodes, checklists),
+    trades: collectUsedTrades(nodes, trades),
+  })
   return compressToEncodedURIComponent(json)
 }
 
@@ -78,8 +107,8 @@ function stripHeavyMedia(nodes) {
 // Returns { url } on success, { url, warning } if media had to be
 // stripped to make it fit, or { error } if the map is too large to share
 // as a link even after both compression and stripping.
-export function buildShareUrl(nodes, edges) {
-  const full = encodeMapToParam(nodes, edges)
+export function buildShareUrl(nodes, edges, checklists = [], trades = []) {
+  const full = encodeMapToParam(nodes, edges, checklists, trades)
   if (full.length <= MAX_URL_PARAM_LENGTH) {
     const url = new URL(window.location.href)
     url.searchParams.set('map', full)
@@ -89,7 +118,7 @@ export function buildShareUrl(nodes, edges) {
   const strippedNodes = stripHeavyMedia(nodes)
   const anyStripped = strippedNodes.some((n, i) => n !== nodes[i])
   if (anyStripped) {
-    const lean = encodeMapToParam(strippedNodes, edges)
+    const lean = encodeMapToParam(strippedNodes, edges, checklists, trades)
     if (lean.length <= MAX_URL_PARAM_LENGTH) {
       const url = new URL(window.location.href)
       url.searchParams.set('map', lean)

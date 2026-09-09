@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useState, useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Star, X as XIcon, Bold, Italic, Underline, Minus, Plus, Link2, ArrowUpRight, PenSquare, Pin, TrendingUp } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
@@ -180,9 +180,7 @@ export default function NodeInspector() {
 
   const [imageUploading, setImageUploading] = useState(false)
 
-  const handleImageUpload = async (e) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
+  const uploadImageFile = async (file) => {
     if (!file || !selectedNode) return
     setImageUploading(true)
     try {
@@ -201,6 +199,40 @@ export default function NodeInspector() {
       setImageUploading(false)
     }
   }
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    uploadImageFile(file)
+  }
+
+  const handleImageDrop = (e) => {
+    e.preventDefault()
+    const file = Array.from(e.dataTransfer?.files || []).find((f) => f.type.startsWith('image/'))
+    if (file) uploadImageFile(file)
+  }
+
+  // Ctrl+V / Cmd+V paste-to-upload — active only while a single node is
+  // selected, so pasting an image anywhere on the page drops it straight
+  // onto that node without needing to click the drop zone first. Skips
+  // when the caret is in a text input/textarea/contenteditable (label
+  // editing, notes, etc.) so an incidental image in the clipboard doesn't
+  // hijack an unrelated text paste.
+  useEffect(() => {
+    if (!selectedNode) return
+    const onPaste = (e) => {
+      const active = document.activeElement
+      const isTyping = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)
+      if (isTyping) return
+      const item = Array.from(e.clipboardData?.items || []).find((it) => it.type.startsWith('image/'))
+      if (!item) return
+      const file = item.getAsFile()
+      if (file) uploadImageFile(file)
+    }
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNode?.id])
 
   // Multiple nodes selected (Shift-drag box-select or Ctrl/Cmd-click) — show
   // a simplified panel whose controls apply to every selected node at once.
@@ -711,8 +743,9 @@ export default function NodeInspector() {
           </AnimatePresence>
         </div>
 
-        {/* Section 4.3 — image upload into nodes */}
-        <div>
+        {/* Section 4.3 — image upload into nodes. Accepts click-to-browse,
+            drag-and-drop, and Ctrl+V paste (see the paste listener above). */}
+        <div onDrop={handleImageDrop} onDragOver={(e) => e.preventDefault()}>
           <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Image</p>
           {imageUploading ? (
             <p className="text-[10px] text-[var(--color-slate)]">Uploading…</p>
@@ -727,8 +760,9 @@ export default function NodeInspector() {
               </button>
             </div>
           ) : (
-            <label className="cursor-pointer rounded-md border border-dashed border-[var(--color-slate)] px-2 py-1.5 text-[10px] text-[var(--color-slate)] hover:bg-[var(--color-sage)]/30">
-              Upload image
+            <label className="flex cursor-pointer flex-col items-center gap-0.5 rounded-md border border-dashed border-[var(--color-slate)] px-2 py-2 text-center text-[10px] text-[var(--color-slate)] hover:bg-[var(--color-sage)]/30">
+              <span>Upload image</span>
+              <span className="text-[9px] opacity-70">or drag &amp; drop / paste (Ctrl+V)</span>
               <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
             </label>
           )}

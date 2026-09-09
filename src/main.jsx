@@ -18,7 +18,14 @@ function Root() {
   if (mapParam) {
     const decoded = decodeMapFromParam(mapParam)
     if (decoded?.nodes) {
-      return <SharedMapView nodes={decoded.nodes} edges={decoded.edges || []} />
+      return (
+        <SharedMapView
+          nodes={decoded.nodes}
+          edges={decoded.edges || []}
+          checklists={decoded.checklists || []}
+          trades={decoded.trades || []}
+        />
+      )
     }
     // Malformed/corrupted link — fall back to a small message rather than
     // a blank screen or silently opening the visitor's own editor.

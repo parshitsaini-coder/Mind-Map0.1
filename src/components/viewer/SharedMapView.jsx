@@ -72,11 +72,11 @@ function ViewerInner() {
 // shared link only ever sees the mind map itself (canvas + expand/collapse),
 // with no top toolbar, tabs bar, or side panels, and never touches the
 // viewer's own saved projects.
-export default function SharedMapView({ nodes, edges }) {
+export default function SharedMapView({ nodes, edges, checklists, trades }) {
   useEffect(() => {
     applyThemeVars('default')
-    useViewerStore.getState().setMap(nodes, edges)
-  }, [nodes, edges])
+    useViewerStore.getState().setMap(nodes, edges, checklists, trades)
+  }, [nodes, edges, checklists, trades])
 
   return (
     <ReactFlowProvider>

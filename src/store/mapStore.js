@@ -324,7 +324,12 @@ export const useMapStore = create(
         get().logActivity(`🔀 Switched layout to "${layoutId}"`)
       },
 
-      addChildNode: (parentId) => {
+      // `fromHandle: 'bottom'` is used by the node's bottom-center "+" (as
+      // opposed to the default top-right "+", which grows the tree to the
+      // right via the normal left/right handles) — it places the new node
+      // straight below the parent and wires the edge through the bottom
+      // (source) / top (target) handle pair added in CustomNode.jsx.
+      addChildNode: (parentId, { fromHandle } = {}) => {
         const parent = get().nodes.find((n) => n.id === parentId)
         if (!parent) return
         get().pushSnapshot()
@@ -332,10 +337,10 @@ export const useMapStore = create(
         const newNode = {
           id,
           type: 'mindNode',
-          position: {
-            x: parent.position.x + 220,
-            y: parent.position.y + (Math.random() * 80 - 40),
-          },
+          position:
+            fromHandle === 'bottom'
+              ? { x: parent.position.x, y: parent.position.y + 130 }
+              : { x: parent.position.x + 220, y: parent.position.y + (Math.random() * 80 - 40) },
           data: { label: 'New Node', shape: 'rectangle', color: '#e8eddf' },
         }
         const newEdge = {
@@ -344,6 +349,7 @@ export const useMapStore = create(
           target: id,
           type: 'mindEdge',
           animated: true,
+          ...(fromHandle === 'bottom' ? { sourceHandle: 'bottom', targetHandle: 'top' } : {}),
         }
         set({ nodes: [...get().nodes, newNode], edges: [...get().edges, newEdge] })
         get().logActivity(`➕ Added "${newNode.data.label}" under "${parent.data.label}"`)

@@ -9,8 +9,11 @@ import { create } from 'zustand'
 export const useViewerStore = create((set) => ({
   nodes: [],
   edges: [],
+  checklists: [],
+  trades: [],
 
-  setMap: (nodes, edges) => set({ nodes: nodes || [], edges: edges || [] }),
+  setMap: (nodes, edges, checklists, trades) =>
+    set({ nodes: nodes || [], edges: edges || [], checklists: checklists || [], trades: trades || [] }),
 
   toggleCollapse: (id) =>
     set((s) => ({
