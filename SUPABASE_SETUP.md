@@ -65,6 +65,35 @@ This gives every signed-up user exactly one row for their map, and Row Level
 Security makes sure nobody can read or write anyone else's row — even though
 the same public API key is shared by the whole app.
 
+## 3b. Create the `trade_analysis` table (optional — Trade Analysis feature)
+
+The Trade Analysis feature works entirely offline (localStorage) without
+this — this table just adds the same cross-device cloud sync the mind map
+gets above. Same idea, its own table:
+
+```sql
+create table public.trade_analysis (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  trades jsonb not null default '[]',
+  validation_rules jsonb not null default '[]',
+  updated_at timestamptz not null default now()
+);
+
+alter table public.trade_analysis enable row level security;
+
+create policy "Users can view own trade data"
+  on public.trade_analysis for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own trade data"
+  on public.trade_analysis for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own trade data"
+  on public.trade_analysis for update
+  using (auth.uid() = user_id);
+```
+
 ## 4. Get your API keys
 
 **Project Settings → API**. You need two values:
@@ -94,7 +123,9 @@ lets people sign up with **name + email + password**. After signing up they
 see a "check your inbox" screen, click the confirmation link Supabase
 emailed them, then come back and log in with their email + password. Their
 map auto-saves to Supabase a second or two after every edit, and loads back
-automatically the next time they log in on any device/browser.
+automatically the next time they log in on any device/browser. If you also
+created the `trade_analysis` table from step 3b, their trade log and
+validation rules sync the same way.
 
 If the keys are missing, the app doesn't break — the account button just
 shows a note that cloud save isn't connected yet, and everything keeps

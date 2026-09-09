@@ -31,6 +31,16 @@ export async function uploadNodeImage(file) {
   return { url: await fileToDataUrl(file), hosted: false }
 }
 
+// Same upload pipeline as uploadNodeImage (Cloudinary → Supabase Storage →
+// base64 fallback) — used by the Trade Analysis feature for trade
+// screenshots and result images. Kept as a separate export (rather than
+// reusing uploadNodeImage directly) so the two features can diverge later
+// (e.g. a different Cloudinary folder/tag) without one call site knowing
+// about the other's concerns.
+export async function uploadTradeImage(file) {
+  return uploadNodeImage(file)
+}
+
 async function uploadToCloudinary(file) {
   const form = new FormData()
   form.append('file', file)

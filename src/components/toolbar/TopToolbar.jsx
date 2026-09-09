@@ -14,12 +14,10 @@ import {
   Redo2,
   Search,
   Target,
-  Link2,
   Shapes,
   Share2,
   FolderOpen,
   Users,
-  Spline,
   Download,
   FileDown,
   FileJson,
@@ -30,11 +28,13 @@ import {
   LayoutDashboard,
   Sparkles,
   PenSquare,
+  CandlestickChart,
 } from 'lucide-react'
 import { useState, useRef } from 'react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
 import { useWhiteboardStore } from '../../store/whiteboardStore'
+import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useAuthStore } from '../../store/authStore'
 import { useProjectsStore } from '../../store/projectsStore'
 import { buildShareUrl } from '../../utils/exportShareLink'
@@ -66,8 +66,6 @@ export default function TopToolbar() {
   const focusMode = useUiStore((s) => s.focusMode)
   const toggleFocusMode = useUiStore((s) => s.toggleFocusMode)
   const togglePresentationMode = useUiStore((s) => s.togglePresentationMode)
-  const relationshipMode = useUiStore((s) => s.relationshipMode)
-  const toggleRelationshipMode = useUiStore((s) => s.toggleRelationshipMode)
   const searchOpen = useUiStore((s) => s.searchOpen)
   const toggleSearch = useUiStore((s) => s.toggleSearch)
   const showMockCursors = useUiStore((s) => s.showMockCursors)
@@ -84,21 +82,9 @@ export default function TopToolbar() {
   const groups = useMapStore((s) => s.groups)
   const activityLog = useMapStore((s) => s.activityLog)
   const loadMapData = useMapStore((s) => s.loadMapData)
-  const loadConnectorDemo = useMapStore((s) => s.loadConnectorDemo)
   const openProjectsDashboard = useProjectsStore((s) => s.openDashboard)
   const [exporting, setExporting] = useState(false)
   const backupInputRef = useRef(null)
-
-  const handleConnectorDemo = () => {
-    if (
-      window.confirm(
-        'Load the connector-styles demo map (18 line styles)? This replaces your current map — your current map stays in undo history (Ctrl+Z).'
-      )
-    ) {
-      loadConnectorDemo()
-      showToast('Connector styles demo loaded — Ctrl+Z to go back')
-    }
-  }
 
   const handleShare = async () => {
     const result = buildShareUrl(nodes, edges)
@@ -189,14 +175,13 @@ export default function TopToolbar() {
           label="Whiteboard — write text/notes anywhere, draw, then attach a note to any node"
           onClick={() => useWhiteboardStore.getState().open()}
         />
+        <IconBtn
+          icon={CandlestickChart}
+          label="Trade Analysis — log trades with screenshots, notes & a validation checklist"
+          onClick={() => useTradeAnalysisStore.getState().open()}
+        />
         <IconBtn icon={Target} label="Add central topic" onClick={addCentralTopic} />
         <IconBtn icon={StickyNote} label="Add floating note" onClick={addFloatingNode} />
-        <IconBtn
-          icon={Link2}
-          label="Relationship mode — drag between nodes to link across branches"
-          active={relationshipMode}
-          onClick={toggleRelationshipMode}
-        />
         <IconBtn
           icon={Shapes}
           label="Group selected nodes into a boundary (select 2+ nodes with Shift-drag first)"
@@ -221,7 +206,6 @@ export default function TopToolbar() {
           onChange={handleImportJsonFile}
           className="hidden"
         />
-        <IconBtn icon={Spline} label="Connector styles demo (18 line styles)" onClick={handleConnectorDemo} />
         <IconBtn
           icon={GitBranch}
           label="Connector Styles panel — select a line, pick a style"

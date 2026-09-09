@@ -8,11 +8,13 @@ import StyleLibraryPanel from './components/panels/StyleLibraryPanel'
 import AuthPanel from './components/auth/AuthPanel'
 import ImageLightbox from './components/common/ImageLightbox'
 import Whiteboard from './components/whiteboard/Whiteboard'
+import TradeAnalysis from './components/trade-analysis/TradeAnalysis'
 import MindMapCanvas from './components/canvas/MindMapCanvas'
 import { useUiStore } from './store/uiStore'
 import { useMapStore } from './store/mapStore'
 import { useProjectsStore } from './store/projectsStore'
 import { useAuthStore } from './store/authStore'
+import { useTradeAnalysisStore } from './store/tradeAnalysisStore'
 import { applyThemeVars } from './theme/tokens'
 import { isSupabaseConfigured } from './lib/supabaseClient'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
@@ -25,6 +27,8 @@ export default function App() {
   const authInitialized = useAuthStore((s) => s.initialized)
   const saveTimeout = useRef(null)
   const hasLoadedForUser = useRef(null)
+  const tradeSaveTimeout = useRef(null)
+  const hasLoadedTradesForUser = useRef(null)
   const projectSaveTimeout = useRef(null)
   useKeyboardShortcuts()
 
@@ -98,6 +102,31 @@ export default function App() {
     }
   }, [user, authInitialized])
 
+  // Step 9 (stretch goal) — same online sync pattern as the mind map
+  // above, applied to the Trade Analysis feature's trades/validation
+  // rules. Independent debounce/timers so a burst of edits in either
+  // feature doesn't cancel the other's pending save.
+  useEffect(() => {
+    if (!authInitialized) return
+    if (user && hasLoadedTradesForUser.current !== user.id) {
+      hasLoadedTradesForUser.current = user.id
+      useTradeAnalysisStore.getState().loadFromCloud(user.id)
+    }
+    if (!user) hasLoadedTradesForUser.current = null
+
+    const unsubscribe = useTradeAnalysisStore.subscribe(() => {
+      if (!user) return
+      clearTimeout(tradeSaveTimeout.current)
+      tradeSaveTimeout.current = setTimeout(() => {
+        useTradeAnalysisStore.getState().saveToCloud(user.id)
+      }, 1200)
+    })
+    return () => {
+      clearTimeout(tradeSaveTimeout.current)
+      unsubscribe()
+    }
+  }, [user, authInitialized])
+
   // Section 4.3 — themes/skins. Swaps the live CSS custom properties so the
   // whole UI (canvas bg, sidebar, cards, node fills) repaints instantly.
   useEffect(() => {
@@ -137,6 +166,7 @@ export default function App() {
       <StyleLibraryPanel />
       <ImageLightbox />
       <Whiteboard />
+      <TradeAnalysis />
     </div>
   )
 }
