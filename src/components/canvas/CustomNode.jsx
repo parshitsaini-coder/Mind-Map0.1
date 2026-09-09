@@ -262,7 +262,7 @@ function CustomNode({ id, data, selected }) {
         />
       )}
 
-      <div className={`absolute -top-2 -right-2 gap-1 group-hover:flex ${selected ? 'flex' : 'hidden'}`}>
+      <div className={`absolute -top-6 right-0 gap-1 group-hover:flex ${selected ? 'flex' : 'hidden'}`}>
         <button
           onClick={() => addChildNode(id)}
           className="rounded-full bg-[var(--color-accent)] p-0.5 shadow hover:brightness-95"

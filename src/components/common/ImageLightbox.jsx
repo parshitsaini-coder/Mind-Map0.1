@@ -28,7 +28,7 @@ export default function ImageLightbox() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={close}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-6"
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/85 p-6"
         >
           <button
             onClick={close}
