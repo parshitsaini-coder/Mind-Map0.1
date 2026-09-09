@@ -1,9 +1,10 @@
 import { memo, useState, useCallback } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import { motion } from 'framer-motion'
-import { Plus, Trash2, Star, FileText, CheckSquare, Square, ChevronRight, ChevronDown, Link2, Pin } from 'lucide-react'
+import { Plus, Trash2, Star, FileText, CheckSquare, Square, ChevronRight, ChevronDown, Link2, Pin, TrendingUp } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
+import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { ICONS } from '../../theme/iconSet'
 import { nodeTextStyle } from '../../utils/textStyle'
 
@@ -50,6 +51,16 @@ function CustomNode({ id, data, selected }) {
   const toggleCollapse = useMapStore((s) => s.toggleCollapse)
   const childCount = useMapStore(
     (s) => s.edges.filter((e) => e.source === id && e.type !== 'crossEdge').length
+  )
+  // Section — Linked Trade. Set via the node's right-click "Add trade"
+  // menu item (NodeContextMenu.jsx) or the inspector's Linked Trade
+  // section; stored as just an id on data.linkedTradeId so the trade
+  // itself always lives in tradeAnalysisStore, not duplicated here. Look
+  // the trade up live so renaming/deleting it in Trade Analysis is
+  // reflected immediately; a stale id (trade deleted) simply renders no
+  // badge rather than erroring.
+  const linkedTrade = useTradeAnalysisStore((s) =>
+    data.linkedTradeId ? s.trades.find((t) => t.id === data.linkedTradeId) : null
   )
 
   const commit = useCallback(() => {
@@ -143,6 +154,20 @@ function CustomNode({ id, data, selected }) {
         <span className={`flex-1 ${task?.done ? 'line-through opacity-60' : ''}`} style={textStyle}>
           {data.label}
         </span>
+      )}
+      {linkedTrade && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            useUiStore.getState().openTradeDetail(id, linkedTrade.id)
+          }}
+          className="flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
+          style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
+          title={`Linked trade: ${linkedTrade.pair} — click to view details`}
+        >
+          <TrendingUp size={9} />
+          {linkedTrade.pair}
+        </button>
       )}
       {task?.assignee && (
         <span

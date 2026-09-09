@@ -9,6 +9,8 @@ import AuthPanel from './components/auth/AuthPanel'
 import ImageLightbox from './components/common/ImageLightbox'
 import Whiteboard from './components/whiteboard/Whiteboard'
 import TradeAnalysis from './components/trade-analysis/TradeAnalysis'
+import TradeLinkPickerModal from './components/trade-analysis/TradeLinkPickerModal'
+import TradeDetailModal from './components/trade-analysis/TradeDetailModal'
 import MindMapCanvas from './components/canvas/MindMapCanvas'
 import { useUiStore } from './store/uiStore'
 import { useMapStore } from './store/mapStore'
@@ -167,6 +169,8 @@ export default function App() {
       <ImageLightbox />
       <Whiteboard />
       <TradeAnalysis />
+      <TradeLinkPickerModal />
+      <TradeDetailModal />
     </div>
   )
 }

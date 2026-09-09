@@ -22,6 +22,15 @@ export const useUiStore = create(
       imageLightboxUrl: null, // set to an image URL to open it fullscreen; null when closed
       jumpToken: null, // { id, ts } — set to ask the canvas to pan/zoom to and select a node (used by Linked Nodes / Backlinks jump buttons)
 
+      // Section — Link a Trade to a node. `tradeLinkPickerNodeId` opens the
+      // "pick a trade from Trade Analysis" popup for that node id (from the
+      // node's right-click menu or the inspector's Linked Trade section).
+      // `tradeDetail` opens the read-only trade detail popup; it keeps the
+      // triggering nodeId alongside the tradeId so that popup can offer an
+      // "Unlink from this node" action without needing extra plumbing.
+      tradeLinkPickerNodeId: null,
+      tradeDetail: null, // { nodeId, tradeId } | null
+
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       toggleConnectorPanel: () => set((s) => ({ connectorPanelOpen: !s.connectorPanelOpen })),
       toggleAuthModal: () => set((s) => ({ authModalOpen: !s.authModalOpen })),
@@ -38,6 +47,10 @@ export const useUiStore = create(
       toggleMockCursors: () => set((s) => ({ showMockCursors: !s.showMockCursors })),
       openImageLightbox: (url) => set({ imageLightboxUrl: url }),
       closeImageLightbox: () => set({ imageLightboxUrl: null }),
+      openTradeLinkPicker: (nodeId) => set({ tradeLinkPickerNodeId: nodeId }),
+      closeTradeLinkPicker: () => set({ tradeLinkPickerNodeId: null }),
+      openTradeDetail: (nodeId, tradeId) => set({ tradeDetail: { nodeId, tradeId } }),
+      closeTradeDetail: () => set({ tradeDetail: null }),
       jumpToNode: (id) => set({ jumpToken: { id, ts: Date.now() }, activePanel: 'inspector', sidebarOpen: true }),
       showToast: (toastMessage) => {
         set({ toastMessage })

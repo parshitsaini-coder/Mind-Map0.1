@@ -1,9 +1,10 @@
 import { lazy, Suspense, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Star, X as XIcon, Bold, Italic, Underline, Minus, Plus, Link2, ArrowUpRight, PenSquare, Pin } from 'lucide-react'
+import { Star, X as XIcon, Bold, Italic, Underline, Minus, Plus, Link2, ArrowUpRight, PenSquare, Pin, TrendingUp } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
 import { useWhiteboardStore } from '../../store/whiteboardStore'
+import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { uploadNodeImage } from '../../lib/imageUpload'
 import { COLORS, NODE_SHAPES } from '../../theme/tokens'
 import { FONT_FAMILIES, MIN_FONT_SIZE, MAX_FONT_SIZE, DEFAULT_FONT_SIZE } from '../../utils/textStyle'
@@ -173,6 +174,9 @@ export default function NodeInspector() {
   const selectedNodes = nodes.filter((n) => n.selected && n.type !== 'boundaryGroup')
   const selectedNode = selectedNodes.length === 1 ? selectedNodes[0] : null
   const selectedEdge = edges.find((e) => e.selected)
+  const linkedTrade = useTradeAnalysisStore((s) =>
+    selectedNode?.data?.linkedTradeId ? s.trades.find((t) => t.id === selectedNode.data.linkedTradeId) : null
+  )
 
   const [imageUploading, setImageUploading] = useState(false)
 
@@ -380,6 +384,47 @@ export default function NodeInspector() {
               className="rounded-md border border-dashed border-[var(--color-slate)] px-2 py-1 text-[10px] hover:bg-[var(--color-sage)]/30"
             >
               + Turn into a to-do task
+            </button>
+          )}
+        </div>
+
+        {/* Section — Linked Trade. Mirrors the Task section's shape: a
+            "+ Link a trade" prompt when nothing's attached, otherwise the
+            pair name plus View/Change/Unlink actions. The actual trade
+            data stays in tradeAnalysisStore — this only stores the id — so
+            "View" opens the same read-only TradeDetailModal the node's
+            canvas badge opens, rather than duplicating that UI here. */}
+        <div>
+          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Linked Trade</p>
+          {linkedTrade ? (
+            <div className="flex items-center gap-1.5 rounded-md border border-[var(--color-sage)] bg-white/40 px-2 py-1.5">
+              <TrendingUp size={12} className="shrink-0 text-[var(--color-slate)]" />
+              <span className="flex-1 truncate text-[11px] font-medium text-[var(--color-ink)]">{linkedTrade.pair}</span>
+              <button
+                onClick={() => useUiStore.getState().openTradeDetail(selectedNode.id, linkedTrade.id)}
+                className="text-[10px] text-[var(--color-accent)] underline hover:opacity-80"
+              >
+                View
+              </button>
+              <button
+                onClick={() => useUiStore.getState().openTradeLinkPicker(selectedNode.id)}
+                className="text-[10px] text-[var(--color-slate)] underline hover:text-[var(--color-ink)]"
+              >
+                Change
+              </button>
+              <button
+                onClick={() => updateNodeData(selectedNode.id, { linkedTradeId: null })}
+                className="text-[10px] text-[var(--color-slate)] underline hover:text-[#c1443c]"
+              >
+                Unlink
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => useUiStore.getState().openTradeLinkPicker(selectedNode.id)}
+              className="rounded-md border border-dashed border-[var(--color-slate)] px-2 py-1 text-[10px] hover:bg-[var(--color-sage)]/30"
+            >
+              + Link a trade
             </button>
           )}
         </div>

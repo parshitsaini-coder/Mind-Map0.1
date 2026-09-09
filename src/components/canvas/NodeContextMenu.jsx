@@ -1,5 +1,6 @@
-import { Plus, CornerDownRight, Copy, Trash2, ChevronsUpDown, Scissors } from 'lucide-react'
+import { Plus, CornerDownRight, Copy, Trash2, ChevronsUpDown, Scissors, TrendingUp } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
+import { useUiStore } from '../../store/uiStore'
 
 export default function NodeContextMenu({ id, x, y, onClose }) {
   const node = useMapStore((s) => s.nodes.find((n) => n.id === id))
@@ -17,6 +18,7 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
   const deleteNode = useMapStore((s) => s.deleteNode)
   const deleteChildren = useMapStore((s) => s.deleteChildren)
   const toggleCollapse = useMapStore((s) => s.toggleCollapse)
+  const updateNodeData = useMapStore((s) => s.updateNodeData)
 
   if (!node) return null
 
@@ -26,11 +28,33 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
   }
 
   const isLastRoot = node.data?.isRoot && rootCount <= 1
+  const hasLinkedTrade = Boolean(node.data?.linkedTradeId)
 
   const items = [
     { icon: Plus, label: 'Add child node', onClick: () => run(() => addChildNode(id)) },
     { icon: CornerDownRight, label: 'Add sibling node', onClick: () => run(() => addSiblingNode(id)) },
     { icon: Copy, label: 'Duplicate', onClick: () => run(() => duplicateNode(id)) },
+    // Section — Link a Trade. Opens the trade-picker popup (see
+    // TradeLinkPickerModal) scoped to this node; once a trade is picked,
+    // the node shows its pair/stock as a small badge (CustomNode.jsx) and
+    // clicking that badge reopens the full read-only trade detail popup
+    // (TradeDetailModal). A node already linked to a trade also gets a
+    // quick "Unlink trade" entry so this menu can undo it without needing
+    // the inspector.
+    {
+      icon: TrendingUp,
+      label: hasLinkedTrade ? 'Change linked trade' : 'Add trade',
+      onClick: () => run(() => useUiStore.getState().openTradeLinkPicker(id)),
+    },
+    ...(hasLinkedTrade
+      ? [
+          {
+            icon: TrendingUp,
+            label: 'Unlink trade',
+            onClick: () => run(() => updateNodeData(id, { linkedTradeId: null })),
+          },
+        ]
+      : []),
     {
       icon: ChevronsUpDown,
       label: node.data?.collapsed ? 'Expand branch' : 'Collapse branch',
