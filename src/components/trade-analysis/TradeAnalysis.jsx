@@ -8,6 +8,8 @@ import TradesTable from './TradesTable'
 import ValidationRulesModal from './ValidationRulesModal'
 import EditTradeModal from './EditTradeModal'
 import FiltersPopover, { countActiveFilters } from './FiltersPopover'
+import ThemePicker from './ThemePicker'
+import { tradeThemeCssVars } from '../../theme/tradeAnalysisThemes'
 
 const SIDEBAR_WIDTH = 230
 const SIDEBAR_SPRING = { type: 'spring', stiffness: 340, damping: 32 }
@@ -27,6 +29,7 @@ export default function TradeAnalysis() {
   const isOpen = useTradeAnalysisStore((s) => s.isOpen)
   const sidebarOpen = useTradeAnalysisStore((s) => s.sidebarOpen)
   const filters = useTradeAnalysisStore((s) => s.filters)
+  const theme = useTradeAnalysisStore((s) => s.theme)
   const [rulesModalOpen, setRulesModalOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const activeFilterCount = countActiveFilters(filters)
@@ -74,7 +77,7 @@ export default function TradeAnalysis() {
           exit={{ opacity: 0, scale: 0.98 }}
           transition={{ duration: 0.18, ease: 'easeOut' }}
           className="fixed inset-0 z-[60] flex flex-col"
-          style={{ backgroundColor: '#ffffff' }}
+          style={{ backgroundColor: '#ffffff', ...tradeThemeCssVars(theme) }}
         >
           {/* Top bar */}
           <div
@@ -97,6 +100,8 @@ export default function TradeAnalysis() {
             <span className="shrink-0 text-[11px] font-semibold" style={{ color: 'var(--ta-ink)' }}>
               📊 Trade Analysis
             </span>
+
+            <ThemePicker />
 
             <div className="ml-auto flex shrink-0 items-center gap-1">
               <div className="relative">

@@ -15,6 +15,11 @@ const initialState = {
   isOpen: false,
   sidebarOpen: true,
 
+  // Selected color theme id for the whole feature — see
+  // src/theme/tradeAnalysisThemes.js for the palette list. Applied as CSS
+  // var overrides on the overlay root in TradeAnalysis.jsx.
+  theme: 'classic',
+
   // Editing state — null when the left form is a blank "add new trade"
   // form; set to a trade id when Edit was clicked on a table row (Step 8).
   editingTradeId: null,
@@ -47,6 +52,7 @@ export const useTradeAnalysisStore = create(
       open: () => set({ isOpen: true }),
       close: () => set({ isOpen: false, editingTradeId: null }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+      setTheme: (theme) => set({ theme }),
 
       // Step 3 — "Add" button on the New Trade form. `trade` is the field
       // payload assembled by TradeForm.jsx; this just stamps an id/status/
@@ -174,6 +180,7 @@ export const useTradeAnalysisStore = create(
         trades: state.trades,
         validationRules: state.validationRules,
         sidebarOpen: state.sidebarOpen,
+        theme: state.theme,
       }),
     }
   )
