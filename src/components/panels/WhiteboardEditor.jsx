@@ -123,7 +123,6 @@ export default function WhiteboardEditor({ nodeId, data, onClose }) {
   const [tool, setTool] = useState('pen')
   const [color, setColor] = useState('#242423')
   const [size, setSize] = useState(3)
-  const [textInput, setTextInput] = useState(null) // { x, y, value }
 
   const redraw = useCallback(() => {
     const canvas = canvasRef.current
@@ -170,8 +169,15 @@ export default function WhiteboardEditor({ nodeId, data, onClose }) {
     const canvas = canvasRef.current
     const pos = pointerPos(canvas, e)
 
+    // Text tool — a floating on-canvas input was unreliable (focus/z-index
+    // issues meant taps registered as a stray dot but no box to type in), so
+    // this uses a plain browser prompt instead: always focused, always
+    // visible, works the same on desktop and mobile.
     if (tool === 'text') {
-      setTextInput({ x: pos.x, y: pos.y, value: '' })
+      const text = window.prompt('Enter text for the whiteboard:')
+      if (text && text.trim()) {
+        commitElement({ type: 'text', color, fontSize: 14 + size * 3, x: pos.x, y: pos.y, text: text.trim() })
+      }
       return
     }
 
@@ -195,20 +201,6 @@ export default function WhiteboardEditor({ nodeId, data, onClose }) {
     window.addEventListener('mouseup', up)
     window.addEventListener('touchmove', move, { passive: false })
     window.addEventListener('touchend', up)
-  }
-
-  const commitText = () => {
-    if (textInput && textInput.value.trim()) {
-      commitElement({
-        type: 'text',
-        color,
-        fontSize: 14 + size * 3,
-        x: textInput.x,
-        y: textInput.y,
-        text: textInput.value,
-      })
-    }
-    setTextInput(null)
   }
 
   const undo = () => {
@@ -329,27 +321,6 @@ export default function WhiteboardEditor({ nodeId, data, onClose }) {
               onTouchStart={handleStart}
               className="h-full w-full touch-none rounded-md border border-[var(--color-sage)] bg-white shadow-inner"
             />
-            {textInput && (
-              <input
-                autoFocus
-                value={textInput.value}
-                onChange={(e) => setTextInput((t) => ({ ...t, value: e.target.value }))}
-                onBlur={commitText}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') commitText()
-                  if (e.key === 'Escape') setTextInput(null)
-                }}
-                placeholder="Type…"
-                style={{
-                  position: 'absolute',
-                  left: `${(textInput.x / CANVAS_W) * 100}%`,
-                  top: `${(textInput.y / CANVAS_H) * 100}%`,
-                  color,
-                  fontSize: 14 + size * 3,
-                }}
-                className="min-w-[60px] border border-dashed border-[var(--color-accent)] bg-white/80 px-1 outline-none"
-              />
-            )}
           </div>
         </div>
 
