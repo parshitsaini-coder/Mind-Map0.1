@@ -71,7 +71,7 @@ function ViewerNode({ id, data }) {
         textAlign: 'center',
       }}
     >
-      <Handle type="target" position={Position.Left} className="!bg-slate-600 !w-1.5 !h-1.5" />
+      <Handle type="target" position={Position.Left} className="!pointer-events-none !bg-slate-600 !w-1.5 !h-1.5" />
 
       {task && (
         <span className="shrink-0" title={task.dueDate ? `Due ${task.dueDate}` : 'To-do'}>
@@ -110,7 +110,7 @@ function ViewerNode({ id, data }) {
           {task.assignee[0].toUpperCase()}
         </span>
       )}
-      <Handle type="source" position={Position.Right} className="!bg-slate-600 !w-1.5 !h-1.5" />
+      <Handle type="source" position={Position.Right} className="!pointer-events-none !bg-slate-600 !w-1.5 !h-1.5" />
 
       {childCount > 0 && (
         <button
@@ -118,7 +118,7 @@ function ViewerNode({ id, data }) {
             e.stopPropagation()
             toggleCollapse(id)
           }}
-          className="nodrag nopan absolute -right-5 top-1/2 flex h-5 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-[var(--color-cream)] shadow hover:bg-[var(--color-sage)]"
+          className="nodrag nopan absolute -right-5 top-1/2 z-10 flex h-5 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-[var(--color-cream)] shadow hover:bg-[var(--color-sage)]"
           title={data.collapsed ? `Expand (${childCount} hidden)` : 'Collapse branch'}
         >
           {data.collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
