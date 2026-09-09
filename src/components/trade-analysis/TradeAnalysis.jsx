@@ -78,44 +78,44 @@ export default function TradeAnalysis() {
         >
           {/* Top bar */}
           <div
-            className="flex h-11 shrink-0 items-center gap-2 border-b px-3"
+            className="flex h-8 shrink-0 items-center gap-1.5 border-b px-2"
             style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)' }}
           >
             <motion.button
               whileTap={{ scale: 0.94 }}
               onClick={() => useTradeAnalysisStore.getState().close()}
               title="Back to mind map (Esc)"
-              className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors hover:bg-black/5"
+              className="flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium transition-colors hover:bg-black/5"
               style={{ color: 'var(--ta-ink)' }}
             >
-              <ArrowLeft size={14} />
+              <ArrowLeft size={11} />
               Back
             </motion.button>
 
-            <div className="mx-1 h-5 w-px shrink-0" style={{ backgroundColor: 'var(--ta-slate)', opacity: 0.25 }} />
+            <div className="mx-0.5 h-4 w-px shrink-0" style={{ backgroundColor: 'var(--ta-slate)', opacity: 0.25 }} />
 
-            <span className="shrink-0 text-xs font-semibold" style={{ color: 'var(--ta-ink)' }}>
+            <span className="shrink-0 text-[11px] font-semibold" style={{ color: 'var(--ta-ink)' }}>
               📊 Trade Analysis
             </span>
 
-            <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            <div className="ml-auto flex shrink-0 items-center gap-1">
               <div className="relative">
                 <motion.button
                   whileTap={{ scale: 0.94 }}
                   title="Filters"
                   onClick={() => setFiltersOpen((o) => !o)}
-                  className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors hover:brightness-95"
+                  className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium transition-colors hover:brightness-95"
                   style={
                     filtersOpen || activeFilterCount > 0
                       ? { backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }
                       : { backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }
                   }
                 >
-                  <SlidersHorizontal size={14} />
+                  <SlidersHorizontal size={11} />
                   Filters
                   {activeFilterCount > 0 && (
                     <span
-                      className="flex h-3.5 min-w-[14px] items-center justify-center rounded-full px-1 text-[9px] font-bold"
+                      className="flex h-3 min-w-[12px] items-center justify-center rounded-full px-1 text-[8px] font-bold"
                       style={{ backgroundColor: '#fffcf2', color: 'var(--ta-accent)' }}
                     >
                       {activeFilterCount}
@@ -128,10 +128,10 @@ export default function TradeAnalysis() {
                 whileTap={{ scale: 0.94 }}
                 title="Add / manage validation rules"
                 onClick={() => setRulesModalOpen(true)}
-                className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:brightness-110"
+                className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium text-white transition-colors hover:brightness-110"
                 style={{ backgroundColor: 'var(--ta-accent)' }}
               >
-                <ShieldPlus size={14} />
+                <ShieldPlus size={11} />
                 Add Validation Rule
               </motion.button>
             </div>

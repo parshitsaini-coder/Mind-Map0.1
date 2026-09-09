@@ -4,22 +4,29 @@ import { ImagePlus, Pencil, Trash2, Camera } from 'lucide-react'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useUiStore } from '../../store/uiStore'
 import { uploadTradeImage } from '../../lib/imageUpload'
+import StatusDropdown from './StatusDropdown'
 
-const STATUS_OPTIONS = ['Pending', 'Target Hit', 'SL Hit']
+// Step 10 (polish pass) note: status pill colors now live in
+// StatusDropdown.jsx alongside the custom animated menu that replaced the
+// native <select> below.
 
-// Step 10 (polish pass) — status pills use tints derived from the palette
-// itself (--ta-accent's amber warmth, and muted green/rust variants at the
-// same saturation/lightness) rather than stock Tailwind red-600/green-600,
-// so they read as part of this module's theme. Buy/Sell direction badges
-// are the one deliberate exception in this feature and keep saturated
-// trading-standard green/red (see TradeForm.jsx / below).
-const STATUS_STYLE = {
-  Pending: { bg: 'rgba(235,94,40,0.14)', text: 'var(--ta-accent)' }, // amber-ish, straight off --ta-accent
-  'Target Hit': { bg: 'rgba(95,138,82,0.16)', text: '#4c6f42' }, // muted, palette-weight green
-  'SL Hit': { bg: 'rgba(179,80,58,0.16)', text: '#9c4a34' }, // muted rust-red, warm like --ta-accent but distinct
+const TYPE_BADGE_STYLE = {
+  Equity: { bg: 'rgba(235,94,40,0.18)', text: '#c1450f' }, // warm orange
+  Forex: { bg: 'rgba(37,99,235,0.16)', text: '#1d4ed8' }, // blue
+  Commodity: { bg: 'rgba(217,119,6,0.18)', text: '#b45309' }, // gold/amber
 }
 
-const TYPE_BADGE_BG = { Equity: '#eb5e2822', Forex: '#403d3922', Commodity: '#25242222' }
+const TIMEFRAME_BADGE_STYLE = {
+  '1m': { bg: 'rgba(20,184,166,0.16)', text: '#0f766e' },
+  '5m': { bg: 'rgba(20,184,166,0.16)', text: '#0f766e' },
+  '15m': { bg: 'rgba(139,92,246,0.16)', text: '#6d28d9' },
+  '30m': { bg: 'rgba(139,92,246,0.16)', text: '#6d28d9' },
+  '60m': { bg: 'rgba(219,39,119,0.16)', text: '#be185d' },
+  '1H': { bg: 'rgba(219,39,119,0.16)', text: '#be185d' },
+  '4H': { bg: 'rgba(2,132,199,0.16)', text: '#0369a1' },
+  '1D': { bg: 'rgba(22,163,74,0.16)', text: '#15803d' },
+}
+const TIMEFRAME_DEFAULT_STYLE = { bg: 'rgba(75,85,99,0.16)', text: '#374151' }
 
 // Step 6 of trade-analysis-master-prompt.md — the entries table, replacing
 // the Step 2 body placeholder. Columns match the spec table exactly.
@@ -150,14 +157,27 @@ export default function TradesTable() {
 
                   <td className={td}>
                     <span
-                      className="rounded-full px-1.5 py-0.5 text-[8px] font-medium"
-                      style={{ backgroundColor: TYPE_BADGE_BG[trade.instrumentType] || '#403d3922', color: 'var(--ta-ink)' }}
+                      className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold"
+                      style={{
+                        backgroundColor: (TYPE_BADGE_STYLE[trade.instrumentType] || TIMEFRAME_DEFAULT_STYLE).bg,
+                        color: (TYPE_BADGE_STYLE[trade.instrumentType] || TIMEFRAME_DEFAULT_STYLE).text,
+                      }}
                     >
                       {trade.instrumentType}
                     </span>
                   </td>
 
-                  <td className={td} style={{ color: 'var(--ta-ink)' }}>{trade.timeframe}</td>
+                  <td className={td}>
+                    <span
+                      className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold"
+                      style={{
+                        backgroundColor: (TIMEFRAME_BADGE_STYLE[trade.timeframe] || TIMEFRAME_DEFAULT_STYLE).bg,
+                        color: (TIMEFRAME_BADGE_STYLE[trade.timeframe] || TIMEFRAME_DEFAULT_STYLE).text,
+                      }}
+                    >
+                      {trade.timeframe}
+                    </span>
+                  </td>
 
                   <td className={td}>
                     <span
@@ -184,16 +204,10 @@ export default function TradesTable() {
                   </td>
 
                   <td className={td}>
-                    <select
+                    <StatusDropdown
                       value={trade.status}
-                      onChange={(e) => useTradeAnalysisStore.getState().updateTradeStatus(trade.id, e.target.value)}
-                      className="rounded-full border-0 px-1.5 py-0.5 text-[8.5px] font-semibold outline-none transition-colors"
-                      style={{ backgroundColor: STATUS_STYLE[trade.status].bg, color: STATUS_STYLE[trade.status].text }}
-                    >
-                      {STATUS_OPTIONS.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
+                      onChange={(next) => useTradeAnalysisStore.getState().updateTradeStatus(trade.id, next)}
+                    />
                   </td>
 
                   <td className={`${td} whitespace-normal`}>

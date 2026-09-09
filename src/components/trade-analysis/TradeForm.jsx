@@ -308,32 +308,44 @@ export default function TradeForm({ mode = 'sidebar' }) {
               initial={{ opacity: 0, y: -6, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -6, scale: 0.97 }}
-              transition={{ duration: 0.16, ease: 'easeOut' }}
+              transition={{ type: 'spring', stiffness: 420, damping: 32 }}
               className="absolute left-0 right-0 top-full z-20 mt-1 flex max-h-44 flex-col gap-1 overflow-y-auto rounded-lg border p-1.5 shadow-lg"
               style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)', transformOrigin: 'top' }}
             >
               {filteredInstruments.length === 0 ? (
                 <li className="px-2 py-1 text-[9px]" style={{ color: 'var(--ta-slate)' }}>No matches</li>
               ) : (
-                filteredInstruments.map((i, idx) => (
-                  <motion.li
-                    key={i.symbol}
-                    initial={{ opacity: 0, x: -6 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.14, delay: Math.min(idx, 8) * 0.02 }}
-                  >
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => { patch({ pair: i.symbol }); setPairOpen(false); setPairQuery('') }}
-                      className="flex w-full flex-col items-start gap-0.5 rounded-md border px-2 py-1.5 text-left text-[9px] transition-colors hover:border-[#eb5e28] hover:bg-[rgba(235,94,40,0.08)]"
-                      style={{ borderColor: 'rgba(43,41,37,0.16)', color: 'var(--ta-ink)' }}
+                filteredInstruments.map((i, idx) => {
+                  const active = i.symbol === form.pair
+                  return (
+                    <motion.li
+                      key={i.symbol}
+                      initial={{ opacity: 0, x: -6 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.14, delay: Math.min(idx, 8) * 0.02 }}
                     >
-                      <span className="font-semibold">{i.symbol}</span>
-                      <span className="text-[8px]" style={{ color: 'var(--ta-slate)' }}>{i.name}</span>
-                    </button>
-                  </motion.li>
-                ))
+                      <motion.button
+                        type="button"
+                        whileHover={{ scale: 1.015, x: 2 }}
+                        whileTap={{ scale: 0.98 }}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => { patch({ pair: i.symbol }); setPairOpen(false); setPairQuery('') }}
+                        className="flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left text-[9px] transition-colors hover:border-[#eb5e28] hover:bg-[rgba(235,94,40,0.08)]"
+                        style={
+                          active
+                            ? { borderColor: 'var(--ta-accent)', backgroundColor: 'rgba(235,94,40,0.1)', color: 'var(--ta-ink)' }
+                            : { borderColor: 'rgba(43,41,37,0.16)', color: 'var(--ta-ink)' }
+                        }
+                      >
+                        <span className="flex flex-1 flex-col items-start gap-0.5">
+                          <span className="font-semibold">{i.symbol}</span>
+                          <span className="text-[8px]" style={{ color: 'var(--ta-slate)' }}>{i.name}</span>
+                        </span>
+                        {active && <Check size={12} style={{ color: 'var(--ta-accent)' }} className="shrink-0" />}
+                      </motion.button>
+                    </motion.li>
+                  )
+                })
               )}
             </motion.ul>
           )}
@@ -358,31 +370,39 @@ export default function TradeForm({ mode = 'sidebar' }) {
         <AnimatePresence>
           {timeframeOpen && (
             <motion.ul
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.12 }}
-              className="absolute left-0 right-0 top-full z-20 mt-1 grid max-h-44 grid-cols-2 gap-1 overflow-y-auto rounded-md border p-1.5 shadow-md"
-              style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)' }}
+              initial={{ opacity: 0, y: -6, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.97 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              className="absolute left-0 right-0 top-full z-20 mt-1 grid max-h-44 grid-cols-2 gap-1 overflow-y-auto rounded-lg border p-1.5 shadow-lg"
+              style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)', transformOrigin: 'top' }}
             >
-              {TIMEFRAMES.map((tf) => {
+              {TIMEFRAMES.map((tf, idx) => {
                 const active = tf === form.timeframe
                 return (
-                  <li key={tf}>
-                    <button
+                  <motion.li
+                    key={tf}
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.12, delay: Math.min(idx, 8) * 0.015 }}
+                  >
+                    <motion.button
                       type="button"
+                      whileHover={{ scale: 1.04 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => { patch({ timeframe: tf }); setTimeframeOpen(false) }}
-                      className="w-full rounded-md py-1 text-[9px] font-medium transition-colors hover:bg-black/5"
+                      className="flex w-full items-center justify-center gap-1 rounded-md py-1 text-[9px] font-medium transition-colors hover:bg-black/5"
                       style={
                         active
-                          ? { backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }
+                          ? { backgroundColor: 'var(--ta-accent)', color: '#fffcf2', boxShadow: '0 1px 4px rgba(235,94,40,0.4)' }
                           : { color: 'var(--ta-ink)' }
                       }
                       onMouseDown={(e) => e.preventDefault()}
                     >
                       {tf}
-                    </button>
-                  </li>
+                      {active && <Check size={10} />}
+                    </motion.button>
+                  </motion.li>
                 )
               })}
             </motion.ul>

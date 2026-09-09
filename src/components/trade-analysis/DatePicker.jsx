@@ -71,15 +71,19 @@ export default function DatePicker({ value, onChange, inputCls }) {
 
   return (
     <div className="relative" ref={rootRef}>
-      <button
+      <motion.button
         type="button"
+        whileHover={{ scale: 1.01 }}
+        whileTap={{ scale: 0.98 }}
         onClick={() => setOpen((v) => !v)}
         className={`${inputCls} flex items-center justify-between text-left`}
         style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
       >
         {displayLabel}
-        <Calendar size={12} style={{ color: 'var(--ta-slate)' }} />
-      </button>
+        <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.15 }} className="flex">
+          <Calendar size={12} style={{ color: 'var(--ta-slate)' }} />
+        </motion.span>
+      </motion.button>
 
       <AnimatePresence>
         {open && (
@@ -156,6 +160,7 @@ export default function DatePicker({ value, onChange, inputCls }) {
                   <motion.button
                     key={idx}
                     type="button"
+                    whileHover={{ scale: 1.12 }}
                     whileTap={{ scale: 0.88 }}
                     onClick={() => { onChange(toISO(date)); setOpen(false) }}
                     className="flex h-6 w-6 items-center justify-center rounded-md text-[9.5px] font-medium transition-colors hover:bg-black/5"
@@ -163,7 +168,11 @@ export default function DatePicker({ value, onChange, inputCls }) {
                       color: !inMonth ? 'var(--ta-slate)' : isSelected ? '#fffcf2' : 'var(--ta-ink)',
                       opacity: inMonth ? 1 : 0.32,
                       backgroundColor: isSelected ? 'var(--ta-accent)' : 'transparent',
-                      boxShadow: isToday && !isSelected ? 'inset 0 0 0 1px var(--ta-accent)' : 'none',
+                      boxShadow: isSelected
+                        ? '0 2px 6px rgba(235,94,40,0.45)'
+                        : isToday
+                          ? 'inset 0 0 0 1px var(--ta-accent)'
+                          : 'none',
                     }}
                   >
                     {date.getDate()}
@@ -175,9 +184,10 @@ export default function DatePicker({ value, onChange, inputCls }) {
             {/* Today shortcut */}
             <motion.button
               type="button"
+              whileHover={{ scale: 1.02, backgroundColor: 'rgba(235,94,40,0.08)' }}
               whileTap={{ scale: 0.96 }}
               onClick={() => { onChange(toISO(today)); setOpen(false); setViewDate(today) }}
-              className="mt-1.5 w-full rounded-md border py-1 text-[9px] font-medium transition-colors hover:bg-black/5"
+              className="mt-1.5 w-full rounded-md border py-1 text-[9px] font-medium transition-colors"
               style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
             >
               Today
