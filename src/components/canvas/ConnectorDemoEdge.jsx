@@ -6,8 +6,10 @@ import {
   getStraightPath,
   getSmoothStepPath,
   getSimpleBezierPath,
+  useInternalNode,
 } from '@xyflow/react'
 import { ICONS } from '../../theme/iconSet'
+import { getFloatingEdgeParams } from '../../utils/floatingEdgeUtils'
 
 // Section 4.8 — connector styles showcase. One component handles every row
 // of the demo map; `data.pathType` picks which React Flow path algorithm to
@@ -30,7 +32,16 @@ function resolvePath(pathType, params) {
 }
 
 // Section 14 — perf pass: memoized like the other edge/node components.
+// Section — floating connectors: picking a style from the Connector
+// Styles panel switches an edge's `type` to this component (see
+// applyLineStyleToSelectedEdges in mapStore.js), so it needs the same
+// live-position re-projection as CustomEdge/CrossEdge — otherwise a
+// styled connector reverts to the fixed left/right handle and cuts
+// straight through the node the moment either end has been dragged
+// somewhere that fixed handle doesn't face.
 function ConnectorDemoEdge({
+  source,
+  target,
   sourceX,
   sourceY,
   targetX,
@@ -42,13 +53,17 @@ function ConnectorDemoEdge({
   markerStart,
   selected,
 }) {
+  const sourceNode = useInternalNode(source)
+  const targetNode = useInternalNode(target)
+  const floating = getFloatingEdgeParams(sourceNode, targetNode)
+
   const [edgePath, labelX, labelY] = resolvePath(data?.pathType, {
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
+    sourceX: floating?.sx ?? sourceX,
+    sourceY: floating?.sy ?? sourceY,
+    sourcePosition: floating?.sourcePos ?? sourcePosition,
+    targetX: floating?.tx ?? targetX,
+    targetY: floating?.ty ?? targetY,
+    targetPosition: floating?.targetPos ?? targetPosition,
   })
 
   const IconComp = data?.iconMid ? ICONS[data.iconMid] : null
