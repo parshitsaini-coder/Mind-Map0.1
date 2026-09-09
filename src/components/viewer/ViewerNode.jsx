@@ -53,7 +53,7 @@ function ViewerNode({ id, data }) {
   const IconComp = data.icon ? ICONS[data.icon] : null
   const badges = data.badges || {}
   const hasNotes = (data.notes || '').replace(/<[^>]*>/g, '').trim().length > 0
-  const hasExtras = hasNotes || (data.attachments || []).length > 0 || data.audioNote || data.videoEmbed || !!data.whiteboard?.thumbnail
+  const hasExtras = hasNotes || (data.attachments || []).length > 0 || data.audioNote || data.videoEmbed
   const task = data.task
 
   return (

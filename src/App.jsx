@@ -7,6 +7,7 @@ import ProjectsDashboard from './components/panels/ProjectsDashboard'
 import StyleLibraryPanel from './components/panels/StyleLibraryPanel'
 import AuthPanel from './components/auth/AuthPanel'
 import ImageLightbox from './components/common/ImageLightbox'
+import Whiteboard from './components/whiteboard/Whiteboard'
 import MindMapCanvas from './components/canvas/MindMapCanvas'
 import { useUiStore } from './store/uiStore'
 import { useMapStore } from './store/mapStore'
@@ -135,6 +136,7 @@ export default function App() {
       <ProjectsDashboard />
       <StyleLibraryPanel />
       <ImageLightbox />
+      <Whiteboard />
     </div>
   )
 }

@@ -29,10 +29,12 @@ import {
   UserCheck,
   LayoutDashboard,
   Sparkles,
+  PenSquare,
 } from 'lucide-react'
 import { useState, useRef } from 'react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
+import { useWhiteboardStore } from '../../store/whiteboardStore'
 import { useAuthStore } from '../../store/authStore'
 import { useProjectsStore } from '../../store/projectsStore'
 import { buildShareUrl } from '../../utils/exportShareLink'
@@ -182,6 +184,11 @@ export default function TopToolbar() {
         </span>
         <div className="mx-0.5 hidden h-4 w-px shrink-0 sm:block" style={{ backgroundColor: 'var(--color-sage)' }} />
         <IconBtn icon={LayoutDashboard} label="My mind maps (new / open projects)" onClick={openProjectsDashboard} />
+        <IconBtn
+          icon={PenSquare}
+          label="Whiteboard — write text/notes anywhere, draw, then attach a note to any node"
+          onClick={() => useWhiteboardStore.getState().open()}
+        />
         <IconBtn icon={Target} label="Add central topic" onClick={addCentralTopic} />
         <IconBtn icon={StickyNote} label="Add floating note" onClick={addFloatingNode} />
         <IconBtn

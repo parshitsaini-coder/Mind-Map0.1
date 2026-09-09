@@ -4,7 +4,7 @@ Full-featured mind mapping web app built with React, React Flow (`@xyflow/react`
 
 ## Recent updates
 
-- **Node Whiteboard** — every node now has a "Whiteboard" section in the Node Inspector: opens a full-screen drawing board (pen, eraser, line/rectangle/ellipse/arrow shapes, text tool, color palette + custom color, brush size, undo/redo, clear all, download as PNG) so you can sketch or jot freeform notes and attach them straight to that node. Text is typed directly on the board — click anywhere with the Text tool and a box opens right there to type into (no popup); clicking existing text reopens it for editing, and a small trash icon (or Escape) deletes it. The drawing is saved as editable vector strokes (so reopening it lets you keep drawing) plus a thumbnail image shown in the inspector; nodes with a whiteboard get the same "has notes/attachments" indicator icon.
+- **Whiteboard** — a new free-form canvas (pen-square icon in the toolbar), separate from the mind-map tree, where you can write text anywhere, drop sticky notes, and freehand-draw with a pen tool. Full toolset: Select (move/resize), Text, Sticky note, Pen, Eraser, a color palette, adjustable pen width, per-note font size, pan (drag empty space) & zoom (Ctrl/Cmd + scroll, or the zoom buttons), and its own Undo/Redo (Ctrl+Z / Ctrl+Y while the whiteboard is open) plus a "Clear board" button — all with keyboard shortcuts (V/T/S/P/E to switch tools, Del to delete the selected note, Esc to close). Select any text or sticky note and hit the pin (📌) button to **attach it to any node** in your mind map: it's copied onto that node's "Whiteboard notes" section in the Node Inspector (and shown with a small pin badge on the node itself on the canvas), so a freeform note you jotted down anywhere can live permanently with the node it belongs to. Whiteboard content is saved locally in the browser independently of the map itself.
 - **Node Linking / Backlinks** — link any node to any other node from the Node Inspector's "Linked nodes" section. See outgoing links, see backlinks (who links to this node), and jump straight to a linked node (auto-expanding any collapsed branch along the way).
 - **Mobile touch UI** — the right-hand panel (Node Inspector, Layouts, Tasks, etc.) now renders as a bottom sheet on phone-width screens instead of a cramped side panel. Node action buttons (add child / delete) now also show on tap-select, not just hover, since touch screens have no hover state.
 - **Image hosting for nodes** — uploaded node images now go to a real image host instead of being embedded as base64, so they survive share links instead of being silently stripped when the map gets large. Priority order: **Cloudinary** (primary, if `VITE_CLOUDINARY_*` env vars are set) → **Supabase Storage** (fallback, if only `VITE_SUPABASE_*` are set) → embedded base64 (last resort, no backend configured). See "Environment variables" below for setup.
@@ -107,10 +107,12 @@ added on top of this.
 `git push` needs to be run on your own machine, since this environment has no
 GitHub push access.
 
-On top of the original Step 0–15 build, this session added: a per-node
-Whiteboard (freeform pen/shapes/text drawing board), Node Linking /
+On top of the original Step 0–15 build, this session added: Node Linking /
 Backlinks, a mobile touch-friendly bottom-sheet UI, hosted (non-base64) node
 images via Cloudinary/Supabase Storage, JSON backup export/import, an
 auto login prompt for signed-out visitors, per-node connector styling/scale
-targeting, and shared-link viewer bug fixes (collapse button click, custom
-connector rendering). See "Recent updates" above for details.
+targeting, shared-link viewer bug fixes (collapse button click, custom
+connector rendering), and a full free-form **Whiteboard** (text/sticky
+notes anywhere, freehand drawing, pan/zoom, its own undo/redo) with the
+ability to attach any whiteboard note to a mind-map node. See "Recent
+updates" above for details.

@@ -1,8 +1,9 @@
 import { lazy, Suspense, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Star, X as XIcon, Bold, Italic, Underline, Minus, Plus, Link2, ArrowUpRight } from 'lucide-react'
+import { Star, X as XIcon, Bold, Italic, Underline, Minus, Plus, Link2, ArrowUpRight, PenSquare, Pin } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
+import { useWhiteboardStore } from '../../store/whiteboardStore'
 import { uploadNodeImage } from '../../lib/imageUpload'
 import { COLORS, NODE_SHAPES } from '../../theme/tokens'
 import { FONT_FAMILIES, MIN_FONT_SIZE, MAX_FONT_SIZE, DEFAULT_FONT_SIZE } from '../../utils/textStyle'
@@ -14,7 +15,6 @@ import IconLibrary from './IconLibrary'
 // eager main bundle no longer pays for them.
 const NotesEditor = lazy(() => import('./NotesEditor'))
 const EmojiPicker = lazy(() => import('emoji-picker-react'))
-const WhiteboardEditor = lazy(() => import('./WhiteboardEditor'))
 
 function PanelLoading() {
   return <p className="px-1 py-2 text-[10px] text-[var(--color-slate)]">Loading…</p>
@@ -165,9 +165,10 @@ export default function NodeInspector() {
   const [showEmoji, setShowEmoji] = useState(false)
   const [showIcons, setShowIcons] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
+  const [showWhiteboard, setShowWhiteboard] = useState(false)
   const [showLinks, setShowLinks] = useState(false)
+  const removeWhiteboardNote = useMapStore((s) => s.removeWhiteboardNote)
   const [linkPickerOpen, setLinkPickerOpen] = useState(false)
-  const [whiteboardOpen, setWhiteboardOpen] = useState(false)
 
   const selectedNodes = nodes.filter((n) => n.selected && n.type !== 'boundaryGroup')
   const selectedNode = selectedNodes.length === 1 ? selectedNodes[0] : null
@@ -409,43 +410,60 @@ export default function NodeInspector() {
           </AnimatePresence>
         </div>
 
-        {/* Whiteboard — a freeform pen/shapes/text drawing board attached to
-            this node. Vector elements + a rendered thumbnail are stored on
-            data.whiteboard; the modal itself is lazy-loaded like NotesEditor
-            since it's not needed until someone actually opens it. */}
+        {/* Section — Whiteboard notes attached to this node. The Whiteboard
+            itself is a single free-form canvas (toolbar's pen-square icon);
+            a note created there gets copied here via "Attach to node". */}
         <div>
-          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Whiteboard</p>
-          {selectedNode.data.whiteboard?.thumbnail ? (
-            <div className="flex flex-col gap-1.5">
-              <img
-                src={selectedNode.data.whiteboard.thumbnail}
-                alt="Whiteboard preview"
-                onClick={() => setWhiteboardOpen(true)}
-                className="w-full cursor-pointer rounded-md border border-[var(--color-sage)] object-contain hover:opacity-90"
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setWhiteboardOpen(true)}
-                  className="rounded-md border border-[var(--color-slate)] px-2 py-1 text-[10px] hover:bg-[var(--color-sage)]/30"
-                >
-                  Edit whiteboard
-                </button>
-                <button
-                  onClick={() => updateNodeData(selectedNode.id, { whiteboard: null })}
-                  className="flex items-center gap-1 text-[10px] text-[var(--color-slate)] underline hover:text-[var(--color-ink)]"
-                >
-                  <XIcon size={10} /> Remove
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setWhiteboardOpen(true)}
-              className="rounded-md border border-dashed border-[var(--color-slate)] px-2 py-1.5 text-[10px] text-[var(--color-slate)] hover:bg-[var(--color-sage)]/30"
-            >
-              + Open whiteboard
-            </button>
-          )}
+          <button
+            onClick={() => setShowWhiteboard((v) => !v)}
+            className="mb-1 flex w-full items-center justify-between text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]"
+          >
+            <span>Whiteboard notes {(selectedNode.data.whiteboardNotes || []).length > 0 ? `(${selectedNode.data.whiteboardNotes.length})` : ''}</span>
+            <span>{showWhiteboard ? '−' : '+'}</span>
+          </button>
+          <AnimatePresence initial={false}>
+            {showWhiteboard && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
+                className="overflow-hidden"
+              >
+                <div className="flex flex-col gap-1.5 rounded-md border border-[var(--color-sage)] bg-white/40 p-2">
+                  {(selectedNode.data.whiteboardNotes || []).length === 0 && (
+                    <p className="text-[10px] text-[var(--color-slate)]">
+                      No whiteboard notes attached yet. Open the Whiteboard, write a note anywhere, then use its
+                      "Attach to node" (📌) button to add it here.
+                    </p>
+                  )}
+                  {(selectedNode.data.whiteboardNotes || []).map((note) => (
+                    <div
+                      key={note.id}
+                      className="flex items-start gap-1.5 rounded px-1.5 py-1 text-[10px]"
+                      style={{ backgroundColor: note.color || 'var(--color-sage)' }}
+                    >
+                      <Pin size={10} className="mt-0.5 shrink-0" />
+                      <span className="flex-1 whitespace-pre-wrap break-words">{note.text}</span>
+                      <button
+                        onClick={() => removeWhiteboardNote(selectedNode.id, note.id)}
+                        title="Remove this attached note"
+                        className="shrink-0 text-[var(--color-ink)]/60 hover:text-[var(--color-ink)]"
+                      >
+                        <XIcon size={11} />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => useWhiteboardStore.getState().open()}
+                    className="mt-0.5 flex w-fit items-center gap-1 rounded-md border border-dashed border-[var(--color-slate)] px-2 py-1 text-[10px] hover:bg-[var(--color-sage)]/30"
+                  >
+                    <PenSquare size={11} /> Open Whiteboard
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Section — Node Linking / Backlinks. Outgoing links are stored on
@@ -724,16 +742,6 @@ export default function NodeInspector() {
         </div>
 
         <p className="text-[10px] text-[var(--color-slate)]">Double-click the node on canvas to edit its label.</p>
-
-        {whiteboardOpen && (
-          <Suspense fallback={null}>
-            <WhiteboardEditor
-              nodeId={selectedNode.id}
-              data={selectedNode.data}
-              onClose={() => setWhiteboardOpen(false)}
-            />
-          </Suspense>
-        )}
       </div>
     )
   }

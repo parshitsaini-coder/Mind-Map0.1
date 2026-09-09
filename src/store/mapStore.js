@@ -618,6 +618,38 @@ export const useMapStore = create(
         return targetIds.length
       },
 
+      // Section — Whiteboard "attach to node". A whiteboard note (text or
+      // sticky element, created on the free-form Whiteboard canvas) gets
+      // copied onto the target node's own data.whiteboardNotes array. It
+      // deliberately lives alongside data.notes/attachments/etc. rather than
+      // in a separate store, so it rides along for free with everything
+      // that already touches node.data: undo/redo, per-project save, cloud
+      // sync, JSON backup/import, and share links.
+      attachWhiteboardNote: (nodeId, note) => {
+        const node = get().nodes.find((n) => n.id === nodeId)
+        if (!node) return
+        get().pushSnapshot()
+        set({
+          nodes: get().nodes.map((n) =>
+            n.id === nodeId
+              ? { ...n, data: { ...n.data, whiteboardNotes: [...(n.data.whiteboardNotes || []), note] } }
+              : n
+          ),
+        })
+        get().logActivity(`📌 Attached a whiteboard note to "${node.data?.label || nodeId}"`)
+      },
+
+      removeWhiteboardNote: (nodeId, noteId) => {
+        get().pushSnapshot()
+        set({
+          nodes: get().nodes.map((n) =>
+            n.id === nodeId
+              ? { ...n, data: { ...n.data, whiteboardNotes: (n.data.whiteboardNotes || []).filter((x) => x.id !== noteId) } }
+              : n
+          ),
+        })
+      },
+
       // Section — Style Library. Applies a preset from nodeStyles.js onto
       // the selected node(s), or every node on the canvas if none are
       // selected (same targeting rule as applyLineStyleToSelectedEdges, so

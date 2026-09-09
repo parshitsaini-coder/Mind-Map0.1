@@ -1,7 +1,7 @@
 import { memo, useState, useCallback } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import { motion } from 'framer-motion'
-import { Plus, Trash2, Star, FileText, CheckSquare, Square, ChevronRight, ChevronDown, Link2 } from 'lucide-react'
+import { Plus, Trash2, Star, FileText, CheckSquare, Square, ChevronRight, ChevronDown, Link2, Pin } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
 import { ICONS } from '../../theme/iconSet'
@@ -60,7 +60,7 @@ function CustomNode({ id, data, selected }) {
   const IconComp = data.icon ? ICONS[data.icon] : null
   const badges = data.badges || {}
   const hasNotes = (data.notes || '').replace(/<[^>]*>/g, '').trim().length > 0
-  const hasExtras = hasNotes || (data.attachments || []).length > 0 || data.audioNote || data.videoEmbed || !!data.whiteboard?.thumbnail
+  const hasExtras = hasNotes || (data.attachments || []).length > 0 || data.audioNote || data.videoEmbed
   const task = data.task
   const overdue = task?.dueDate && !task.done && new Date(task.dueDate) < new Date()
   const textStyle = nodeTextStyle(data)
@@ -185,7 +185,7 @@ function CustomNode({ id, data, selected }) {
         </span>
       )}
       {hasExtras && (
-        <FileText size={11} className="absolute -top-1.5 right-3" color="var(--color-slate)" title="Has notes/attachments/whiteboard" />
+        <FileText size={11} className="absolute -top-1.5 right-3" color="var(--color-slate)" title="Has notes/attachments" />
       )}
       {(data.links || []).length > 0 && (
         <Link2
@@ -193,6 +193,14 @@ function CustomNode({ id, data, selected }) {
           className="absolute -top-1.5 right-8"
           color="var(--color-slate)"
           title={`Linked to ${data.links.length} node${data.links.length > 1 ? 's' : ''}`}
+        />
+      )}
+      {(data.whiteboardNotes || []).length > 0 && (
+        <Pin
+          size={11}
+          className="absolute -top-1.5 right-[52px]"
+          color="var(--color-slate)"
+          title={`${data.whiteboardNotes.length} whiteboard note${data.whiteboardNotes.length > 1 ? 's' : ''} attached`}
         />
       )}
 
