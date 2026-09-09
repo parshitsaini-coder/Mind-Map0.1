@@ -234,19 +234,6 @@ export default function TradeForm() {
         {editingTradeId ? 'Edit Trade' : 'New Trade'}
       </p>
 
-      {/* 1. Name */}
-      <label className="flex flex-col gap-1">
-        <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Name</span>
-        <input
-          type="text"
-          value={form.name}
-          onChange={(e) => patch({ name: e.target.value })}
-          placeholder="e.g. Breakout retest"
-          className={inputCls}
-          style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
-        />
-      </label>
-
       {/* 2. Date */}
       <label className="flex flex-col gap-1">
         <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Date</span>

@@ -103,8 +103,8 @@ export default function TradesTable() {
     )
   }
 
-  const th = 'sticky top-0 z-10 whitespace-nowrap px-2.5 py-2 text-left text-[9px] font-semibold uppercase tracking-wide'
-  const td = 'whitespace-nowrap px-2.5 py-2 align-middle text-[10.5px]'
+  const th = 'sticky top-0 z-10 whitespace-nowrap px-2 py-1 text-left text-[8px] font-semibold uppercase tracking-wide'
+  const td = 'whitespace-nowrap px-2 py-1 align-middle text-[9px]'
 
   return (
     <div className="h-full w-full overflow-auto">
@@ -144,13 +144,13 @@ export default function TradesTable() {
                   <td className={td}>
                     <p className="font-medium" style={{ color: 'var(--ta-ink)' }}>{trade.pair}</p>
                     {trade.instrumentName && trade.instrumentName !== trade.pair && (
-                      <p className="text-[9px]" style={{ color: 'var(--ta-slate)' }}>{trade.instrumentName}</p>
+                      <p className="text-[8px]" style={{ color: 'var(--ta-slate)' }}>{trade.instrumentName}</p>
                     )}
                   </td>
 
                   <td className={td}>
                     <span
-                      className="rounded-full px-1.5 py-0.5 text-[9px] font-medium"
+                      className="rounded-full px-1.5 py-0.5 text-[8px] font-medium"
                       style={{ backgroundColor: TYPE_BADGE_BG[trade.instrumentType] || '#403d3922', color: 'var(--ta-ink)' }}
                     >
                       {trade.instrumentType}
@@ -161,7 +161,7 @@ export default function TradesTable() {
 
                   <td className={td}>
                     <span
-                      className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold text-white"
+                      className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold text-white"
                       style={{ backgroundColor: trade.direction === 'Buy' ? '#16a34a' : '#dc2626' }}
                     >
                       {trade.direction}
@@ -176,10 +176,10 @@ export default function TradesTable() {
                         onClick={() => useUiStore.getState().openImageLightbox(trade.screenshotUrl)}
                         title="View screenshot"
                       >
-                        <img src={trade.screenshotUrl} alt="Screenshot" className="h-8 w-8 rounded object-cover" />
+                        <img src={trade.screenshotUrl} alt="Screenshot" className="h-6 w-6 rounded object-cover" />
                       </button>
                     ) : (
-                      <span className="text-[9px]" style={{ color: 'var(--ta-slate)' }}>—</span>
+                      <span className="text-[8px]" style={{ color: 'var(--ta-slate)' }}>—</span>
                     )}
                   </td>
 
@@ -187,7 +187,7 @@ export default function TradesTable() {
                     <select
                       value={trade.status}
                       onChange={(e) => useTradeAnalysisStore.getState().updateTradeStatus(trade.id, e.target.value)}
-                      className="rounded-full border-0 px-2 py-0.5 text-[9.5px] font-semibold outline-none transition-colors"
+                      className="rounded-full border-0 px-1.5 py-0.5 text-[8.5px] font-semibold outline-none transition-colors"
                       style={{ backgroundColor: STATUS_STYLE[trade.status].bg, color: STATUS_STYLE[trade.status].text }}
                     >
                       {STATUS_OPTIONS.map((s) => (
@@ -199,12 +199,12 @@ export default function TradesTable() {
                   <td className={`${td} whitespace-normal`}>
                     <div className="flex max-w-[150px] flex-wrap items-center gap-1">
                       {checkedRules.length === 0 ? (
-                        <span className="text-[9px]" style={{ color: 'var(--ta-slate)' }}>—</span>
+                        <span className="text-[8px]" style={{ color: 'var(--ta-slate)' }}>—</span>
                       ) : (
                         checkedRules.map((label) => (
                           <span
                             key={label}
-                            className="truncate rounded-full px-1.5 py-0.5 text-[8.5px]"
+                            className="truncate rounded-full px-1.5 py-0.5 text-[7.5px]"
                             style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }}
                           >
                             {label}
@@ -213,7 +213,7 @@ export default function TradesTable() {
                       )}
                       {trade.validationScore && (
                         <span
-                          className="shrink-0 rounded-full px-1.5 py-0.5 text-[8.5px] font-semibold"
+                          className="shrink-0 rounded-full px-1.5 py-0.5 text-[7.5px] font-semibold"
                           style={{ backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }}
                         >
                           {trade.validationScore.checked}/{trade.validationScore.total}
@@ -233,7 +233,7 @@ export default function TradesTable() {
                         {trade.notes}
                       </button>
                     ) : (
-                      <span className="text-[9px]" style={{ color: 'var(--ta-slate)' }}>—</span>
+                      <span className="text-[8px]" style={{ color: 'var(--ta-slate)' }}>—</span>
                     )}
                   </td>
 
@@ -243,7 +243,7 @@ export default function TradesTable() {
                         onClick={() => useUiStore.getState().openImageLightbox(trade.resultImageUrl)}
                         title="View result image"
                       >
-                        <img src={trade.resultImageUrl} alt="Result" className="h-8 w-8 rounded object-cover" />
+                        <img src={trade.resultImageUrl} alt="Result" className="h-6 w-6 rounded object-cover" />
                       </button>
                     ) : (
                       <>
