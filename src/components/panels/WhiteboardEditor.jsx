@@ -30,7 +30,7 @@ const TOOLS = [
   { key: 'rect', icon: Square, label: 'Rectangle' },
   { key: 'ellipse', icon: CircleIcon, label: 'Ellipse' },
   { key: 'arrow', icon: MoveUpRight, label: 'Arrow' },
-  { key: 'text', icon: Type, label: 'Text' },
+  { key: 'text', icon: Type, label: 'Text — click the board to type' },
 ]
 
 const PALETTE = ['#242423', '#c1443c', '#3a6ea5', '#3d6b52', '#b8860b', '#7b4fa0', '#ffffff']
@@ -103,8 +103,20 @@ function drawElement(ctx, el) {
     ctx.fillStyle = el.color
     ctx.font = `${el.fontSize}px sans-serif`
     ctx.textBaseline = 'top'
-    ctx.fillText(el.text, el.x, el.y)
+    // Support multi-line text (Enter key while typing).
+    el.text.split('\n').forEach((line, i) => ctx.fillText(line, el.x, el.y + i * el.fontSize * 1.25))
   }
+}
+
+// Rough bounding box for a text element, used to hit-test clicks so an
+// existing text can be re-opened for editing/deleting instead of always
+// creating a new one on top of it.
+function textBounds(ctx, el) {
+  ctx.font = `${el.fontSize}px sans-serif`
+  const lines = el.text.split('\n')
+  const width = Math.max(...lines.map((l) => ctx.measureText(l).width), 20)
+  const height = lines.length * el.fontSize * 1.25
+  return { x: el.x, y: el.y, width, height }
 }
 
 // Full-screen modal — a small freeform drawing board (pen, eraser, shapes,
@@ -117,12 +129,16 @@ export default function WhiteboardEditor({ nodeId, data, onClose }) {
   const updateNodeData = useMapStore((s) => s.updateNodeData)
   const canvasRef = useRef(null)
   const drawingRef = useRef(null)
+  const textAreaRef = useRef(null)
 
   const [elements, setElements] = useState(() => data.whiteboard?.elements || [])
   const [redoStack, setRedoStack] = useState([])
   const [tool, setTool] = useState('pen')
   const [color, setColor] = useState('#242423')
   const [size, setSize] = useState(3)
+  // Text is edited directly on the board — no popup. null = not editing;
+  // otherwise { x, y, value, color, fontSize } for the box currently open.
+  const [editingText, setEditingText] = useState(null)
 
   const redraw = useCallback(() => {
     const canvas = canvasRef.current
@@ -147,6 +163,19 @@ export default function WhiteboardEditor({ nodeId, data, onClose }) {
     }
   }, [])
 
+  // Keep the on-canvas text box focused as soon as it appears/moves (so
+  // "click anywhere and just type" works, and re-editing existing text
+  // starts with the cursor ready to go).
+  useEffect(() => {
+    if (editingText && textAreaRef.current) {
+      const el = textAreaRef.current
+      el.focus()
+      el.setSelectionRange(el.value.length, el.value.length)
+      el.style.height = 'auto'
+      el.style.height = `${el.scrollHeight}px`
+    }
+  }, [editingText?.x, editingText?.y])
+
   const commitElement = (el) => {
     setElements((prev) => [...prev, el])
     setRedoStack([])
@@ -165,18 +194,55 @@ export default function WhiteboardEditor({ nodeId, data, onClose }) {
     redraw()
   }
 
+  // Finish whatever text box is currently open: saves it as a text element
+  // if it has content, or simply drops it (delete) if left empty.
+  const commitTextEdit = () => {
+    setEditingText((current) => {
+      if (current && current.value.trim()) {
+        commitElement({
+          type: 'text',
+          color: current.color,
+          fontSize: current.fontSize,
+          x: current.x,
+          y: current.y,
+          text: current.value,
+        })
+      }
+      return null
+    })
+  }
+
+  // Explicit delete for the text box currently being edited — used by the
+  // small trash button next to it, so removing text doesn't rely on typing
+  // it away first.
+  const deleteEditingText = () => {
+    setEditingText(null)
+  }
+
   const handleStart = (e) => {
     const canvas = canvasRef.current
     const pos = pointerPos(canvas, e)
 
-    // Text tool — a floating on-canvas input was unreliable (focus/z-index
-    // issues meant taps registered as a stray dot but no box to type in), so
-    // this uses a plain browser prompt instead: always focused, always
-    // visible, works the same on desktop and mobile.
     if (tool === 'text') {
-      const text = window.prompt('Enter text for the whiteboard:')
-      if (text && text.trim()) {
-        commitElement({ type: 'text', color, fontSize: 14 + size * 3, x: pos.x, y: pos.y, text: text.trim() })
+      // If a text box is already open, clicking elsewhere on the board
+      // commits/deletes it first (same as clicking away), then opens the
+      // new one — so you never lose what you just typed.
+      if (editingText) commitTextEdit()
+
+      const ctx = canvas.getContext('2d')
+      // Clicking on top of an existing text re-opens it for editing/delete
+      // instead of stacking a new box on top of it.
+      const hit = [...elements].reverse().find((el) => {
+        if (el.type !== 'text') return false
+        const b = textBounds(ctx, el)
+        return pos.x >= b.x && pos.x <= b.x + b.width && pos.y >= b.y && pos.y <= b.y + b.height
+      })
+
+      if (hit) {
+        setElements((prev) => prev.filter((el) => el !== hit))
+        setEditingText({ x: hit.x, y: hit.y, value: hit.text, color: hit.color, fontSize: hit.fontSize })
+      } else {
+        setEditingText({ x: pos.x, y: pos.y, value: '', color, fontSize: 14 + size * 3 })
       }
       return
     }
@@ -217,6 +283,7 @@ export default function WhiteboardEditor({ nodeId, data, onClose }) {
 
   const clearAll = () => {
     if (elements.length && !window.confirm('Clear the whole whiteboard?')) return
+    setEditingText(null)
     setElements([])
     setRedoStack([])
   }
@@ -229,8 +296,23 @@ export default function WhiteboardEditor({ nodeId, data, onClose }) {
   }
 
   const handleSave = () => {
+    // Any text box still open should be saved (or dropped if empty) before
+    // the thumbnail is rendered, otherwise it would be silently lost.
+    let finalElements = elements
+    if (editingText && editingText.value.trim()) {
+      const finalText = {
+        type: 'text',
+        color: editingText.color,
+        fontSize: editingText.fontSize,
+        x: editingText.x,
+        y: editingText.y,
+        text: editingText.value,
+      }
+      finalElements = [...elements, finalText]
+      drawElement(canvasRef.current.getContext('2d'), finalText)
+    }
     const thumbnail = canvasRef.current.toDataURL('image/png')
-    updateNodeData(nodeId, { whiteboard: { elements, thumbnail, updatedAt: Date.now() } })
+    updateNodeData(nodeId, { whiteboard: { elements: finalElements, thumbnail, updatedAt: Date.now() } })
     onClose()
   }
 
@@ -255,7 +337,10 @@ export default function WhiteboardEditor({ nodeId, data, onClose }) {
               <button
                 key={t.key}
                 title={t.label}
-                onClick={() => setTool(t.key)}
+                onClick={() => {
+                  if (tool === 'text' && t.key !== 'text') commitTextEdit()
+                  setTool(t.key)
+                }}
                 className={`rounded p-1.5 ${tool === t.key ? 'bg-[var(--color-accent)]' : 'hover:bg-[var(--color-sage)]/50'}`}
               >
                 <t.icon size={14} />
@@ -267,7 +352,10 @@ export default function WhiteboardEditor({ nodeId, data, onClose }) {
             {PALETTE.map((c) => (
               <button
                 key={c}
-                onClick={() => setColor(c)}
+                onClick={() => {
+                  setColor(c)
+                  if (editingText) setEditingText((cur) => (cur ? { ...cur, color: c } : cur))
+                }}
                 title={c}
                 className={`h-5 w-5 rounded-full border ${color === c ? 'ring-2 ring-[var(--color-accent)] ring-offset-1' : ''}`}
                 style={{ backgroundColor: c, borderColor: 'var(--color-slate)' }}
@@ -276,7 +364,10 @@ export default function WhiteboardEditor({ nodeId, data, onClose }) {
             <input
               type="color"
               value={color}
-              onChange={(e) => setColor(e.target.value)}
+              onChange={(e) => {
+                setColor(e.target.value)
+                if (editingText) setEditingText((cur) => (cur ? { ...cur, color: e.target.value } : cur))
+              }}
               title="Custom color"
               className="h-5 w-5 cursor-pointer rounded-full border-none bg-transparent p-0"
             />
@@ -293,6 +384,10 @@ export default function WhiteboardEditor({ nodeId, data, onClose }) {
               className="w-20 accent-[var(--color-accent)]"
             />
           </label>
+
+          {tool === 'text' && (
+            <p className="text-[10px] italic text-[var(--color-slate)]">Board pe kahin bhi click karo aur type karo.</p>
+          )}
 
           <div className="ml-auto flex items-center gap-1">
             <button onClick={undo} disabled={!elements.length} title="Undo" className="rounded p-1.5 hover:bg-[var(--color-sage)]/50 disabled:opacity-30">
@@ -321,6 +416,54 @@ export default function WhiteboardEditor({ nodeId, data, onClose }) {
               onTouchStart={handleStart}
               className="h-full w-full touch-none rounded-md border border-[var(--color-sage)] bg-white shadow-inner"
             />
+
+            {/* Inline text box — sits directly on the board at the clicked
+                spot. No popup/prompt: type straight into it, Escape or the
+                trash icon deletes it, clicking elsewhere or Save commits it. */}
+            {editingText && (
+              <div
+                className="absolute flex items-start gap-1"
+                style={{
+                  left: `${(editingText.x / CANVAS_W) * 100}%`,
+                  top: `${(editingText.y / CANVAS_H) * 100}%`,
+                }}
+              >
+                <textarea
+                  ref={textAreaRef}
+                  rows={1}
+                  value={editingText.value}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setEditingText((cur) => (cur ? { ...cur, value: v } : cur))
+                    e.target.style.height = 'auto'
+                    e.target.style.height = `${e.target.scrollHeight}px`
+                  }}
+                  onBlur={commitTextEdit}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      e.preventDefault()
+                      deleteEditingText()
+                    }
+                  }}
+                  placeholder="Type…"
+                  style={{
+                    color: editingText.color,
+                    fontSize: editingText.fontSize,
+                    lineHeight: 1.25,
+                    minWidth: 40,
+                  }}
+                  className="resize-none overflow-hidden border border-dashed border-[var(--color-accent)] bg-white/70 px-1 outline-none"
+                />
+                <button
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={deleteEditingText}
+                  title="Delete text"
+                  className="shrink-0 rounded bg-[var(--color-cream)] p-0.5 text-[var(--color-slate)] shadow hover:text-red-600"
+                >
+                  <Trash2 size={11} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
