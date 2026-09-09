@@ -1,6 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence, useAnimationControls } from 'framer-motion'
-import { ChevronDown, ImagePlus, X, Check } from 'lucide-react'
+import {
+  ChevronDown,
+  ImagePlus,
+  X,
+  Check,
+  Sparkles,
+  Tag,
+  Search,
+  Clock,
+  IndianRupee,
+  ArrowLeftRight,
+  StickyNote,
+  ListChecks,
+  Camera,
+  Plus,
+} from 'lucide-react'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useUiStore } from '../../store/uiStore'
 import { uploadTradeImage } from '../../lib/imageUpload'
@@ -239,27 +254,52 @@ export default function TradeForm({ mode = 'sidebar' }) {
     }
   }
 
-  const fieldLabelCls = 'text-[9px] font-medium uppercase tracking-wide'
+  const fieldLabelCls = 'flex items-center gap-1 text-[9px] font-medium uppercase tracking-wide'
   const inputCls =
-    'w-full rounded-md border bg-white/70 px-1.5 py-1 text-[10px] outline-none transition-colors focus:ring-1'
+    'ta-input w-full rounded-md border bg-white/70 px-1.5 py-1 text-[10px] outline-none'
+
+  // Staggered entrance — each field group pops in one after another the
+  // first time the form mounts (and again whenever it re-mounts, e.g.
+  // switching between Add/Edit via `editingTradeId`), instead of the
+  // whole panel appearing as one flat block.
+  const containerVariants = {
+    hidden: {},
+    show: { transition: { staggerChildren: 0.045, delayChildren: 0.03 } },
+  }
+  const itemVariants = {
+    hidden: { opacity: 0, y: 8 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.28, ease: 'easeOut' } },
+  }
 
   return (
-    <div className="flex h-full flex-col gap-2">
+    <motion.div className="flex h-full flex-col gap-2" variants={containerVariants} initial="hidden" animate="show">
       {mode !== 'modal' && (
-        <p className="text-[11px] font-semibold" style={{ color: 'var(--ta-ink)' }}>
-          {editingTradeId ? 'Edit Trade' : 'New Trade'}
-        </p>
+        <motion.div variants={itemVariants} className="flex flex-col gap-0.5">
+          <p className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: 'var(--ta-ink)' }}>
+            <motion.span
+              animate={{ rotate: [0, -12, 12, 0] }}
+              transition={{ duration: 2.4, repeat: Infinity, repeatDelay: 2.5, ease: 'easeInOut' }}
+            >
+              <Sparkles size={11} style={{ color: 'var(--ta-accent)' }} />
+            </motion.span>
+            {editingTradeId ? 'Edit Trade' : 'New Trade'}
+          </p>
+          <div className="ta-title-underline h-[2px] rounded-full" style={{ backgroundColor: 'var(--ta-accent)' }} />
+        </motion.div>
       )}
 
       {/* 2. Date */}
-      <div className="flex flex-col gap-1">
+      <motion.div variants={itemVariants} className="flex flex-col gap-1">
         <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Date</span>
         <DatePicker value={form.date} onChange={(d) => patch({ date: d })} inputCls={inputCls} />
-      </div>
+      </motion.div>
 
       {/* 4. Type (placed above pair so it can filter the pair list) */}
-      <div className="flex flex-col gap-1">
-        <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Type</span>
+      <motion.div variants={itemVariants} className="flex flex-col gap-1">
+        <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>
+          <Tag size={10} style={{ color: 'var(--ta-accent)' }} />
+          Type
+        </span>
         <div className="grid grid-cols-3 gap-1">
           {INSTRUMENT_TYPES.map((t) => (
             <motion.button
@@ -281,11 +321,12 @@ export default function TradeForm({ mode = 'sidebar' }) {
             </motion.button>
           ))}
         </div>
-      </div>
+      </motion.div>
 
       {/* 3. Stock / Forex pair — searchable combobox */}
-      <div className="relative flex flex-col gap-1">
+      <motion.div variants={itemVariants} className="relative flex flex-col gap-1">
         <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>
+          <Search size={10} style={{ color: 'var(--ta-accent)' }} />
           {form.instrumentType === 'Commodity' ? 'Commodity' : form.instrumentType === 'Forex' ? 'Forex pair' : 'Stock'}
         </span>
         <div className="relative">
@@ -350,12 +391,15 @@ export default function TradeForm({ mode = 'sidebar' }) {
             </motion.ul>
           )}
         </AnimatePresence>
-      </div>
+      </motion.div>
 
       {/* 5. Time frame + Price — side by side */}
-      <div className="grid grid-cols-2 gap-2">
+      <motion.div variants={itemVariants} className="grid grid-cols-2 gap-2">
       <div className="relative flex flex-col gap-1" ref={timeframeRef}>
-        <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Time frame</span>
+        <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>
+          <Clock size={10} style={{ color: 'var(--ta-accent)' }} />
+          Time frame
+        </span>
         <button
           type="button"
           onClick={() => setTimeframeOpen((v) => !v)}
@@ -412,7 +456,10 @@ export default function TradeForm({ mode = 'sidebar' }) {
 
       {/* Price */}
       <label className="flex flex-col gap-1">
-        <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Price</span>
+        <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>
+          <IndianRupee size={10} style={{ color: 'var(--ta-accent)' }} />
+          Price
+        </span>
         <input
           type="number"
           step="any"
@@ -424,11 +471,14 @@ export default function TradeForm({ mode = 'sidebar' }) {
           style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
         />
       </label>
-      </div>
+      </motion.div>
 
       {/* 6. Direction */}
-      <div className="flex flex-col gap-1">
-        <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Direction</span>
+      <motion.div variants={itemVariants} className="flex flex-col gap-1">
+        <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>
+          <ArrowLeftRight size={10} style={{ color: 'var(--ta-accent)' }} />
+          Direction
+        </span>
         <div className="grid grid-cols-2 gap-1">
           {['Buy', 'Sell'].map((d) => (
             <motion.button
@@ -448,11 +498,14 @@ export default function TradeForm({ mode = 'sidebar' }) {
             </motion.button>
           ))}
         </div>
-      </div>
+      </motion.div>
 
       {/* 7. Notes */}
-      <label className="flex flex-col gap-1">
-        <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Notes</span>
+      <motion.label variants={itemVariants} className="flex flex-col gap-1">
+        <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>
+          <StickyNote size={10} style={{ color: 'var(--ta-accent)' }} />
+          Notes
+        </span>
         <textarea
           rows={3}
           value={form.notes}
@@ -461,19 +514,33 @@ export default function TradeForm({ mode = 'sidebar' }) {
           className={`${inputCls} resize-none`}
           style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
         />
-      </label>
+      </motion.label>
 
       {/* 9. Validation checklist */}
-      <div className="flex flex-col gap-1">
+      <motion.div variants={itemVariants} className="flex flex-col gap-1">
         <div className="flex items-center justify-between">
-          <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Validation</span>
+          <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>
+            <ListChecks size={10} style={{ color: 'var(--ta-accent)' }} />
+            Validation
+          </span>
           {scorePct !== null && (
-            <span
-              className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold"
-              style={{ backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }}
-            >
-              {checkedCount}/{activeRules.length} ({scorePct}%)
-            </span>
+            <AnimatePresence mode="popLayout">
+              <motion.span
+                key={`${checkedCount}-${activeRules.length}`}
+                initial={{ scale: 0.7, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.7, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 24 }}
+                className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold"
+                style={{
+                  backgroundColor: 'var(--ta-accent)',
+                  color: '#fffcf2',
+                  boxShadow: '0 1px 6px color-mix(in srgb, var(--ta-accent) 55%, transparent)',
+                }}
+              >
+                {checkedCount}/{activeRules.length} ({scorePct}%)
+              </motion.span>
+            </AnimatePresence>
           )}
         </div>
         {activeRules.length === 0 ? (
@@ -521,15 +588,23 @@ export default function TradeForm({ mode = 'sidebar' }) {
             })}
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* 10. Screenshot upload — while editing, an already-uploaded image
           (`existingScreenshot`) shows the same way a freshly-picked one
           does; a newly-picked file always takes priority over it. */}
-      <div className="flex flex-col gap-1">
-        <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Screenshot</span>
+      <motion.div variants={itemVariants} className="flex flex-col gap-1">
+        <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>
+          <Camera size={10} style={{ color: 'var(--ta-accent)' }} />
+          Screenshot
+        </span>
         {screenshot ? (
-          <div className="relative overflow-hidden rounded-md border" style={{ borderColor: 'var(--ta-slate)' }}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="relative overflow-hidden rounded-md border"
+            style={{ borderColor: 'var(--ta-slate)' }}
+          >
             <img src={screenshot.previewUrl} alt="Screenshot preview" className="h-16 w-full object-cover" />
             <motion.button
               type="button"
@@ -540,9 +615,14 @@ export default function TradeForm({ mode = 'sidebar' }) {
             >
               <X size={11} />
             </motion.button>
-          </div>
+          </motion.div>
         ) : existingScreenshot ? (
-          <div className="relative overflow-hidden rounded-md border" style={{ borderColor: 'var(--ta-slate)' }}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="relative overflow-hidden rounded-md border"
+            style={{ borderColor: 'var(--ta-slate)' }}
+          >
             <img src={existingScreenshot.url} alt="Current screenshot" className="h-16 w-full object-cover" />
             <motion.button
               type="button"
@@ -553,25 +633,29 @@ export default function TradeForm({ mode = 'sidebar' }) {
             >
               <X size={11} />
             </motion.button>
-          </div>
+          </motion.div>
         ) : (
-          <div
+          <motion.div
             ref={dropZoneRef}
             onClick={() => fileInputRef.current?.click()}
             onDragOver={(e) => { e.preventDefault(); setDragActive(true) }}
             onDragLeave={() => setDragActive(false)}
             onDrop={handleDrop}
-            className="flex cursor-pointer flex-col items-center gap-1 rounded-md border border-dashed px-2 py-2 text-center transition-colors"
-            style={{
+            whileHover={{ scale: 1.01 }}
+            animate={{
               borderColor: dragActive ? 'var(--ta-accent)' : 'var(--ta-slate)',
-              backgroundColor: dragActive ? 'rgba(235,94,40,0.08)' : 'transparent',
+              backgroundColor: dragActive ? 'color-mix(in srgb, var(--ta-accent) 10%, transparent)' : 'rgba(0,0,0,0)',
             }}
+            transition={{ duration: 0.15 }}
+            className="flex cursor-pointer flex-col items-center gap-1 rounded-md border border-dashed px-2 py-2 text-center"
           >
-            <ImagePlus size={16} style={{ color: 'var(--ta-slate)' }} />
+            <motion.span animate={dragActive ? { y: [-2, 2, -2] } : { y: 0 }} transition={{ duration: 0.6, repeat: dragActive ? Infinity : 0 }}>
+              <ImagePlus size={16} style={{ color: dragActive ? 'var(--ta-accent)' : 'var(--ta-slate)' }} />
+            </motion.span>
             <p className="text-[8px]" style={{ color: 'var(--ta-slate)' }}>
               Drop, click to browse, or paste (Ctrl+V)
             </p>
-          </div>
+          </motion.div>
         )}
         <input
           ref={fileInputRef}
@@ -584,14 +668,24 @@ export default function TradeForm({ mode = 'sidebar' }) {
             if (file) attachFile(file)
           }}
         />
-      </div>
+      </motion.div>
 
-      {error && (
-        <p className="text-[9px] font-medium" style={{ color: '#dc2626' }}>{error}</p>
-      )}
+      <AnimatePresence>
+        {error && (
+          <motion.p
+            initial={{ opacity: 0, y: -4, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="text-[9px] font-medium"
+            style={{ color: '#dc2626' }}
+          >
+            {error}
+          </motion.p>
+        )}
+      </AnimatePresence>
 
       {/* 11. Add / Update button — Cancel sits alongside it while editing. */}
-      <div className="mt-1 flex gap-1.5">
+      <motion.div variants={itemVariants} className="mt-1 flex gap-1.5">
         {editingTradeId && (
           <motion.button
             type="button"
@@ -607,15 +701,30 @@ export default function TradeForm({ mode = 'sidebar' }) {
         <motion.button
           type="button"
           animate={pulseControls}
+          whileHover={{ scale: 1.015 }}
           whileTap={{ scale: 0.97 }}
           onClick={handleAdd}
           disabled={saving}
-          className="flex-1 rounded-md py-1.5 text-[10px] font-semibold text-white transition-colors hover:brightness-110 disabled:opacity-60"
-          style={{ backgroundColor: 'var(--ta-accent)' }}
+          className="ta-btn-primary flex flex-1 items-center justify-center gap-1 rounded-md py-1.5 text-[10px] font-semibold text-white disabled:opacity-60"
         >
+          {saving ? (
+            <motion.span
+              animate={{ rotate: 360 }}
+              transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}
+              className="h-2.5 w-2.5 rounded-full border-[1.5px] border-white/40 border-t-white"
+            />
+          ) : (
+            <motion.span
+              animate={{ rotate: [0, 0] }}
+              whileHover={{ rotate: 90 }}
+              transition={{ duration: 0.2 }}
+            >
+              {editingTradeId ? <Check size={11} /> : <Plus size={11} />}
+            </motion.span>
+          )}
           {saving ? (editingTradeId ? 'Saving…' : 'Adding…') : editingTradeId ? 'Save changes' : 'Add'}
         </motion.button>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

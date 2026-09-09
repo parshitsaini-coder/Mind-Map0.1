@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { INDIAN_STOCKS, FOREX_PAIRS, COMMODITIES } from '../../data/instruments'
+import AnimatedSelect from './AnimatedSelect'
 
 const INSTRUMENT_TYPES = ['Equity', 'Forex', 'Commodity']
 const TIMEFRAMES = ['1m', '3m', '5m', '15m', '30m', '60m', '75m', '2h', '3h', '4h', '1D', '1W', '1M']
@@ -66,17 +67,13 @@ export default function FiltersPopover({ open, onClose }) {
             {/* Pair */}
             <label className="flex flex-col gap-1">
               <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Pair</span>
-              <select
+              <AnimatedSelect
                 value={filters.pair || ''}
-                onChange={(e) => setFilter('pair', e.target.value)}
-                className={inputCls}
-                style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
-              >
-                <option value="">All pairs</option>
-                {ALL_PAIRS.map((i) => (
-                  <option key={i.symbol} value={i.symbol}>{i.symbol}</option>
-                ))}
-              </select>
+                onChange={(v) => setFilter('pair', v)}
+                inputCls={inputCls}
+                placeholder="All pairs"
+                options={[{ value: '', label: 'All pairs' }, ...ALL_PAIRS.map((i) => ({ value: i.symbol, label: i.symbol }))]}
+              />
             </label>
 
             {/* Type */}
@@ -109,17 +106,13 @@ export default function FiltersPopover({ open, onClose }) {
             {/* Timeframe */}
             <label className="flex flex-col gap-1">
               <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Time frame</span>
-              <select
+              <AnimatedSelect
                 value={filters.timeframe || ''}
-                onChange={(e) => setFilter('timeframe', e.target.value)}
-                className={inputCls}
-                style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
-              >
-                <option value="">All time frames</option>
-                {TIMEFRAMES.map((tf) => (
-                  <option key={tf} value={tf}>{tf}</option>
-                ))}
-              </select>
+                onChange={(v) => setFilter('timeframe', v)}
+                inputCls={inputCls}
+                placeholder="All time frames"
+                options={[{ value: '', label: 'All time frames' }, ...TIMEFRAMES.map((tf) => ({ value: tf, label: tf }))]}
+              />
             </label>
 
             {/* Direction */}
@@ -153,36 +146,29 @@ export default function FiltersPopover({ open, onClose }) {
             {/* Status */}
             <label className="flex flex-col gap-1">
               <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Status</span>
-              <select
+              <AnimatedSelect
                 value={filters.status || ''}
-                onChange={(e) => setFilter('status', e.target.value)}
-                className={inputCls}
-                style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
-              >
-                <option value="">All statuses</option>
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
+                onChange={(v) => setFilter('status', v)}
+                inputCls={inputCls}
+                placeholder="All statuses"
+                options={[{ value: '', label: 'All statuses' }, ...STATUS_OPTIONS.map((s) => ({ value: s, label: s }))]}
+              />
             </label>
 
             {/* Validation rule */}
             <label className="flex flex-col gap-1">
               <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Validation rule met</span>
-              <select
+              <AnimatedSelect
                 value={filters.validationRuleId || ''}
-                onChange={(e) => setFilter('validationRuleId', e.target.value)}
+                onChange={(v) => setFilter('validationRuleId', v)}
+                inputCls={inputCls}
                 disabled={validationRules.length === 0}
-                className={`${inputCls} disabled:opacity-50`}
-                style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
-              >
-                <option value="">
-                  {validationRules.length === 0 ? 'No rules yet' : 'Any rule'}
-                </option>
-                {validationRules.map((r) => (
-                  <option key={r.id} value={r.id}>{r.label}</option>
-                ))}
-              </select>
+                placeholder={validationRules.length === 0 ? 'No rules yet' : 'Any rule'}
+                options={[
+                  { value: '', label: validationRules.length === 0 ? 'No rules yet' : 'Any rule' },
+                  ...validationRules.map((r) => ({ value: r.id, label: r.label })),
+                ]}
+              />
             </label>
 
             {/* Date range */}

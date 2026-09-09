@@ -150,10 +150,13 @@ export default function TradeAnalysis() {
                 from Step 2; TradeForm.jsx owns the actual fields. */}
             <motion.aside
               animate={{ width: sidebarOpen ? SIDEBAR_WIDTH : 0, marginRight: sidebarOpen ? 0 : -8 }}
-              whileHover={{ borderColor: '#eb5e28' }}
+              whileHover={{ borderColor: 'var(--ta-accent)' }}
               transition={SIDEBAR_SPRING}
-              className="h-full shrink-0 overflow-hidden rounded-2xl border shadow-sm"
-              style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)' }}
+              className="ta-card-glow h-full shrink-0 overflow-hidden rounded-2xl border"
+              style={{
+                background: 'linear-gradient(165deg, var(--ta-surface), color-mix(in srgb, var(--ta-surface) 88%, var(--ta-accent) 12%))',
+                borderColor: 'var(--ta-slate)',
+              }}
             >
               <motion.div
                 animate={{ opacity: sidebarOpen ? 1 : 0 }}

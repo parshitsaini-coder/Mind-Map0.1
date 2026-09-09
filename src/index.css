@@ -167,3 +167,69 @@ body {
 .node-anim-sonar {
   animation: nodeSonar 1.6s cubic-bezier(0.4, 0, 0.4, 1) infinite;
 }
+
+/* ── Trade Analysis — "New Trade" panel polish ─────────────────────────
+   Theme-aware glow/gradient helpers built on the --ta-* tokens so every
+   one of the six palettes in tradeAnalysisThemes.js gets a matching,
+   correctly-tinted effect for free (color-mix reads the live CSS var). */
+.ta-input {
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+.ta-input:focus {
+  border-color: var(--ta-accent) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ta-accent) 20%, transparent);
+  background-color: color-mix(in srgb, var(--ta-surface) 96%, var(--ta-accent) 4%);
+}
+
+.ta-card-glow {
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 8px 24px -12px color-mix(in srgb, var(--ta-accent) 35%, transparent);
+}
+.ta-card-glow:hover {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 12px 32px -10px color-mix(in srgb, var(--ta-accent) 50%, transparent);
+}
+
+/* Animated gradient fill for the primary "Add" button, plus a diagonal
+   shine sweep on hover — pure CSS so it stays cheap even while other
+   framer-motion gestures (whileTap, the success pulse) run alongside it. */
+@keyframes taGradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.ta-btn-primary {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    120deg,
+    var(--ta-accent),
+    color-mix(in srgb, var(--ta-accent) 65%, #ffffff 35%),
+    var(--ta-accent)
+  );
+  background-size: 220% 220%;
+  animation: taGradientShift 5s ease infinite;
+  box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--ta-accent) 60%, transparent);
+}
+.ta-btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.45) 40%,
+    transparent 60%
+  );
+  transform: translateX(-120%);
+  transition: transform 0.55s ease;
+}
+.ta-btn-primary:hover::after {
+  transform: translateX(120%);
+}
+
+@keyframes taUnderlineGrow {
+  from { width: 0; opacity: 0; }
+  to { width: 28px; opacity: 1; }
+}
+.ta-title-underline {
+  animation: taUnderlineGrow 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+}
