@@ -475,12 +475,33 @@ export const useMapStore = create(
       // scaling down and back up returns to the same base thickness
       // instead of compounding. Driven by the slider at the top of the
       // Connector Styles panel.
+      // Shared targeting rule for the Connector Styles panel (both the line
+      // style swatches and the scale slider): most specific selection wins.
+      //  1. If specific connector line(s) are selected on the canvas, use
+      //     exactly those.
+      //  2. Else, if node(s) are selected, target only THAT node's own
+      //     outgoing connectors (i.e. the lines to its direct children) —
+      //     so selecting one branch's parent node and picking a style only
+      //     restyles that branch, not the whole map.
+      //  3. Else (nothing selected at all), fall back to every connector,
+      //     so clicking a style always visibly does something.
+      getConnectorTargetIds: () => {
+        const allEdges = get().edges
+        const selectedEdgeIds = allEdges.filter((e) => e.selected).map((e) => e.id)
+        if (selectedEdgeIds.length) return selectedEdgeIds
+        const selectedNodeIds = new Set(get().nodes.filter((n) => n.selected).map((n) => n.id))
+        if (selectedNodeIds.size) {
+          const childEdgeIds = allEdges.filter((e) => selectedNodeIds.has(e.source)).map((e) => e.id)
+          if (childEdgeIds.length) return childEdgeIds
+        }
+        return allEdges.map((e) => e.id)
+      },
+
       setConnectorScale: (scale) => {
         const allEdges = get().edges
         if (!allEdges.length) return 0
         get().pushSnapshotBurst()
-        const selectedIds = allEdges.filter((e) => e.selected).map((e) => e.id)
-        const targetIds = selectedIds.length ? selectedIds : allEdges.map((e) => e.id)
+        const targetIds = get().getConnectorTargetIds()
         const idSet = new Set(targetIds)
         set({
           edges: get().edges.map((e) => {
@@ -503,8 +524,7 @@ export const useMapStore = create(
       applyLineStyleToSelectedEdges: (style) => {
         const allEdges = get().edges
         if (!allEdges.length) return 0
-        const selectedIds = allEdges.filter((e) => e.selected).map((e) => e.id)
-        const targetIds = selectedIds.length ? selectedIds : allEdges.map((e) => e.id)
+        const targetIds = get().getConnectorTargetIds()
         get().pushSnapshot()
         const idSet = new Set(targetIds)
         set({

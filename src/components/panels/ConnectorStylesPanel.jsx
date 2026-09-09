@@ -114,7 +114,7 @@ export default function ConnectorStylesPanel() {
               <p className="mb-2 text-[10px] leading-snug text-[var(--color-slate)]">
                 {selectedCount > 0
                   ? `${selectedCount} line${selectedCount > 1 ? 's' : ''} selected — pick a style to apply.`
-                  : 'Pick a style to apply it to every connector — or select specific line(s) on the canvas first to apply it just to those.'}
+                  : 'Pick a style to apply it to every connector — or select specific line(s), or a node (to target just its own child connectors), first to apply it just to those.'}
               </p>
 
               <div className="mb-3 rounded-md border border-[var(--color-sage)] px-2 py-2">
