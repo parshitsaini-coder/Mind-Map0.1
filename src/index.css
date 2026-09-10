@@ -247,13 +247,13 @@ body {
 }
 .ta-liquid-bg {
   background-image:
-    radial-gradient(circle at 15% 20%, rgba(255, 110, 199, 0.65), transparent 45%),
-    radial-gradient(circle at 85% 15%, rgba(91, 214, 255, 0.6), transparent 50%),
-    radial-gradient(circle at 75% 85%, rgba(123, 97, 255, 0.65), transparent 50%),
-    radial-gradient(circle at 20% 85%, rgba(80, 227, 194, 0.55), transparent 50%),
-    linear-gradient(125deg, #4f6bf6, #7b61ff, #5bd6ff, #50e3c2, #ff6ec7, #4f6bf6);
+    radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.55), transparent 45%),
+    radial-gradient(circle at 85% 15%, rgba(214, 231, 255, 0.55), transparent 55%),
+    radial-gradient(circle at 75% 85%, rgba(198, 214, 245, 0.5), transparent 55%),
+    radial-gradient(circle at 20% 85%, rgba(230, 240, 255, 0.5), transparent 55%),
+    linear-gradient(125deg, #eef3fb, #dbe6f7, #c9d7ee, #e3ecfa, #eef3fb);
   background-size: 180% 180%, 180% 180%, 180% 180%, 180% 180%, 320% 320%;
-  background-color: #4f6bf6;
+  background-color: #e6edf9;
   animation: taLiquidFlow 22s ease-in-out infinite;
 }
 
@@ -268,8 +268,8 @@ body {
 [data-ta-theme="liquidglass"] .rounded-md,
 [data-ta-theme="liquidglass"] .rounded-full,
 [data-ta-theme="liquidglass"] .rounded {
-  backdrop-filter: blur(18px) saturate(165%);
-  -webkit-backdrop-filter: blur(18px) saturate(165%);
+  backdrop-filter: blur(18px) saturate(130%);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
 }
 
 /* A soft light edge along the top of every bordered glass panel, the way

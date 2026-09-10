@@ -1,10 +1,11 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, SlidersHorizontal, ShieldPlus, ChevronLeft, ChevronRight, Table2, LineChart, Wallet, Target } from 'lucide-react'
+import { ArrowLeft, SlidersHorizontal, ShieldPlus, ChevronLeft, ChevronRight, Table2, LineChart, Wallet, Target, List, LayoutGrid } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import TradeForm from './TradeForm'
 import TradesTable from './TradesTable'
+import TradeCards from './TradeCards'
 import ValidationRulesModal from './ValidationRulesModal'
 import EditTradeModal from './EditTradeModal'
 import FiltersPopover, { countActiveFilters } from './FiltersPopover'
@@ -49,6 +50,47 @@ function ViewSwitch({ activeView, onChange }) {
             )}
             <tab.icon size={10} className="relative" />
             <span className="relative">{tab.label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// Table view only — small List/Cards segmented switch so entries can
+// render as the classic row table or a responsive card grid (3-up on a
+// wide screen). Sits right before the Filters/Add Validation Rule group,
+// same pill-segment styling as ViewSwitch above.
+function EntriesViewSwitch({ activeEntriesView, onChange }) {
+  const options = [
+    { id: 'list', label: 'List', icon: List },
+    { id: 'cards', label: 'Cards', icon: LayoutGrid },
+  ]
+  return (
+    <div
+      className="flex shrink-0 items-center gap-0.5 rounded-full p-0.5"
+      style={{ backgroundColor: 'var(--ta-bg)' }}
+    >
+      {options.map((opt) => {
+        const active = activeEntriesView === opt.id
+        return (
+          <button
+            key={opt.id}
+            onClick={() => onChange(opt.id)}
+            title={opt.id === 'list' ? 'Row table view' : 'Card grid view'}
+            className="relative flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors"
+            style={{ color: active ? '#fffcf2' : 'var(--ta-ink)' }}
+          >
+            {active && (
+              <motion.span
+                layoutId="ta-entries-view-switch-pill"
+                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                className="absolute inset-0 rounded-full"
+                style={{ backgroundColor: 'var(--ta-accent)' }}
+              />
+            )}
+            <opt.icon size={10} className="relative" />
+            <span className="relative hidden sm:inline">{opt.label}</span>
           </button>
         )
       })}
@@ -129,6 +171,7 @@ export default function TradeAnalysis() {
   const filters = useTradeAnalysisStore((s) => s.filters)
   const theme = useTradeAnalysisStore((s) => s.theme)
   const activeView = useTradeAnalysisStore((s) => s.activeView)
+  const entriesView = useTradeAnalysisStore((s) => s.entriesView)
   const trades = useTradeAnalysisStore((s) => s.trades)
   const [rulesModalOpen, setRulesModalOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -216,6 +259,10 @@ export default function TradeAnalysis() {
                 only make sense (and only render) in Table view — Step 1. */}
             {activeView === 'table' && (
               <div className="ml-auto flex shrink-0 items-center gap-1">
+                <EntriesViewSwitch
+                  activeEntriesView={entriesView}
+                  onChange={(v) => useTradeAnalysisStore.getState().setEntriesView(v)}
+                />
                 <div className="relative">
                   <motion.button
                     whileTap={{ scale: 0.94 }}
@@ -313,7 +360,7 @@ export default function TradeAnalysis() {
               className="min-w-0 flex-1 overflow-hidden rounded-2xl border shadow-sm"
               style={{ borderColor: 'var(--ta-slate)', backgroundColor: 'var(--ta-surface)' }}
             >
-              <TradesTable />
+              {entriesView === 'cards' ? <TradeCards /> : <TradesTable />}
             </motion.div>
           </div>
           )}

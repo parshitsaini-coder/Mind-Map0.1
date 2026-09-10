@@ -21,6 +21,11 @@ const initialState = {
   // reopening the overlay remembers where you left off.
   activeView: 'table', // 'table' | 'analysis'
 
+  // Table tab only — whether entries render as the classic horizontal
+  // row table, or as a responsive grid of cards (3-up on a wide screen).
+  // Persisted the same way as activeView/theme.
+  entriesView: 'list', // 'list' | 'cards'
+
   // Selected color theme id for the whole feature — see
   // src/theme/tradeAnalysisThemes.js for the palette list. Applied as CSS
   // var overrides on the overlay root in TradeAnalysis.jsx.
@@ -60,6 +65,7 @@ export const useTradeAnalysisStore = create(
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       setTheme: (theme) => set({ theme }),
       setActiveView: (activeView) => set({ activeView }),
+      setEntriesView: (entriesView) => set({ entriesView }),
 
       // Step 3 — "Add" button on the New Trade form. `trade` is the field
       // payload assembled by TradeForm.jsx; this just stamps an id/status/
@@ -213,6 +219,7 @@ export const useTradeAnalysisStore = create(
         sidebarOpen: state.sidebarOpen,
         theme: state.theme,
         activeView: state.activeView,
+        entriesView: state.entriesView,
       }),
     }
   )

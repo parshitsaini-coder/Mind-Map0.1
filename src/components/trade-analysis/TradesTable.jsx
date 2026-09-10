@@ -10,13 +10,13 @@ import StatusDropdown from './StatusDropdown'
 // StatusDropdown.jsx alongside the custom animated menu that replaced the
 // native <select> below.
 
-const TYPE_BADGE_STYLE = {
+export const TYPE_BADGE_STYLE = {
   Equity: { bg: 'rgba(235,94,40,0.18)', text: '#c1450f' }, // warm orange
   Forex: { bg: 'rgba(37,99,235,0.16)', text: '#1d4ed8' }, // blue
   Commodity: { bg: 'rgba(217,119,6,0.18)', text: '#b45309' }, // gold/amber
 }
 
-const TIMEFRAME_BADGE_STYLE = {
+export const TIMEFRAME_BADGE_STYLE = {
   '1m': { bg: 'rgba(20,184,166,0.16)', text: '#0f766e' },
   '5m': { bg: 'rgba(20,184,166,0.16)', text: '#0f766e' },
   '15m': { bg: 'rgba(139,92,246,0.16)', text: '#6d28d9' },
@@ -26,7 +26,7 @@ const TIMEFRAME_BADGE_STYLE = {
   '4H': { bg: 'rgba(2,132,199,0.16)', text: '#0369a1' },
   '1D': { bg: 'rgba(22,163,74,0.16)', text: '#15803d' },
 }
-const TIMEFRAME_DEFAULT_STYLE = { bg: 'rgba(75,85,99,0.16)', text: '#374151' }
+export const TIMEFRAME_DEFAULT_STYLE = { bg: 'rgba(75,85,99,0.16)', text: '#374151' }
 
 // Step 6 of trade-analysis-master-prompt.md — the entries table, replacing
 // the Step 2 body placeholder. Columns match the spec table exactly.
