@@ -151,6 +151,25 @@ Creating a live link requires being signed in (it needs somewhere to write
 to), so the Live Link tab in the share modal prompts sign-in if needed. The
 One-time tab keeps working for anyone with no login and no setup at all.
 
+## 3d. Enable Google sign-in (optional — "Continue with Google" button)
+
+The login panel's Google button calls Supabase's built-in Google OAuth
+provider — no extra code needed, just flip it on:
+
+1. **Authentication → Providers → Google** in the Supabase dashboard, toggle
+   it on.
+2. You'll need a Google OAuth Client ID + secret from the
+   [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+   (OAuth consent screen + "Web application" credentials). Supabase's
+   provider page shows you the exact **Authorized redirect URI** to paste
+   into the Google Cloud credentials — copy it from there.
+3. Paste the Google Client ID and Client Secret into the Supabase provider
+   settings and save.
+
+Until this is turned on, clicking "Continue with Google" will show a
+Supabase error toast (e.g. "provider is not enabled") — email/password
+login and signup keep working either way.
+
 ## 4. Get your API keys
 
 **Project Settings → API**. You need two values:
