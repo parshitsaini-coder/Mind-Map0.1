@@ -75,13 +75,20 @@ function ViewerNode({ id, data }) {
   const task = data.task
   // Section — Full-bleed node image, mirrors CustomNode.jsx.
   const hasImage = Boolean(data.image)
-  // Section — Node size, mirrors CustomNode.jsx's sizeScale.
+  // Section — Node size, mirrors CustomNode.jsx's sizeScale. Resizes the
+  // real box (not a CSS transform) so it renders the same as the editor —
+  // see CustomNode.jsx for why a transform breaks connector alignment.
   const sizeScale = data.sizeScale || 1
+  const baseFontSize = 12
+  const headerPadY = 6 * sizeScale
+  const headerPadX = 12 * sizeScale
+  const headerGap = 6 * sizeScale
+  const iconSize = Math.round(13 * sizeScale)
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: sizeScale * 0.7 }}
-      animate={{ opacity: 1, scale: sizeScale }}
+      initial={{ opacity: 0, scale: 0.7 }}
+      animate={{ opacity: 1, scale: 1 }}
       transition={{ type: 'spring', stiffness: 300, damping: 22 }}
       className={`relative flex flex-col border text-xs font-medium shadow-sm ${shapeClass[data.shape] || 'rounded-md'}`}
       style={{
@@ -89,11 +96,11 @@ function ViewerNode({ id, data }) {
         borderColor: 'var(--color-slate)',
         borderWidth: 1,
         color: data.textColor || 'var(--color-ink)',
-        minWidth: appliedChecklists.length > 0 ? 180 : hasImage ? 96 : 90,
-        minHeight: hasImage ? 72 : undefined,
-        width: hasImage ? 96 : undefined,
-        height: hasImage ? 72 : undefined,
-        maxWidth: hasImage ? 96 : undefined,
+        minWidth: (appliedChecklists.length > 0 ? 180 : hasImage ? 96 : 90) * sizeScale,
+        minHeight: hasImage ? 72 * sizeScale : undefined,
+        width: hasImage ? 96 * sizeScale : undefined,
+        height: hasImage ? 72 * sizeScale : undefined,
+        maxWidth: hasImage ? 96 * sizeScale : undefined,
         overflow: hasImage ? 'hidden' : undefined,
         textAlign: 'center',
       }}
@@ -110,29 +117,42 @@ function ViewerNode({ id, data }) {
           }}
           title="Click to view full size"
           className={`nodrag nopan pointer-events-auto absolute inset-0 h-full w-full cursor-zoom-in object-cover ${imageRadiusClass[data.shape] || 'rounded-md'}`}
+          style={{ objectPosition: 'center' }}
         />
       )}
 
       <div
-        className={`relative flex w-full items-center gap-1.5 px-3 py-1.5 ${hasImage ? 'mt-auto rounded-b-[inherit] bg-black/45' : ''}`}
-        style={hasImage ? { color: '#fff' } : undefined}
+        className={`relative flex w-full items-center ${hasImage ? 'mt-auto rounded-b-[inherit] bg-black/45' : ''}`}
+        style={{
+          gap: headerGap,
+          padding: `${headerPadY}px ${headerPadX}px`,
+          ...(hasImage ? { color: '#fff' } : undefined),
+        }}
       >
         {task && (
           <span className="shrink-0" title={task.dueDate ? `Due ${task.dueDate}` : 'To-do'}>
             {task.done ? (
-              <CheckSquare size={13} color={hasImage ? '#fff' : 'var(--color-ink)'} />
+              <CheckSquare size={iconSize} color={hasImage ? '#fff' : 'var(--color-ink)'} />
             ) : (
-              <Square size={13} color={hasImage ? '#fff' : 'var(--color-ink)'} />
+              <Square size={iconSize} color={hasImage ? '#fff' : 'var(--color-ink)'} />
             )}
           </span>
         )}
 
-        {!data.image && data.emoji && <span className="shrink-0">{data.emoji}</span>}
-        {!data.image && !data.emoji && IconComp && <IconComp size={13} className="shrink-0" />}
+        {!data.image && data.emoji && (
+          <span className="shrink-0" style={{ fontSize: iconSize }}>
+            {data.emoji}
+          </span>
+        )}
+        {!data.image && !data.emoji && IconComp && <IconComp size={iconSize} className="shrink-0" />}
 
         <span
-          className={`flex-1 ${task?.done ? 'line-through opacity-60' : ''}`}
-          style={hasImage ? { ...nodeTextStyle(data), color: '#fff' } : nodeTextStyle(data)}
+          className={`flex-1 truncate ${task?.done ? 'line-through opacity-60' : ''}`}
+          style={{
+            ...nodeTextStyle(data),
+            fontSize: `${(nodeTextStyle(data).fontSize ? parseFloat(nodeTextStyle(data).fontSize) : baseFontSize) * sizeScale}px`,
+            ...(hasImage ? { color: '#fff' } : undefined),
+          }}
         >
           {data.label}
         </span>
