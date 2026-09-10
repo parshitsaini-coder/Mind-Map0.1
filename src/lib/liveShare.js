@@ -34,7 +34,25 @@ export async function upsertLiveShare({ userId, projectId, payload, expiryValue,
   if (!isSupabaseConfigured || !userId) {
     return { error: 'Cloud save isn\u2019t set up yet (missing Supabase keys).' }
   }
-  const id = existingId || generateShareId()
+  // `existingId` only reflects what THIS browser remembers locally (it's
+  // persisted zustand state). If that's missing — cleared storage, a
+  // different browser/device, or a previously-ended session whose row
+  // Supabase still has — but a row for this (user_id, project_id) already
+  // exists server-side, blindly generating a fresh id and upserting would
+  // try to INSERT a second row for the same pair and hit the table's
+  // `unique (user_id, project_id)` constraint (upsert only resolves
+  // conflicts on the primary key `id` by default, not this constraint).
+  // So look the real row up first and reuse its id whenever one exists.
+  let id = existingId
+  if (!id) {
+    const { data: existingRow } = await supabase
+      .from('live_shares')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('project_id', projectId)
+      .maybeSingle()
+    id = existingRow?.id || generateShareId()
+  }
   const row = {
     id,
     user_id: userId,

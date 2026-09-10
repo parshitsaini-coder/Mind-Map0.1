@@ -149,14 +149,19 @@ grant execute on function public.get_live_share(text) to anon, authenticated;
 ```
 
 > **Already created this table before?** (e.g. you ran this section previously
-> and only just added the `theme_name` column above.) Just run these two
+> and only just added the `theme_name` column above.) Just run these
 > statements instead of the full block — they add the new column and
-> refresh the function to return it, without touching your existing rows:
+> replace the function to return it, without touching your existing rows.
+> Note the `drop function` before `create` — Postgres won't let you change
+> a function's return columns with `create or replace`, only add a brand
+> new one after dropping the old:
 >
 > ```sql
 > alter table public.live_shares add column if not exists theme_name text;
 >
-> create or replace function public.get_live_share(share_id text)
+> drop function if exists public.get_live_share(text);
+>
+> create function public.get_live_share(share_id text)
 > returns table (
 >   nodes jsonb, edges jsonb, checklists jsonb, trades jsonb,
 >   validation_rules jsonb, theme_name text, expires_at timestamptz, ended_at timestamptz
