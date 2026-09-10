@@ -45,12 +45,22 @@ export default function StatusDropdown({ value, onChange }) {
     <div ref={rootRef} className="relative inline-block">
       <motion.button
         type="button"
+        key={value}
+        initial={{ scale: 0.85 }}
+        animate={{ scale: 1 }}
+        whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 20 }}
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[8.5px] font-semibold outline-none transition-colors"
         style={{ backgroundColor: current.bg, color: current.text }}
       >
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: current.dot }} />
+        <motion.span
+          className="h-1.5 w-1.5 shrink-0 rounded-full"
+          style={{ backgroundColor: current.dot }}
+          animate={{ boxShadow: [`0 0 0px ${current.dot}`, `0 0 4px ${current.dot}`, `0 0 0px ${current.dot}`] }}
+          transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+        />
         {value}
         <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.15 }} className="flex">
           <ChevronDown size={9} />

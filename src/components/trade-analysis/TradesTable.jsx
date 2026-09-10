@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ImagePlus, Pencil, Trash2, Camera } from 'lucide-react'
+import { ImagePlus, Pencil, Trash2, Camera, PartyPopper } from 'lucide-react'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useUiStore } from '../../store/uiStore'
 import { uploadTradeImage } from '../../lib/imageUpload'
@@ -38,6 +38,39 @@ export default function TradesTable() {
   const [expandedNotes, setExpandedNotes] = useState(() => new Set())
   const [uploadingResultId, setUploadingResultId] = useState(null)
   const resultInputRefs = useRef({})
+
+  // "Pow" pass — flash-highlight whichever row was just added, and pop a
+  // little confetti burst on whichever row just got marked Target Hit.
+  // Both are purely cosmetic, timer-driven bits of local state; they never
+  // touch the store, so nothing about the underlying data changes.
+  const [freshRowId, setFreshRowId] = useState(null)
+  const [celebrateRowId, setCelebrateRowId] = useState(null)
+  const knownIdsRef = useRef(new Set(trades.map((t) => t.id)))
+  const prevStatusRef = useRef(new Map(trades.map((t) => [t.id, t.status])))
+
+  useEffect(() => {
+    const known = knownIdsRef.current
+    const prevStatus = prevStatusRef.current
+    for (const t of trades) {
+      if (!known.has(t.id)) {
+        setFreshRowId(t.id)
+        const timer = setTimeout(() => setFreshRowId((id) => (id === t.id ? null : id)), 1400)
+        known.add(t.id)
+        // eslint-disable-next-line no-loop-func
+        return () => clearTimeout(timer)
+      }
+      if (prevStatus.get(t.id) && prevStatus.get(t.id) !== t.status && t.status === 'Target Hit') {
+        setCelebrateRowId(t.id)
+        const timer = setTimeout(() => setCelebrateRowId((id) => (id === t.id ? null : id)), 900)
+        return () => clearTimeout(timer)
+      }
+      prevStatus.set(t.id, t.status)
+    }
+    known.forEach((id) => {
+      if (!trades.some((t) => t.id === id)) known.delete(id)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trades])
 
   const ruleLabelById = useMemo(() => {
     const map = new Map()
@@ -88,25 +121,47 @@ export default function TradesTable() {
 
   if (trades.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-        <span className="text-3xl">📈</span>
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center"
+      >
+        <motion.span
+          animate={{ y: [0, -6, 0] }}
+          transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+          className="text-3xl"
+        >
+          📈
+        </motion.span>
         <p className="text-xs font-semibold" style={{ color: 'var(--ta-ink)' }}>No trades logged yet</p>
         <p className="max-w-[220px] text-[11px]" style={{ color: 'var(--ta-slate)' }}>
           Fill in the form on the left and hit Add to log your first trade here.
         </p>
-      </div>
+      </motion.div>
     )
   }
 
   if (filteredTrades.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-        <span className="text-3xl">🔍</span>
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center"
+      >
+        <motion.span
+          animate={{ rotate: [0, -8, 8, 0] }}
+          transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+          className="text-3xl"
+        >
+          🔍
+        </motion.span>
         <p className="text-xs font-semibold" style={{ color: 'var(--ta-ink)' }}>No trades match these filters</p>
         <p className="max-w-[220px] text-[11px]" style={{ color: 'var(--ta-slate)' }}>
           Try widening a filter, or clear them all from the Filters button above.
         </p>
-      </div>
+      </motion.div>
     )
   }
 
@@ -142,19 +197,53 @@ export default function TradesTable() {
             {filteredTrades.map((trade, idx) => {
               const notesExpanded = expandedNotes.has(trade.id)
               const checkedRules = (trade.validationRuleIds || []).map((id) => ruleLabelById.get(id)).filter(Boolean)
+              const isFresh = trade.id === freshRowId
+              const isCelebrating = trade.id === celebrateRowId
               return (
                 <motion.tr
                   key={trade.id}
                   layout
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0, transition: { delay: Math.min(idx, 12) * 0.03, duration: 0.22 } }}
-                  exit={{ opacity: 0, x: 16, transition: { duration: 0.15 } }}
+                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                  animate={{
+                    opacity: 1,
+                    y: 0,
+                    scale: 1,
+                    backgroundColor: isFresh
+                      ? ['rgba(235,94,40,0.28)', 'rgba(235,94,40,0.28)', 'rgba(235,94,40,0)']
+                      : trade.id === editingTradeId
+                        ? 'rgba(235,94,40,0.08)'
+                        : 'rgba(235,94,40,0)',
+                    transition: isFresh
+                      ? { duration: 1.3, times: [0, 0.15, 1], ease: 'easeOut' }
+                      : { delay: Math.min(idx, 12) * 0.03, duration: 0.22 },
+                  }}
+                  exit={{ opacity: 0, x: 16, scale: 0.98, transition: { duration: 0.15 } }}
+                  whileHover={{ scale: 1.004, boxShadow: '0 2px 10px rgba(64,61,57,0.12)' }}
+                  className="relative"
                   style={{
                     borderBottom: '1px solid rgba(64,61,57,0.15)',
-                    backgroundColor: trade.id === editingTradeId ? 'rgba(235,94,40,0.08)' : 'transparent',
+                    position: 'relative',
                   }}
                 >
-                  <td className={td} style={{ color: 'var(--ta-slate)' }}>{idx + 1}</td>
+                  <td className={td} style={{ color: 'var(--ta-slate)' }}>
+                    <span className="relative inline-flex items-center">
+                      {idx + 1}
+                      <AnimatePresence>
+                        {isCelebrating && (
+                          <motion.span
+                            initial={{ opacity: 0, scale: 0.4, y: 0 }}
+                            animate={{ opacity: 1, scale: 1.3, y: -14 }}
+                            exit={{ opacity: 0, scale: 0.4 }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 14 }}
+                            className="pointer-events-none absolute -right-3 -top-1"
+                            style={{ color: '#16a34a' }}
+                          >
+                            <PartyPopper size={12} />
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </span>
+                  </td>
 
                   <td className={td} style={{ color: 'var(--ta-ink)' }}>{trade.date}</td>
 
@@ -166,36 +255,43 @@ export default function TradesTable() {
                   </td>
 
                   <td className={td}>
-                    <span
-                      className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold"
+                    <motion.span
+                      whileHover={{ scale: 1.08, y: -1 }}
+                      transition={{ type: 'spring', stiffness: 420, damping: 18 }}
+                      className="inline-block rounded-full px-1.5 py-0.5 text-[8px] font-semibold"
                       style={{
                         backgroundColor: (TYPE_BADGE_STYLE[trade.instrumentType] || TIMEFRAME_DEFAULT_STYLE).bg,
                         color: (TYPE_BADGE_STYLE[trade.instrumentType] || TIMEFRAME_DEFAULT_STYLE).text,
                       }}
                     >
                       {trade.instrumentType}
-                    </span>
+                    </motion.span>
                   </td>
 
                   <td className={td}>
-                    <span
-                      className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold"
+                    <motion.span
+                      whileHover={{ scale: 1.08, y: -1 }}
+                      transition={{ type: 'spring', stiffness: 420, damping: 18 }}
+                      className="inline-block rounded-full px-1.5 py-0.5 text-[8px] font-semibold"
                       style={{
                         backgroundColor: (TIMEFRAME_BADGE_STYLE[trade.timeframe] || TIMEFRAME_DEFAULT_STYLE).bg,
                         color: (TIMEFRAME_BADGE_STYLE[trade.timeframe] || TIMEFRAME_DEFAULT_STYLE).text,
                       }}
                     >
                       {trade.timeframe}
-                    </span>
+                    </motion.span>
                   </td>
 
                   <td className={td}>
-                    <span
-                      className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold text-white"
+                    <motion.span
+                      whileHover={{ scale: 1.1 }}
+                      animate={trade.direction === 'Buy' ? { y: [0, -1, 0] } : { y: [0, 1, 0] }}
+                      transition={{ y: { duration: 1.8, repeat: Infinity, ease: 'easeInOut' } }}
+                      className="inline-block rounded-full px-1.5 py-0.5 text-[8px] font-semibold text-white"
                       style={{ backgroundColor: trade.direction === 'Buy' ? '#16a34a' : '#dc2626' }}
                     >
                       {trade.direction}
-                    </span>
+                    </motion.span>
                   </td>
 
                   <td className={td} style={{ color: 'var(--ta-ink)' }}>{trade.price}</td>
