@@ -1,38 +1,7 @@
 import { memo } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, useInternalNode } from '@xyflow/react'
 import { getFloatingEdgeParams } from '../../utils/floatingEdgeUtils'
-
-// Section — Connector calculations. Small round badge shown at the
-// midpoint of a connector once it's been tagged with a math operator via
-// the right-click menu (EdgeContextMenu.jsx). "=" is highlighted since
-// that's the operator that actually triggers a calculation.
-const OP_SYMBOL = { '+': '+', '-': '−', '*': '×', '/': '÷', '=': '=' }
-
-function OperatorBadge({ op, x, y }) {
-  if (!op) return null
-  const isEquals = op === '='
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`,
-        pointerEvents: 'none',
-      }}
-      className="nodrag nopan"
-    >
-      <div
-        className="flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-bold shadow-sm"
-        style={{
-          backgroundColor: isEquals ? 'var(--color-accent)' : 'var(--color-cream)',
-          borderColor: 'var(--color-slate)',
-          color: isEquals ? '#fff' : 'var(--color-ink)',
-        }}
-      >
-        {OP_SYMBOL[op]}
-      </div>
-    </div>
-  )
-}
+import { CALC_OPERATOR_ICON } from '../../utils/calcOperators'
 
 // Section 14 — perf pass: memoized like CustomNode, for the same reason.
 // Section — floating connectors: look up the source/target nodes' *live*
@@ -41,7 +10,7 @@ function OperatorBadge({ op, x, y }) {
 // trusting the fixed left/right/top/bottom handle the connection was
 // created on. Falls back to React Flow's handle-based coordinates if
 // either node isn't measured yet (e.g. the very first render).
-function CustomEdge({ source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, markerEnd, selected, data }) {
+function CustomEdge({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, style, markerEnd, selected }) {
   const sourceNode = useInternalNode(source)
   const targetNode = useInternalNode(target)
   const floating = getFloatingEdgeParams(sourceNode, targetNode)
@@ -54,6 +23,12 @@ function CustomEdge({ source, target, sourceX, sourceY, targetX, targetY, source
     targetY: floating?.ty ?? targetY,
     targetPosition: floating?.targetPos ?? targetPosition,
   })
+
+  // Section — Connector Calculations. A connector tagged with a math
+  // operator (right-click → ConnectorCalcMenu) shows it as a small badge
+  // at its midpoint. Purely additive on top of the existing dashed
+  // marching-ants style/animation below — nothing about that changes.
+  const OpIcon = data?.calcOp ? CALC_OPERATOR_ICON[data.calcOp] : null
 
   return (
     <>
@@ -72,9 +47,22 @@ function CustomEdge({ source, target, sourceX, sourceY, targetX, targetY, source
             : null),
         }}
       />
-      {data?.calcOp && (
+      {OpIcon && (
         <EdgeLabelRenderer>
-          <OperatorBadge op={data.calcOp} x={labelX} y={labelY} />
+          <div
+            style={{
+              position: 'absolute',
+              pointerEvents: 'none',
+              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+              backgroundColor: data.calcOp === '=' ? 'var(--color-accent)' : 'var(--color-cream)',
+              borderColor: 'var(--color-slate)',
+              color: data.calcOp === '=' ? 'var(--color-cream)' : 'var(--color-ink)',
+            }}
+            className="flex h-5 w-5 items-center justify-center rounded-full border shadow"
+            title={`Connector calculation: ${data.calcOp}`}
+          >
+            <OpIcon size={11} />
+          </div>
         </EdgeLabelRenderer>
       )}
     </>

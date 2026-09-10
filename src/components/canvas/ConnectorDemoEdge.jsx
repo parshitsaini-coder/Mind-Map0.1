@@ -10,6 +10,7 @@ import {
 } from '@xyflow/react'
 import { ICONS } from '../../theme/iconSet'
 import { getFloatingEdgeParams } from '../../utils/floatingEdgeUtils'
+import { CALC_OPERATOR_ICON } from '../../utils/calcOperators'
 
 // Section 4.8 — connector styles showcase. One component handles every row
 // of the demo map; `data.pathType` picks which React Flow path algorithm to
@@ -66,7 +67,13 @@ function ConnectorDemoEdge({
     targetPosition: floating?.targetPos ?? targetPosition,
   })
 
-  const IconComp = data?.iconMid ? ICONS[data.iconMid] : null
+  // Section — Connector Calculations. A styled connector (this component
+  // is what an edge switches to once a line style is applied — see
+  // applyLineStyleToSelectedEdges in mapStore.js) can still carry a calc
+  // operator; its badge takes priority over a plain decorative iconMid at
+  // the same midpoint slot.
+  const calcOp = data?.calcOp
+  const IconComp = calcOp ? CALC_OPERATOR_ICON[calcOp] : data?.iconMid ? ICONS[data.iconMid] : null
 
   return (
     <>
@@ -91,12 +98,13 @@ function ConnectorDemoEdge({
               position: 'absolute',
               pointerEvents: 'none',
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-              backgroundColor: 'var(--color-cream)',
+              backgroundColor: calcOp === '=' ? 'var(--color-accent)' : 'var(--color-cream)',
               borderColor: data?.color || 'var(--color-slate)',
             }}
             className="flex h-5 w-5 items-center justify-center rounded-full border shadow"
+            title={calcOp ? `Connector calculation: ${calcOp}` : undefined}
           >
-            <IconComp size={11} color="var(--color-ink)" />
+            <IconComp size={11} color={calcOp === '=' ? 'var(--color-cream)' : 'var(--color-ink)'} />
           </div>
         </EdgeLabelRenderer>
       )}

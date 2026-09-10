@@ -21,7 +21,7 @@ import { getSubtreeIds } from '../modes/FocusMode'
 import SearchBar from '../toolbar/SearchBar'
 import MockCursors from './MockCursors'
 import NodeContextMenu from './NodeContextMenu'
-import EdgeContextMenu from './EdgeContextMenu'
+import ConnectorCalcMenu from './ConnectorCalcMenu'
 import { computeHidden } from '../../utils/graphUtils'
 import { useDeferredHidden } from '../../hooks/useDeferredHidden'
 
@@ -154,12 +154,13 @@ function FlowInner() {
     })
   }, [])
 
-  // Right-click on a connector line opens the calculation menu (+, −, ×,
-  // ÷, =) instead of the browser's default menu — see EdgeContextMenu.jsx.
+  // Section — Connector Calculations. Right-click on a connector line
+  // opens ConnectorCalcMenu (+, -, ×, ÷, =) instead of the browser's
+  // default menu, same pattern as onNodeContextMenu above.
   const onEdgeContextMenu = useCallback((event, edge) => {
     event.preventDefault()
-    const menuWidth = 208
-    const menuHeight = 220
+    const menuWidth = 192
+    const menuHeight = 230
     setEdgeContextMenu({
       id: edge.id,
       x: Math.min(event.clientX, window.innerWidth - menuWidth - 8),
@@ -214,7 +215,7 @@ function FlowInner() {
         />
       )}
       {edgeContextMenu && (
-        <EdgeContextMenu
+        <ConnectorCalcMenu
           id={edgeContextMenu.id}
           x={edgeContextMenu.x}
           y={edgeContextMenu.y}

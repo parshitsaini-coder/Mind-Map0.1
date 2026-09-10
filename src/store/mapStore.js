@@ -6,6 +6,7 @@ import { runLayout } from '../hooks/useAutoLayout'
 import { buildConnectorDemo } from '../utils/connectorDemoData'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 import { readProjectData, writeProjectData } from './projectsStore'
+import { computeCalcUpdates } from '../utils/calcEngine'
 
 let idCounter = 1
 const nextId = () => `node_${Date.now()}_${idCounter++}`
@@ -461,10 +462,7 @@ export const useMapStore = create(
         set({
           nodes: get().nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)),
         })
-        // Live recalculation: if a node's own value changed (its label),
-        // any "=" connector downstream needs to be re-evaluated so typing
-        // a new number keeps the calculated result in sync automatically.
-        if (Object.prototype.hasOwnProperty.call(patch, 'label')) get().recalcAllChains()
+        get().recalcConnectors()
       },
 
       // Bulk variant of updateNodeData — applies the same patch to every node
@@ -484,6 +482,7 @@ export const useMapStore = create(
             return { ...n, data: { ...n.data, ...resolved } }
           }),
         })
+        get().recalcConnectors()
       },
 
       // Section 4.3 — custom branch (edge) color & thickness.
@@ -492,6 +491,46 @@ export const useMapStore = create(
         set({
           edges: get().edges.map((e) =>
             e.id === id ? { ...e, style: { ...e.style, ...patch } } : e
+          ),
+        })
+      },
+
+      // Section — Connector Calculations. Right-click a connector →
+      // ConnectorCalcMenu.jsx calls this to tag it with a math operator
+      // (+, -, *, /) or mark it as the "=" that reads out a result.
+      // Clicking the already-active operator again clears it. Recalculates
+      // immediately afterwards so an "=" connector's target updates the
+      // instant it's set, not on the next unrelated edit.
+      setEdgeCalcOp: (edgeId, op) => {
+        get().pushSnapshot()
+        set({
+          edges: get().edges.map((e) =>
+            e.id === edgeId ? { ...e, data: { ...e.data, calcOp: e.data?.calcOp === op ? null : op } } : e
+          ),
+        })
+        get().recalcConnectors()
+        const edge = get().edges.find((e) => e.id === edgeId)
+        if (edge?.data?.calcOp) {
+          get().logActivity(`🧮 Set connector operator to "${edge.data.calcOp}"`)
+        }
+      },
+
+      // Section — Connector Calculations. Walks every "=" connector's
+      // operator chain (utils/calcEngine.js) and writes any changed result
+      // straight into the target node's label — called after any edit that
+      // could affect a calculation (a node's label changing, a connector's
+      // operator changing) so results stay live, like a tiny spreadsheet.
+      // Sets state directly rather than going through updateNodeData (which
+      // would just call this again) and doesn't push its own undo snapshot —
+      // the edit that triggered the recalc already owns that undo step.
+      recalcConnectors: () => {
+        const { nodes, edges } = get()
+        const updates = computeCalcUpdates(nodes, edges)
+        if (!updates.length) return
+        const patchById = new Map(updates.map((u) => [u.id, u.label]))
+        set({
+          nodes: nodes.map((n) =>
+            patchById.has(n.id) ? { ...n, data: { ...n.data, label: patchById.get(n.id) } } : n
           ),
         })
       },
@@ -681,6 +720,10 @@ export const useMapStore = create(
                 animated: !!style.animated,
                 iconMid: style.iconMid || null,
                 cap: style.cap,
+                // Preserve any Connector Calculation operator this
+                // connector already carried — a line-style pick shouldn't
+                // silently wipe out a +/-/×/÷/= calculation.
+                calcOp: e.data?.calcOp || null,
               },
             }
           }),
@@ -777,131 +820,6 @@ export const useMapStore = create(
             return { ...n, data: { ...n.data, checklists } }
           }),
         })
-      },
-
-      // Section — Connector calculations. Right-clicking a connector line
-      // lets the user tag it with a math operator (+ − × ÷) or with "="
-      // (see EdgeContextMenu.jsx). Nothing is computed until an "="
-      // operator is placed on some edge in the chain — setting +, −, ×, ÷
-      // just records the operator on that connector so it's ready to be
-      // used once the chain is closed off with "=".
-      //
-      // A "chain" is a straight run of connectors, each carrying an
-      // operator, e.g.  N1 --(+)--> N2 --(=)--> N3, which reads as
-      // "N1 + N2 = N3". Placing "=" walks backward from that edge to find
-      // where the chain starts (the first edge in the run that has an
-      // operator), replays it forward accumulating the running total from
-      // each node's own numeric label, and writes the final number into
-      // the "=" edge's target node. If that target node then continues on
-      // into a further operator edge, its freshly written value is simply
-      // used like any other node's value — so chains can run through
-      // several "=" nodes in a row.
-      setEdgeOperator: (edgeId, op) => {
-        get().pushSnapshotBurst()
-        set({
-          edges: get().edges.map((e) =>
-            e.id === edgeId ? { ...e, data: { ...e.data, calcOp: op } } : e
-          ),
-        })
-        if (op === '=') get().runCalculation(edgeId)
-      },
-
-      clearEdgeOperator: (edgeId) => {
-        get().pushSnapshotBurst()
-        set({
-          edges: get().edges.map((e) => {
-            if (e.id !== edgeId) return e
-            const { calcOp, ...restData } = e.data || {}
-            return { ...e, data: restData }
-          }),
-        })
-      },
-
-      runCalculation: (equalsEdgeId, options = {}) => {
-        const { snapshot = true, log = true } = options
-        const { nodes, edges } = get()
-        const edgeById = new Map(edges.map((e) => [e.id, e]))
-        const incomingCalcEdge = (nodeId) =>
-          edges.find((e) => e.target === nodeId && e.data?.calcOp)
-
-        const eqEdge = edgeById.get(equalsEdgeId)
-        if (!eqEdge || eqEdge.data?.calcOp !== '=') return
-
-        // Walk backward from the "=" edge to the start of the chain.
-        const chain = [eqEdge]
-        let cursor = eqEdge
-        const seen = new Set([eqEdge.id])
-        while (true) {
-          const prev = incomingCalcEdge(cursor.source)
-          if (!prev || seen.has(prev.id)) break
-          chain.unshift(prev)
-          seen.add(prev.id)
-          cursor = prev
-        }
-
-        const valueOf = (nodeId) => {
-          const n = get().nodes.find((nd) => nd.id === nodeId)
-          const v = parseFloat(n?.data?.label)
-          return Number.isFinite(v) ? v : 0
-        }
-
-        // Replay the chain forward: start from the first edge's source
-        // value, then combine each following node's value using the
-        // operator on the edge that leads into it. "=" edges are a no-op
-        // for the running total — they just mark where a result gets
-        // written — so the accumulation carries straight through them.
-        let running = valueOf(chain[0].source)
-        for (const edge of chain) {
-          const op = edge.data?.calcOp
-          const targetVal = valueOf(edge.target)
-          switch (op) {
-            case '+':
-              running = running + targetVal
-              break
-            case '-':
-              running = running - targetVal
-              break
-            case '*':
-              running = running * targetVal
-              break
-            case '/':
-              running = targetVal !== 0 ? running / targetVal : running
-              break
-            case '=':
-            default:
-              // no-op: keep accumulating with whatever's already running
-              break
-          }
-        }
-
-        // Trim floating-point noise (e.g. 0.1 + 0.2) and drop a trailing
-        // ".0" so whole-number results still just look like "6" not "6.0".
-        const result = Math.round(running * 1e6) / 1e6
-        const resultStr = String(result)
-
-        const targetNode = get().nodes.find((n) => n.id === eqEdge.target)
-        if (targetNode?.data?.label === resultStr) return // already up to date
-
-        if (snapshot) get().pushSnapshot()
-        set({
-          nodes: get().nodes.map((n) =>
-            n.id === eqEdge.target ? { ...n, data: { ...n.data, label: resultStr } } : n
-          ),
-        })
-        if (log) get().logActivity(`🧮 Calculated result "${resultStr}" into node`)
-      },
-
-      // Re-runs every "=" connector's calculation against the graph's
-      // current node values. Called automatically whenever a node's label
-      // changes (see updateNodeData) so results stay live as numbers are
-      // typed, without spamming the undo history or activity log on every
-      // keystroke. Left-to-right edge order means a chain feeding into
-      // another chain resolves correctly in a single pass.
-      recalcAllChains: () => {
-        const equalsEdgeIds = get()
-          .edges.filter((e) => e.data?.calcOp === '=')
-          .map((e) => e.id)
-        equalsEdgeIds.forEach((id) => get().runCalculation(id, { snapshot: false, log: false }))
       },
 
       // Section — Style Library. Applies a preset from nodeStyles.js onto
