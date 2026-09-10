@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, CalendarRange, Target, ShieldAlert, Hourglass, PlusCircle } from 'lucide-react'
 import { getCalendarMonths } from '../../../utils/tradeAnalytics'
 import { Card, CardTitle, EmptyHint, STATUS_COLOR } from './primitives'
@@ -50,9 +51,21 @@ export default function ActivityCalendar({ trades }) {
         <EmptyHint>Your trade calendar will fill in once you start logging.</EmptyHint>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <motion.div
+            className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: false, amount: 0.25 }}
+            variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.08 } } }}
+          >
             {months.map((m) => (
-              <div key={m.label} className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--ta-bg)' }}>
+              <motion.div
+                key={m.label}
+                className="rounded-xl border overflow-hidden"
+                style={{ borderColor: 'var(--ta-bg)' }}
+                variants={{ hidden: { opacity: 0, y: 14, scale: 0.96 }, visible: { opacity: 1, y: 0, scale: 1 } }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              >
                 <div
                   className="px-1.5 py-1 text-center text-[8.5px] font-bold uppercase tracking-wide text-white"
                   style={{ backgroundColor: 'var(--ta-ink)' }}
@@ -69,9 +82,9 @@ export default function ActivityCalendar({ trades }) {
                     <DayCell key={i} cell={cell} />
                   ))}
                 </div>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
 
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[8px]" style={{ color: 'var(--ta-slate)' }}>
             <LegendItem color={STATUS_COLOR['Target Hit'].solid} label="Profit day" />

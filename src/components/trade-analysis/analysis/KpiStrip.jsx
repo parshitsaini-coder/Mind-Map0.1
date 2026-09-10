@@ -1,6 +1,6 @@
 import { ListOrdered, Clock } from 'lucide-react'
 import { getKpis, getTopStocks, getTimeframeUsage } from '../../../utils/tradeAnalytics'
-import { Card, Grid, HBar, CardTitle, EmptyHint, fmtPct, STATUS_COLOR } from './primitives'
+import { Card, Grid, HBar, CardTitle, EmptyHint, fmtPct, STATUS_COLOR, CountUp } from './primitives'
 
 // Step 3 — KPI strip (Total / Pending / Target Hit / SL Hit / Win Rate)
 // plus the Top Stocks and Timeframe Usage bar-list cards underneath.
@@ -32,7 +32,7 @@ export default function KpiStrip({ trades }) {
                 {c.label}
               </span>
               <span className="text-[18px] font-extrabold leading-none" style={{ color: c.accent ? 'var(--ta-accent)' : 'var(--ta-ink)' }}>
-                {c.value}
+                <CountUp value={c.value} />
               </span>
               {c.underline && (
                 <span className="mt-0.5 h-[2.5px] w-8 rounded-full" style={{ backgroundColor: c.underline, opacity: 0.7 }} />

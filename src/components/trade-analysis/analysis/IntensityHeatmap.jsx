@@ -1,6 +1,7 @@
+import { motion } from 'framer-motion'
 import { Thermometer } from 'lucide-react'
 import { getStockIntensity } from '../../../utils/tradeAnalytics'
-import { Card, CardTitle, EmptyHint } from './primitives'
+import { Card, CardTitle, EmptyHint, CountUp } from './primitives'
 
 export default function IntensityHeatmap({ trades }) {
   const { stocks, timeframes, cells } = getStockIntensity(trades)
@@ -33,12 +34,17 @@ export default function IntensityHeatmap({ trades }) {
                           {cell.count === 0 ? (
                             <span style={{ color: 'var(--ta-slate)', opacity: 0.4 }}>—</span>
                           ) : (
-                            <span
+                            <motion.span
                               className="inline-block min-w-[26px] rounded px-1"
                               style={{ backgroundColor: `color-mix(in srgb, var(--ta-accent) ${opacity * 100}%, var(--ta-surface))`, color: opacity > 0.55 ? '#fffcf2' : 'var(--ta-ink)' }}
+                              initial={{ opacity: 0, scale: 0.7 }}
+                              whileInView={{ opacity: 1, scale: 1 }}
+                              viewport={{ once: false, amount: 0.6 }}
+                              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                              whileHover={{ scale: 1.15 }}
                             >
-                              {cell.count}
-                            </span>
+                              <CountUp value={cell.count} />
+                            </motion.span>
                           )}
                         </td>
                       )

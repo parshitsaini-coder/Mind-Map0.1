@@ -310,17 +310,21 @@ body {
    `.rounded-lg` backdrop-filter rule above made the frosted look
    inconsistent — it was blurring whatever opaque card sat directly behind
    the popover instead of the colorful animated backdrop, so it read as
-   "no blur" even though the property was technically applied. This class
-   forces the frosted panel look directly (semi-transparent white +
-   strong blur + a visible highlight border) so every popover clearly
-   looks like glass regardless of what happens to be behind it, and is
-   applied on top of / instead of a plain `var(--ta-surface)` background. */
+   "no blur" even though the property was technically applied.
+   IMPORTANT: the background here must stay near-opaque. An earlier pass
+   used a very light (0.42) alpha for a stronger "glass" look, but on top
+   of a scrollable form that let the fields *underneath* the dropdown
+   (Time frame, Price, Notes, ...) show straight through and visually
+   collide with the dropdown's own list text — unreadable double-exposed
+   text, not a blur effect. Backdrop-filter's blur alone gives the frosted
+   feel; the fill underneath it just needs to reliably hide whatever is
+   behind, with or without blur support in a given browser. */
 [data-ta-theme="liquidglass"] .ta-glass-popover {
-  background: rgba(255, 255, 255, 0.42) !important;
+  background: rgba(255, 255, 255, 0.94) !important;
   backdrop-filter: blur(22px) saturate(170%);
   -webkit-backdrop-filter: blur(22px) saturate(170%);
-  border: 1px solid rgba(255, 255, 255, 0.55) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65), 0 12px 40px -8px rgba(31, 30, 80, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 12px 40px -8px rgba(31, 30, 80, 0.45);
 }
 
 @keyframes taUnderlineGrow {

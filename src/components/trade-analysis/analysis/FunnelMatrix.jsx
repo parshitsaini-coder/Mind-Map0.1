@@ -1,6 +1,7 @@
+import { motion } from 'framer-motion'
 import { Filter, History, Grid3x3 } from 'lucide-react'
 import { getTradeFunnel, getTradeAgeList, getTfDirectionMatrix } from '../../../utils/tradeAnalytics'
-import { Card, Grid, CardTitle, EmptyHint, Stat, fmtPct } from './primitives'
+import { Card, Grid, CardTitle, EmptyHint, Stat, fmtPct, CountUp, AnimatedBar } from './primitives'
 
 export default function FunnelMatrix({ trades }) {
   const funnel = getTradeFunnel(trades)
@@ -77,7 +78,7 @@ export default function FunnelMatrix({ trades }) {
                     <td className="py-1.5 font-medium" style={{ color: 'var(--ta-ink)' }}>{row.tf}</td>
                     <MatrixCell cell={row.buy} />
                     <MatrixCell cell={row.sell} />
-                    <td className="py-1.5 text-right font-semibold" style={{ color: 'var(--ta-ink)' }}>{row.total}</td>
+                    <td className="py-1.5 text-right font-semibold" style={{ color: 'var(--ta-ink)' }}><CountUp value={row.total} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -93,15 +94,14 @@ function FunnelRow({ label, pct, count, width }) {
   return (
     <div className="flex items-center gap-2">
       <span className="w-16 shrink-0 text-[9px] font-medium" style={{ color: 'var(--ta-ink)' }}>{label}</span>
-      <div className="h-3.5 flex-1 overflow-hidden rounded-full" style={{ backgroundColor: 'var(--ta-bg)' }}>
-        <div
-          className="flex h-full items-center justify-center rounded-full text-[8px] font-bold text-white"
-          style={{ width: `${width}%`, backgroundColor: 'var(--ta-accent)' }}
-        >
-          {Math.round(pct)}%
-        </div>
-      </div>
-      <span className="w-6 shrink-0 text-right text-[9px] font-semibold" style={{ color: 'var(--ta-ink)' }}>{count}</span>
+      <AnimatedBar pct={width} height={14} trackClassName="flex-1">
+        <span className="text-[8px] font-bold text-white">
+          <CountUp value={Math.round(pct)} suffix="%" />
+        </span>
+      </AnimatedBar>
+      <span className="w-6 shrink-0 text-right text-[9px] font-semibold" style={{ color: 'var(--ta-ink)' }}>
+        <CountUp value={count} />
+      </span>
     </div>
   )
 }
@@ -113,13 +113,17 @@ function MatrixCell({ cell }) {
       {cell.count === 0 ? (
         <span style={{ color: 'var(--ta-slate)' }}>—</span>
       ) : (
-        <span
+        <motion.span
           className="inline-block min-w-[52px] rounded-md px-1.5 py-0.5"
           style={{ backgroundColor: `color-mix(in srgb, var(--ta-accent) ${opacity * 100}%, var(--ta-surface))`, color: opacity > 0.5 ? '#fffcf2' : 'var(--ta-ink)' }}
+          initial={{ opacity: 0, scale: 0.7 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: false, amount: 0.6 }}
+          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
         >
-          <span className="font-semibold">{cell.winRatePct == null ? '—' : `${Math.round(cell.winRatePct)}%`}</span>
-          <span className="ml-1 text-[8px] opacity-80">×{cell.count}</span>
-        </span>
+          <span className="font-semibold">{cell.winRatePct == null ? '—' : <CountUp value={Math.round(cell.winRatePct)} suffix="%" />}</span>
+          <span className="ml-1 text-[8px] opacity-80">×<CountUp value={cell.count} /></span>
+        </motion.span>
       )}
     </td>
   )

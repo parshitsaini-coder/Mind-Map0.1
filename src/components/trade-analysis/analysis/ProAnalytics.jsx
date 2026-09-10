@@ -1,6 +1,7 @@
+import { motion } from 'framer-motion'
 import { Zap, HeartPulse, Flame } from 'lucide-react'
 import { getMarketBias, getHealthScore, getStreak } from '../../../utils/tradeAnalytics'
-import { Card, Grid, SectionHeader, CardTitle, EmptyHint, SemiGauge, RingGauge, HBar, fmtPct } from './primitives'
+import { Card, Grid, SectionHeader, CardTitle, EmptyHint, SemiGauge, RingGauge, HBar, fmtPct, CountUp } from './primitives'
 
 export default function ProAnalytics({ trades }) {
   const bias = getMarketBias(trades)
@@ -20,11 +21,11 @@ export default function ProAnalytics({ trades }) {
               <SemiGauge pct={bias.biasPct} leftLabel="Sell" rightLabel="Buy" />
               <div className="mt-1 flex justify-center gap-6 text-center">
                 <div>
-                  <div className="text-[13px] font-extrabold" style={{ color: '#16a34a' }}>{bias.buy}</div>
+                  <div className="text-[13px] font-extrabold" style={{ color: '#16a34a' }}><CountUp value={bias.buy} /></div>
                   <div className="text-[7.5px] font-semibold uppercase" style={{ color: 'var(--ta-slate)' }}>Buy</div>
                 </div>
                 <div>
-                  <div className="text-[13px] font-extrabold" style={{ color: '#dc2626' }}>{bias.sell}</div>
+                  <div className="text-[13px] font-extrabold" style={{ color: '#dc2626' }}><CountUp value={bias.sell} /></div>
                   <div className="text-[7.5px] font-semibold uppercase" style={{ color: 'var(--ta-slate)' }}>Sell</div>
                 </div>
               </div>
@@ -54,9 +55,16 @@ export default function ProAnalytics({ trades }) {
             <EmptyHint>No resolved trades yet.</EmptyHint>
           ) : (
             <div className="flex items-center gap-2 py-1">
-              <Flame size={22} style={{ color: streak.streak > 0 ? 'var(--ta-accent)' : 'var(--ta-slate)' }} />
+              <motion.div
+                initial={{ scale: 0.7, rotate: -8 }}
+                whileInView={{ scale: 1, rotate: 0 }}
+                viewport={{ once: false, amount: 0.6 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 14 }}
+              >
+                <Flame size={22} style={{ color: streak.streak > 0 ? 'var(--ta-accent)' : 'var(--ta-slate)' }} />
+              </motion.div>
               <div>
-                <div className="text-[18px] font-extrabold leading-none" style={{ color: 'var(--ta-ink)' }}>{streak.streak}</div>
+                <div className="text-[18px] font-extrabold leading-none" style={{ color: 'var(--ta-ink)' }}><CountUp value={streak.streak} /></div>
                 <div className="text-[8.5px]" style={{ color: 'var(--ta-slate)' }}>consecutive Target Hits</div>
               </div>
             </div>

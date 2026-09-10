@@ -1,6 +1,6 @@
 import { TrendingUp, Clock3, ShieldCheck } from 'lucide-react'
 import { getWinRateByDirection, getWinRateByTimeframe, getSetupStrength } from '../../../utils/tradeAnalytics'
-import { Card, Grid, HBar, CardTitle, EmptyHint, fmtPct, DIRECTION_COLOR } from './primitives'
+import { Card, Grid, HBar, CardTitle, EmptyHint, fmtPct, DIRECTION_COLOR, CountUp, AnimatedBar } from './primitives'
 
 export default function WinRateSection({ trades }) {
   const byDirection = getWinRateByDirection(trades)
@@ -21,8 +21,8 @@ export default function WinRateSection({ trades }) {
                   <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: DIRECTION_COLOR[dir] }} />
                   {dir}
                 </div>
-                <div className="text-[16px] font-extrabold" style={{ color: 'var(--ta-ink)' }}>{fmtPct(d.winRatePct)}</div>
-                <div className="text-[8px]" style={{ color: 'var(--ta-slate)' }}>{d.won}W / {d.lost}L</div>
+                <div className="text-[16px] font-extrabold" style={{ color: 'var(--ta-ink)' }}><CountUp value={fmtPct(d.winRatePct)} /></div>
+                <div className="text-[8px]" style={{ color: 'var(--ta-slate)' }}><CountUp value={d.won} />W / <CountUp value={d.lost} />L</div>
               </div>
             )
           })}
@@ -38,14 +38,12 @@ export default function WinRateSection({ trades }) {
             {byTf.slice(0, 6).map((row) => (
               <div key={row.tf} className="flex items-center gap-2">
                 <span className="w-9 shrink-0 text-[9px] font-medium" style={{ color: 'var(--ta-ink)' }}>{row.tf}</span>
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ backgroundColor: 'var(--ta-bg)' }}>
-                  <div className="h-full rounded-full" style={{ width: `${row.winRatePct ?? 0}%`, backgroundColor: 'var(--ta-accent)' }} />
-                </div>
+                <AnimatedBar pct={row.winRatePct ?? 0} height={6} trackClassName="flex-1" />
                 <span className="w-16 shrink-0 text-right text-[8.5px]" style={{ color: 'var(--ta-slate)' }}>
-                  {row.won}W-{row.lost}L
+                  <CountUp value={row.won} />W-<CountUp value={row.lost} />L
                 </span>
                 <span className="w-9 shrink-0 text-right text-[9.5px] font-semibold" style={{ color: 'var(--ta-ink)' }}>
-                  {fmtPct(row.winRatePct)}
+                  <CountUp value={fmtPct(row.winRatePct)} />
                 </span>
               </div>
             ))}

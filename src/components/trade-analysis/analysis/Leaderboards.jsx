@@ -1,6 +1,7 @@
 import { Star, Award, BarChart2 } from 'lucide-react'
 import { getTopScoringTrades, getBestTfWinRate, getStockWinRate } from '../../../utils/tradeAnalytics'
-import { Card, Grid, SectionHeader, CardTitle, EmptyHint, fmtPct } from './primitives'
+import { motion } from 'framer-motion'
+import { Card, Grid, SectionHeader, CardTitle, EmptyHint, fmtPct, CountUp } from './primitives'
 
 export default function Leaderboards({ trades }) {
   const topScoring = getTopScoringTrades(trades)
@@ -16,14 +17,25 @@ export default function Leaderboards({ trades }) {
           {topScoring.length === 0 ? (
             <EmptyHint>Score trades to see them here.</EmptyHint>
           ) : (
-            <ul className="flex flex-col gap-1.5">
+            <motion.ul
+              className="flex flex-col gap-1.5"
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: false, amount: 0.4 }}
+              variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.06 } } }}
+            >
               {topScoring.map((t) => (
-                <li key={t.id} className="flex items-center justify-between text-[9.5px]">
+                <motion.li
+                  key={t.id}
+                  className="flex items-center justify-between text-[9.5px]"
+                  variants={{ hidden: { opacity: 0, x: -12 }, visible: { opacity: 1, x: 0 } }}
+                  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                >
                   <span className="truncate font-medium" style={{ color: 'var(--ta-ink)' }}>{t.name}</span>
-                  <span className="font-bold" style={{ color: 'var(--ta-accent)' }}>{fmtPct(t.pct)}</span>
-                </li>
+                  <span className="font-bold" style={{ color: 'var(--ta-accent)' }}><CountUp value={fmtPct(t.pct)} /></span>
+                </motion.li>
               ))}
-            </ul>
+            </motion.ul>
           )}
         </Card>
 
@@ -32,15 +44,26 @@ export default function Leaderboards({ trades }) {
           {bestTf.length === 0 ? (
             <EmptyHint>Resolve a few trades to rank timeframes.</EmptyHint>
           ) : (
-            <ul className="flex flex-col gap-1.5">
+            <motion.ul
+              className="flex flex-col gap-1.5"
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: false, amount: 0.4 }}
+              variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.06 } } }}
+            >
               {bestTf.map((tf) => (
-                <li key={tf.tf} className="flex items-center justify-between text-[9.5px]">
+                <motion.li
+                  key={tf.tf}
+                  className="flex items-center justify-between text-[9.5px]"
+                  variants={{ hidden: { opacity: 0, x: -12 }, visible: { opacity: 1, x: 0 } }}
+                  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                >
                   <span className="font-medium" style={{ color: 'var(--ta-ink)' }}>{tf.tf}</span>
-                  <span style={{ color: 'var(--ta-slate)' }}>{tf.won}W-{tf.lost}L</span>
-                  <span className="font-bold" style={{ color: 'var(--ta-accent)' }}>{fmtPct(tf.winRatePct)}</span>
-                </li>
+                  <span style={{ color: 'var(--ta-slate)' }}><CountUp value={tf.won} />W-<CountUp value={tf.lost} />L</span>
+                  <span className="font-bold" style={{ color: 'var(--ta-accent)' }}><CountUp value={fmtPct(tf.winRatePct)} /></span>
+                </motion.li>
               ))}
-            </ul>
+            </motion.ul>
           )}
         </Card>
 
@@ -49,15 +72,26 @@ export default function Leaderboards({ trades }) {
           {stockWinRate.length === 0 ? (
             <EmptyHint>Win rate per stock/pair shows up here.</EmptyHint>
           ) : (
-            <ul className="flex flex-col gap-1.5">
+            <motion.ul
+              className="flex flex-col gap-1.5"
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: false, amount: 0.4 }}
+              variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.06 } } }}
+            >
               {stockWinRate.map((s) => (
-                <li key={s.name} className="flex items-center justify-between text-[9.5px]">
+                <motion.li
+                  key={s.name}
+                  className="flex items-center justify-between text-[9.5px]"
+                  variants={{ hidden: { opacity: 0, x: -12 }, visible: { opacity: 1, x: 0 } }}
+                  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                >
                   <span className="truncate font-medium" style={{ color: 'var(--ta-ink)' }}>{s.name}</span>
-                  <span style={{ color: 'var(--ta-slate)' }}>{s.won}W-{s.lost}L</span>
-                  <span className="font-bold" style={{ color: 'var(--ta-accent)' }}>{fmtPct(s.winRatePct)}</span>
-                </li>
+                  <span style={{ color: 'var(--ta-slate)' }}><CountUp value={s.won} />W-<CountUp value={s.lost} />L</span>
+                  <span className="font-bold" style={{ color: 'var(--ta-accent)' }}><CountUp value={fmtPct(s.winRatePct)} /></span>
+                </motion.li>
               ))}
-            </ul>
+            </motion.ul>
           )}
         </Card>
       </Grid>
