@@ -63,7 +63,7 @@ export const TRADE_THEMES = [
       surface: 'rgba(255,255,255,0.5)',
       ink: '#161a2b',
       slate: 'rgba(22,26,43,0.55)',
-      accent: '#5b6bf6',
+      accent: '#000000',
     },
   },
 ]

@@ -260,6 +260,24 @@ export const useMapStore = create(
         })
       },
 
+      // Lock / unlock a node from its right-click context menu. Locking
+      // sets both `data.locked` (read by CustomNode.jsx to block the
+      // double-click-to-rename editor and by NodeContextMenu.jsx to grey
+      // out "Delete node") and the node's own top-level `draggable` flag
+      // (the actual property React Flow checks before letting a drag
+      // start) — so a locked node stays exactly where it is, keeps its
+      // label, and can't be deleted until it's unlocked again.
+      toggleNodeLock: (id) => {
+        get().pushSnapshot()
+        set({
+          nodes: get().nodes.map((n) => {
+            if (n.id !== id) return n
+            const locked = !n.data?.locked
+            return { ...n, draggable: !locked, data: { ...n.data, locked } }
+          }),
+        })
+      },
+
       // Section 4.6 — search & replace across node labels.
       replaceInLabels: (query, replacement) => {
         if (!query) return
@@ -492,6 +510,8 @@ export const useMapStore = create(
       // all it takes; the actual removal (and its undo snapshot) just waits
       // out that transition.
       deleteNodeAnimated: (id) => {
+        const node = get().nodes.find((n) => n.id === id)
+        if (node?.data?.locked) return
         set({
           nodes: get().nodes.map((n) =>
             n.id === id ? { ...n, style: { ...n.style, opacity: 0, pointerEvents: 'none' } } : n
@@ -753,6 +773,113 @@ export const useMapStore = create(
             return { ...n, data: { ...n.data, checklists } }
           }),
         })
+      },
+
+      // Section — Connector calculations. Right-clicking a connector line
+      // lets the user tag it with a math operator (+ − × ÷) or with "="
+      // (see EdgeContextMenu.jsx). Nothing is computed until an "="
+      // operator is placed on some edge in the chain — setting +, −, ×, ÷
+      // just records the operator on that connector so it's ready to be
+      // used once the chain is closed off with "=".
+      //
+      // A "chain" is a straight run of connectors, each carrying an
+      // operator, e.g.  N1 --(+)--> N2 --(=)--> N3, which reads as
+      // "N1 + N2 = N3". Placing "=" walks backward from that edge to find
+      // where the chain starts (the first edge in the run that has an
+      // operator), replays it forward accumulating the running total from
+      // each node's own numeric label, and writes the final number into
+      // the "=" edge's target node. If that target node then continues on
+      // into a further operator edge, its freshly written value is simply
+      // used like any other node's value — so chains can run through
+      // several "=" nodes in a row.
+      setEdgeOperator: (edgeId, op) => {
+        get().pushSnapshotBurst()
+        set({
+          edges: get().edges.map((e) =>
+            e.id === edgeId ? { ...e, data: { ...e.data, calcOp: op } } : e
+          ),
+        })
+        if (op === '=') get().runCalculation(edgeId)
+      },
+
+      clearEdgeOperator: (edgeId) => {
+        get().pushSnapshotBurst()
+        set({
+          edges: get().edges.map((e) => {
+            if (e.id !== edgeId) return e
+            const { calcOp, ...restData } = e.data || {}
+            return { ...e, data: restData }
+          }),
+        })
+      },
+
+      runCalculation: (equalsEdgeId) => {
+        const { nodes, edges } = get()
+        const edgeById = new Map(edges.map((e) => [e.id, e]))
+        const incomingCalcEdge = (nodeId) =>
+          edges.find((e) => e.target === nodeId && e.data?.calcOp)
+
+        const eqEdge = edgeById.get(equalsEdgeId)
+        if (!eqEdge || eqEdge.data?.calcOp !== '=') return
+
+        // Walk backward from the "=" edge to the start of the chain.
+        const chain = [eqEdge]
+        let cursor = eqEdge
+        const seen = new Set([eqEdge.id])
+        while (true) {
+          const prev = incomingCalcEdge(cursor.source)
+          if (!prev || seen.has(prev.id)) break
+          chain.unshift(prev)
+          seen.add(prev.id)
+          cursor = prev
+        }
+
+        const valueOf = (nodeId) => {
+          const n = nodes.find((nd) => nd.id === nodeId)
+          const v = parseFloat(n?.data?.label)
+          return Number.isFinite(v) ? v : 0
+        }
+
+        // Replay the chain forward: start from the first edge's source
+        // value, then combine each following node's value using the
+        // operator on the edge that leads into it. "=" edges are a no-op
+        // for the running total — they just mark where a result gets
+        // written — so the accumulation carries straight through them.
+        let running = valueOf(chain[0].source)
+        for (const edge of chain) {
+          const op = edge.data?.calcOp
+          const targetVal = valueOf(edge.target)
+          switch (op) {
+            case '+':
+              running = running + targetVal
+              break
+            case '-':
+              running = running - targetVal
+              break
+            case '*':
+              running = running * targetVal
+              break
+            case '/':
+              running = targetVal !== 0 ? running / targetVal : running
+              break
+            case '=':
+            default:
+              // no-op: keep accumulating with whatever's already running
+              break
+          }
+        }
+
+        // Trim floating-point noise (e.g. 0.1 + 0.2) and drop a trailing
+        // ".0" so whole-number results still just look like "6" not "6.0".
+        const result = Math.round(running * 1e6) / 1e6
+
+        get().pushSnapshot()
+        set({
+          nodes: get().nodes.map((n) =>
+            n.id === eqEdge.target ? { ...n, data: { ...n.data, label: String(result) } } : n
+          ),
+        })
+        get().logActivity(`🧮 Calculated result "${result}" into node`)
       },
 
       // Section — Style Library. Applies a preset from nodeStyles.js onto

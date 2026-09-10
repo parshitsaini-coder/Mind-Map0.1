@@ -1,7 +1,7 @@
 import { memo, useState, useCallback } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Plus, Trash2, Star, FileText, CheckSquare, Square, ChevronRight, ChevronDown, Link2, Pin, TrendingUp, ListChecks } from 'lucide-react'
+import { Plus, Trash2, Star, FileText, CheckSquare, Square, ChevronRight, ChevronDown, Link2, Pin, TrendingUp, ListChecks, Lock } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
@@ -120,7 +120,7 @@ function CustomNode({ id, data, selected }) {
         minWidth: appliedChecklists.length > 0 ? 180 : 90,
         textAlign: 'center',
       }}
-      onDoubleClick={() => setEditing(true)}
+      onDoubleClick={() => !data.locked && setEditing(true)}
     >
       <Handle type="target" position={Position.Left} className="!bg-slate-600 !w-1.5 !h-1.5" />
       <Handle type="target" position={Position.Top} id="top" className="!bg-slate-600 !w-1.5 !h-1.5" />
@@ -223,6 +223,9 @@ function CustomNode({ id, data, selected }) {
           </motion.button>
         )}
 
+        {data.locked && (
+          <Lock size={11} className="absolute -top-1.5 left-1" color="var(--color-slate)" title="Locked — right-click to unlock" />
+        )}
         {hasExtras && (
           <FileText size={11} className="absolute -top-1.5 right-3" color="var(--color-slate)" title="Has notes/attachments" />
         )}

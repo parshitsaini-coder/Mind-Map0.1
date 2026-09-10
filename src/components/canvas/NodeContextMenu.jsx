@@ -1,4 +1,4 @@
-import { Plus, CornerDownRight, Copy, Trash2, ChevronsUpDown, Scissors, TrendingUp, ListChecks } from 'lucide-react'
+import { Plus, CornerDownRight, Copy, Trash2, ChevronsUpDown, Scissors, TrendingUp, ListChecks, Lock, LockOpen } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
 
@@ -18,6 +18,7 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
   const deleteNode = useMapStore((s) => s.deleteNodeAnimated)
   const deleteChildren = useMapStore((s) => s.deleteChildren)
   const toggleCollapse = useMapStore((s) => s.toggleCollapse)
+  const toggleNodeLock = useMapStore((s) => s.toggleNodeLock)
   const updateNodeData = useMapStore((s) => s.updateNodeData)
 
   if (!node) return null
@@ -29,11 +30,17 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
 
   const isLastRoot = node.data?.isRoot && rootCount <= 1
   const hasLinkedTrade = Boolean(node.data?.linkedTradeId)
+  const isLocked = Boolean(node.data?.locked)
 
   const items = [
     { icon: Plus, label: 'Add child node', onClick: () => run(() => addChildNode(id)) },
     { icon: CornerDownRight, label: 'Add sibling node', onClick: () => run(() => addSiblingNode(id)) },
     { icon: Copy, label: 'Duplicate', onClick: () => run(() => duplicateNode(id)) },
+    {
+      icon: isLocked ? LockOpen : Lock,
+      label: isLocked ? 'Unlock node' : 'Lock node',
+      onClick: () => run(() => toggleNodeLock(id)),
+    },
     // Section — Link a Trade. Opens the trade-picker popup (see
     // TradeLinkPickerModal) scoped to this node; once a trade is picked,
     // the node shows its pair/stock as a small badge (CustomNode.jsx) and
@@ -79,11 +86,11 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
   }
   items.push({
     icon: Trash2,
-    label: isLastRoot ? 'Delete node (only central topic)' : 'Delete node',
+    label: isLastRoot ? 'Delete node (only central topic)' : isLocked ? 'Delete node (locked)' : 'Delete node',
     danger: true,
-    disabled: isLastRoot,
+    disabled: isLastRoot || isLocked,
     onClick: () => {
-      if (isLastRoot) return
+      if (isLastRoot || isLocked) return
       run(() => deleteNode(id))
     },
   })
@@ -109,7 +116,13 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
             key={item.label}
             onClick={item.onClick}
             disabled={item.disabled}
-            title={item.disabled ? 'Add another central topic before deleting this one' : undefined}
+            title={
+              item.disabled
+                ? isLastRoot
+                  ? 'Add another central topic before deleting this one'
+                  : 'Unlock this node before deleting it'
+                : undefined
+            }
             className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors ${
               item.disabled
                 ? 'cursor-not-allowed opacity-40'

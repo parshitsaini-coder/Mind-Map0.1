@@ -21,6 +21,7 @@ import { getSubtreeIds } from '../modes/FocusMode'
 import SearchBar from '../toolbar/SearchBar'
 import MockCursors from './MockCursors'
 import NodeContextMenu from './NodeContextMenu'
+import EdgeContextMenu from './EdgeContextMenu'
 import { computeHidden } from '../../utils/graphUtils'
 import { useDeferredHidden } from '../../hooks/useDeferredHidden'
 
@@ -39,6 +40,7 @@ function FlowInner() {
   const jumpToken = useUiStore((s) => s.jumpToken)
   const [transitioning, setTransitioning] = useState(false)
   const [contextMenu, setContextMenu] = useState(null)
+  const [edgeContextMenu, setEdgeContextMenu] = useState(null)
   const { fitView } = useReactFlow()
 
   // Section 4.2 — smooth repositioning transition (not an instant jump)
@@ -152,6 +154,19 @@ function FlowInner() {
     })
   }, [])
 
+  // Right-click on a connector line opens the calculation menu (+, −, ×,
+  // ÷, =) instead of the browser's default menu — see EdgeContextMenu.jsx.
+  const onEdgeContextMenu = useCallback((event, edge) => {
+    event.preventDefault()
+    const menuWidth = 208
+    const menuHeight = 220
+    setEdgeContextMenu({
+      id: edge.id,
+      x: Math.min(event.clientX, window.innerWidth - menuWidth - 8),
+      y: Math.min(event.clientY, window.innerHeight - menuHeight - 8),
+    })
+  }, [])
+
   return (
     <div
       className={`relative h-full w-full ${transitioning ? 'layout-transition' : ''}`}
@@ -167,6 +182,7 @@ function FlowInner() {
         onNodeClick={() => useUiStore.getState().setActivePanel('inspector')}
         onEdgeClick={() => useUiStore.getState().setActivePanel('inspector')}
         onNodeContextMenu={onNodeContextMenu}
+        onEdgeContextMenu={onEdgeContextMenu}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
@@ -195,6 +211,14 @@ function FlowInner() {
           x={contextMenu.x}
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+      {edgeContextMenu && (
+        <EdgeContextMenu
+          id={edgeContextMenu.id}
+          x={edgeContextMenu.x}
+          y={edgeContextMenu.y}
+          onClose={() => setEdgeContextMenu(null)}
         />
       )}
     </div>
