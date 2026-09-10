@@ -40,6 +40,7 @@ export default function TradesTable() {
   const resultInputRefs = useRef({})
   const [editingPnlId, setEditingPnlId] = useState(null)
   const [pnlDraft, setPnlDraft] = useState('')
+  const [dragOverResultId, setDragOverResultId] = useState(null)
 
   // "Pow" pass — flash-highlight whichever row was just added, and pop a
   // little confetti burst on whichever row just got marked Target Hit.
@@ -258,12 +259,14 @@ export default function TradesTable() {
                     </span>
                   </td>
 
-                  <td className={td} style={{ color: 'var(--ta-ink)' }}>{trade.date}</td>
+                  <td className={td} style={{ color: 'var(--ta-ink)' }}>
+                    <span className="text-[11px] font-semibold">{trade.date}</span>
+                  </td>
 
                   <td className={td}>
-                    <p className="font-medium" style={{ color: 'var(--ta-ink)' }}>{trade.pair}</p>
+                    <p className="text-[11.5px] font-bold" style={{ color: 'var(--ta-ink)' }}>{trade.pair}</p>
                     {trade.instrumentName && trade.instrumentName !== trade.pair && (
-                      <p className="text-[8px]" style={{ color: 'var(--ta-slate)' }}>{trade.instrumentName}</p>
+                      <p className="text-[8.5px]" style={{ color: 'var(--ta-slate)' }}>{trade.instrumentName}</p>
                     )}
                   </td>
 
@@ -285,7 +288,7 @@ export default function TradesTable() {
                     <motion.span
                       whileHover={{ scale: 1.08, y: -1 }}
                       transition={{ type: 'spring', stiffness: 420, damping: 18 }}
-                      className="inline-block rounded-full px-1.5 py-0.5 text-[8px] font-semibold"
+                      className="inline-block rounded-full px-2 py-0.5 text-[10.5px] font-bold"
                       style={{
                         backgroundColor: (TIMEFRAME_BADGE_STYLE[trade.timeframe] || TIMEFRAME_DEFAULT_STYLE).bg,
                         color: (TIMEFRAME_BADGE_STYLE[trade.timeframe] || TIMEFRAME_DEFAULT_STYLE).text,
@@ -420,19 +423,36 @@ export default function TradesTable() {
                         onClick={() => useUiStore.getState().openImageLightbox(trade.resultImageUrl)}
                         title="View result image"
                       >
-                        <img src={trade.resultImageUrl} alt="Result" className="h-6 w-6 rounded object-cover" />
+                        <img src={trade.resultImageUrl} alt="Result" className="h-7 w-7 rounded object-cover" />
                       </button>
                     ) : (
                       <>
                         <motion.button
                           whileTap={{ scale: 0.9 }}
                           onClick={() => resultInputRefs.current[trade.id]?.click()}
+                          onDragOver={(e) => {
+                            e.preventDefault()
+                            setDragOverResultId(trade.id)
+                          }}
+                          onDragLeave={() => setDragOverResultId((id) => (id === trade.id ? null : id))}
+                          onDrop={(e) => {
+                            e.preventDefault()
+                            setDragOverResultId(null)
+                            const file = e.dataTransfer.files?.[0]
+                            if (file) handleResultImagePick(trade, file)
+                          }}
                           disabled={uploadingResultId === trade.id}
-                          title="Attach result / P&L image"
-                          className="flex h-8 w-8 items-center justify-center rounded border border-dashed disabled:opacity-40"
-                          style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-slate)' }}
+                          title="Attach result / P&L image — click or drag & drop"
+                          animate={{
+                            scale: dragOverResultId === trade.id ? 1.12 : 1,
+                            borderColor: dragOverResultId === trade.id ? 'var(--ta-accent)' : 'var(--ta-slate)',
+                            backgroundColor: dragOverResultId === trade.id ? 'color-mix(in srgb, var(--ta-accent) 14%, transparent)' : 'rgba(0,0,0,0)',
+                          }}
+                          transition={{ duration: 0.15 }}
+                          className="flex h-9 w-9 items-center justify-center rounded border border-dashed disabled:opacity-40"
+                          style={{ color: dragOverResultId === trade.id ? 'var(--ta-accent)' : 'var(--ta-slate)' }}
                         >
-                          {uploadingResultId === trade.id ? <Camera size={12} className="animate-pulse" /> : <ImagePlus size={12} />}
+                          {uploadingResultId === trade.id ? <Camera size={12} className="animate-pulse" /> : <ImagePlus size={13} />}
                         </motion.button>
                         <input
                           ref={(el) => { resultInputRefs.current[trade.id] = el }}

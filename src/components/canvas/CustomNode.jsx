@@ -351,24 +351,6 @@ function CustomNode({ id, data, selected }) {
         </span>
       )}
 
-      <div
-        className={`absolute -bottom-6 left-1/2 -translate-x-1/2 gap-1 group-hover:flex ${selected ? 'flex' : 'hidden'}`}
-      >
-        <motion.button
-          whileHover={{ scale: 1.12 }}
-          whileTap={{ scale: 0.82 }}
-          transition={{ duration: 0.14 }}
-          onClick={(e) => {
-            e.stopPropagation()
-            addChildNode(id, { fromHandle: 'bottom' })
-          }}
-          className="rounded-full bg-[var(--color-accent)] p-0.5 shadow hover:brightness-95"
-          title="Add child below"
-        >
-          <Plus size={10} />
-        </motion.button>
-      </div>
-
       <div className={`absolute -top-6 right-0 gap-1 group-hover:flex ${selected ? 'flex' : 'hidden'}`}>
         <motion.button
           whileHover={{ scale: 1.12 }}

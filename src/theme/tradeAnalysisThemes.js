@@ -45,11 +45,38 @@ export const TRADE_THEMES = [
     // coolors.co/palette/cb997e-ddbea9-ffe8d6-b7b7a4-a5a58d-6b705c
     colors: { bg: '#b7b7a4', surface: '#ffe8d6', ink: '#6b705c', slate: '#a5a58d', accent: '#cb997e' },
   },
+  {
+    id: 'liquidglass',
+    name: 'Liquid Glass',
+    // Not a coolors.co palette like the others — this one is translucent
+    // by design. `bg`/`surface`/`slate` all carry alpha (rgba) instead of
+    // being opaque hex, so every existing `backgroundColor: var(--ta-bg)` /
+    // `var(--ta-surface)` in the components automatically turns into a
+    // frosted glass panel with zero component changes. `ink` and `accent`
+    // stay fully opaque so text and buttons stay readable/vivid on top of
+    // the frosted panels. Pairs with the `glass: true` flag below, which
+    // TradeAnalysis.jsx checks to swap in the animated liquid-color
+    // backdrop and turn on backdrop-blur globally (see index.css).
+    glass: true,
+    colors: {
+      bg: 'rgba(255,255,255,0.22)',
+      surface: 'rgba(255,255,255,0.5)',
+      ink: '#161a2b',
+      slate: 'rgba(22,26,43,0.55)',
+      accent: '#5b6bf6',
+    },
+  },
 ]
 
 export const DEFAULT_TRADE_THEME_ID = 'classic'
 
 export const getTradeTheme = (id) => TRADE_THEMES.find((t) => t.id === id) || TRADE_THEMES[0]
+
+// Whether a theme id is the frosted/translucent "Liquid Glass" theme —
+// TradeAnalysis.jsx uses this to switch on the animated liquid backdrop
+// and the global backdrop-blur rules (see .ta-liquid-bg in index.css)
+// instead of the plain white page background the other themes use.
+export const isGlassTheme = (id) => !!getTradeTheme(id).glass
 
 // CSS custom-property overrides for a theme, ready to spread into a React
 // inline `style` object on the overlay root — cascades down to every

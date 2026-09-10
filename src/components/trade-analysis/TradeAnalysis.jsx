@@ -10,7 +10,7 @@ import EditTradeModal from './EditTradeModal'
 import FiltersPopover, { countActiveFilters } from './FiltersPopover'
 import ThemePicker from './ThemePicker'
 import AnalysisTab from './analysis/AnalysisTab'
-import { tradeThemeCssVars } from '../../theme/tradeAnalysisThemes'
+import { tradeThemeCssVars, isGlassTheme } from '../../theme/tradeAnalysisThemes'
 import { getKpis } from '../../utils/tradeAnalytics'
 
 const SIDEBAR_WIDTH = 230
@@ -133,6 +133,7 @@ export default function TradeAnalysis() {
   const [rulesModalOpen, setRulesModalOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const activeFilterCount = countActiveFilters(filters)
+  const isGlass = isGlassTheme(theme)
   const isMobile = useIsMobile()
   const hasAutoCollapsed = useRef(false)
 
@@ -176,8 +177,9 @@ export default function TradeAnalysis() {
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.98 }}
           transition={{ duration: 0.18, ease: 'easeOut' }}
-          className="fixed inset-0 z-[60] flex flex-col"
-          style={{ backgroundColor: '#ffffff', ...tradeThemeCssVars(theme) }}
+          data-ta-theme={theme}
+          className={`fixed inset-0 z-[60] flex flex-col ${isGlass ? 'ta-liquid-bg' : ''}`}
+          style={isGlass ? { ...tradeThemeCssVars(theme) } : { backgroundColor: '#ffffff', ...tradeThemeCssVars(theme) }}
         >
           {/* Top bar */}
           <div
@@ -264,7 +266,7 @@ export default function TradeAnalysis() {
               <AnalysisTab />
             </div>
           ) : (
-          <div className="relative flex min-h-0 flex-1 gap-2 p-2" style={{ backgroundColor: '#ffffff' }}>
+          <div className="relative flex min-h-0 flex-1 gap-2 p-2" style={isGlass ? undefined : { backgroundColor: '#ffffff' }}>
             {/* Left panel — "New Trade" form (Step 3). Collapsible shell
                 from Step 2; TradeForm.jsx owns the actual fields. */}
             <motion.aside

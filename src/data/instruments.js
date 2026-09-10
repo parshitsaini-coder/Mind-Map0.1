@@ -196,6 +196,16 @@ export const FOREX_PAIRS = [
   { symbol: 'CHF/JPY', name: 'Swiss Franc / Japanese Yen' },
   { symbol: 'USD/INR', name: 'US Dollar / Indian Rupee' },
   { symbol: 'EUR/INR', name: 'Euro / Indian Rupee' },
+  // Metals & crypto majors — quoted no-slash style (XAUUSD, BTCUSD…) since
+  // that's how most brokers/charts label these, unlike the FX pairs above.
+  { symbol: 'XAUUSD', name: 'Gold / US Dollar' },
+  { symbol: 'XAGUSD', name: 'Silver / US Dollar' },
+  { symbol: 'BTCUSD', name: 'Bitcoin / US Dollar' },
+  { symbol: 'ETHUSD', name: 'Ethereum / US Dollar' },
+  { symbol: 'LTCUSD', name: 'Litecoin / US Dollar' },
+  { symbol: 'XRPUSD', name: 'Ripple / US Dollar' },
+  { symbol: 'SOLUSD', name: 'Solana / US Dollar' },
+  { symbol: 'DOGEUSD', name: 'Dogecoin / US Dollar' },
 ]
 
 export const COMMODITIES = [
