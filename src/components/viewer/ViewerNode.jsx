@@ -75,11 +75,13 @@ function ViewerNode({ id, data }) {
   const task = data.task
   // Section — Full-bleed node image, mirrors CustomNode.jsx.
   const hasImage = Boolean(data.image)
+  // Section — Node size, mirrors CustomNode.jsx's sizeScale.
+  const sizeScale = data.sizeScale || 1
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.7 }}
-      animate={{ opacity: 1, scale: 1 }}
+      initial={{ opacity: 0, scale: sizeScale * 0.7 }}
+      animate={{ opacity: 1, scale: sizeScale }}
       transition={{ type: 'spring', stiffness: 300, damping: 22 }}
       className={`relative flex flex-col border text-xs font-medium shadow-sm ${shapeClass[data.shape] || 'rounded-md'}`}
       style={{
@@ -87,8 +89,12 @@ function ViewerNode({ id, data }) {
         borderColor: 'var(--color-slate)',
         borderWidth: 1,
         color: data.textColor || 'var(--color-ink)',
-        minWidth: appliedChecklists.length > 0 ? 180 : hasImage ? 170 : 90,
-        minHeight: hasImage ? 110 : undefined,
+        minWidth: appliedChecklists.length > 0 ? 180 : hasImage ? 96 : 90,
+        minHeight: hasImage ? 72 : undefined,
+        width: hasImage ? 96 : undefined,
+        height: hasImage ? 72 : undefined,
+        maxWidth: hasImage ? 96 : undefined,
+        overflow: hasImage ? 'hidden' : undefined,
         textAlign: 'center',
       }}
     >

@@ -111,6 +111,14 @@ function CustomNode({ id, data, selected }) {
   // translucent bar for legibility over any photo.
   const hasImage = Boolean(data.image)
 
+  // Section — Node size control. `data.sizeScale` is a plain multiplier
+  // (1 = 100%, default when unset) set from the Node Inspector's +/- size
+  // buttons. Applied as a scale on the node's own motion values (alongside
+  // the existing hover/entrance animation) rather than resizing every
+  // internal padding/icon by hand, so the whole card — border, image, text,
+  // badges — grows or shrinks together as one unit.
+  const sizeScale = data.sizeScale || 1
+
   // Section — Style Library. `customBg` carries a full CSS `background`
   // value (gradients) that takes priority over the plain `color` swatch;
   // `glowColor` adds a static halo (Glow category); `customBorder` overrides
@@ -121,10 +129,10 @@ function CustomNode({ id, data, selected }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.7 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.7 }}
-      whileHover={{ scale: 1.02 }}
+      initial={{ opacity: 0, scale: sizeScale * 0.7 }}
+      animate={{ opacity: 1, scale: sizeScale }}
+      exit={{ opacity: 0, scale: sizeScale * 0.7 }}
+      whileHover={{ scale: sizeScale * 1.02 }}
       transition={{ type: 'spring', stiffness: 300, damping: 22 }}
       className={`group relative flex flex-col border text-xs font-medium shadow-sm ${shapeClass[data.shape] || 'rounded-md'} ${data.animationClass || ''}`}
       style={{
@@ -136,8 +144,12 @@ function CustomNode({ id, data, selected }) {
         boxShadow: glowShadow || undefined,
         '--sonar-color': data.glowColor ? `${data.glowColor}8c` : undefined,
         color: data.textColor || 'var(--color-ink)',
-        minWidth: appliedChecklists.length > 0 ? 180 : hasImage ? 170 : 90,
-        minHeight: hasImage ? 110 : undefined,
+        minWidth: appliedChecklists.length > 0 ? 180 : hasImage ? 96 : 90,
+        minHeight: hasImage ? 72 : undefined,
+        width: hasImage ? 96 : undefined,
+        height: hasImage ? 72 : undefined,
+        maxWidth: hasImage ? 96 : undefined,
+        overflow: hasImage ? 'hidden' : undefined,
         textAlign: 'center',
       }}
       onDoubleClick={() => !data.locked && setEditing(true)}
@@ -204,11 +216,11 @@ function CustomNode({ id, data, selected }) {
             onBlur={commit}
             onKeyDown={(e) => e.key === 'Enter' && commit()}
             style={hasImage ? { ...textStyle, color: '#fff' } : textStyle}
-            className="w-full bg-transparent text-center outline-none"
+            className={`w-full bg-transparent text-center outline-none ${hasImage ? 'min-w-0' : ''}`}
           />
         ) : (
           <span
-            className={`flex-1 ${task?.done ? 'line-through opacity-60' : ''}`}
+            className={`flex-1 truncate ${hasImage ? 'min-w-0' : ''} ${task?.done ? 'line-through opacity-60' : ''}`}
             style={hasImage ? { ...textStyle, color: '#fff' } : textStyle}
           >
             {data.label}

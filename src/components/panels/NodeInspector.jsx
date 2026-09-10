@@ -252,6 +252,42 @@ export default function NodeInspector() {
           </div>
         </div>
         <div>
+          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Size</p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() =>
+                updateNodesData(ids, (data) => ({
+                  sizeScale: Math.max(0.5, Math.round(((data.sizeScale || 1) - 0.1) * 10) / 10),
+                }))
+              }
+              className="flex h-6 w-6 items-center justify-center rounded border text-sm font-semibold hover:bg-[var(--color-sage)]/30"
+              style={{ borderColor: 'var(--color-slate)' }}
+              title="Decrease size"
+            >
+              −
+            </button>
+            <button
+              onClick={() =>
+                updateNodesData(ids, (data) => ({
+                  sizeScale: Math.min(2, Math.round(((data.sizeScale || 1) + 0.1) * 10) / 10),
+                }))
+              }
+              className="flex h-6 w-6 items-center justify-center rounded border text-sm font-semibold hover:bg-[var(--color-sage)]/30"
+              style={{ borderColor: 'var(--color-slate)' }}
+              title="Increase size"
+            >
+              +
+            </button>
+            <button
+              onClick={() => updateNodesData(ids, { sizeScale: 1 })}
+              className="text-[10px] underline text-[var(--color-slate)]"
+              title="Reset to 100%"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+        <div>
           <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Fill color</p>
           <div className="flex flex-wrap gap-1">
             {PALETTE.map((color) => (
@@ -325,6 +361,53 @@ export default function NodeInspector() {
             ))}
           </div>
         </div>
+        {/* Section — Node size. `data.sizeScale` is a plain multiplier (1 =
+            100%) applied in CustomNode as a scale transform, so the whole
+            card — border, image, text, badges — grows/shrinks as one unit.
+            Clamped to 0.5–2 so nodes can't be shrunk to nothing or blown up
+            past what's still usable on the canvas. */}
+        <div>
+          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Size</p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() =>
+                updateNodeData(selectedNode.id, {
+                  sizeScale: Math.max(0.5, Math.round(((selectedNode.data.sizeScale || 1) - 0.1) * 10) / 10),
+                })
+              }
+              className="flex h-6 w-6 items-center justify-center rounded border text-sm font-semibold hover:bg-[var(--color-sage)]/30"
+              style={{ borderColor: 'var(--color-slate)' }}
+              title="Decrease size"
+            >
+              −
+            </button>
+            <span className="w-10 text-center text-[11px] tabular-nums text-[var(--color-slate)]">
+              {Math.round((selectedNode.data.sizeScale || 1) * 100)}%
+            </span>
+            <button
+              onClick={() =>
+                updateNodeData(selectedNode.id, {
+                  sizeScale: Math.min(2, Math.round(((selectedNode.data.sizeScale || 1) + 0.1) * 10) / 10),
+                })
+              }
+              className="flex h-6 w-6 items-center justify-center rounded border text-sm font-semibold hover:bg-[var(--color-sage)]/30"
+              style={{ borderColor: 'var(--color-slate)' }}
+              title="Increase size"
+            >
+              +
+            </button>
+            {selectedNode.data.sizeScale && selectedNode.data.sizeScale !== 1 && (
+              <button
+                onClick={() => updateNodeData(selectedNode.id, { sizeScale: 1 })}
+                className="text-[10px] underline text-[var(--color-slate)]"
+                title="Reset to 100%"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        </div>
+
         <div>
           <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Fill color</p>
           <div className="flex flex-wrap gap-1">
