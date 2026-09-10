@@ -29,12 +29,13 @@ function liveShareUrl(id) {
 function OneTimeTab() {
   const nodes = useMapStore((s) => s.nodes)
   const edges = useMapStore((s) => s.edges)
+  const themeName = useUiStore((s) => s.themeName)
   const showToast = useUiStore((s) => s.showToast)
   const [busy, setBusy] = useState(false)
 
   const handleCopy = async () => {
     setBusy(true)
-    const result = buildShareUrl(nodes, edges)
+    const result = buildShareUrl(nodes, edges, themeName)
     setBusy(false)
     if (result.error) {
       showToast(result.error)
@@ -66,6 +67,7 @@ function LiveTab() {
   const nodes = useMapStore((s) => s.nodes)
   const edges = useMapStore((s) => s.edges)
   const activeProjectId = useMapStore((s) => s.activeProjectId)
+  const themeName = useUiStore((s) => s.themeName)
   const authUser = useAuthStore((s) => s.user)
   const toggleAuthModal = useUiStore((s) => s.toggleAuthModal)
   const showToast = useUiStore((s) => s.showToast)
@@ -111,7 +113,7 @@ function LiveTab() {
 
   const handleCreate = async () => {
     setBusy(true)
-    const result = await createOrUpdate({ userId: authUser.id, projectId, nodes, edges, expiryValue })
+    const result = await createOrUpdate({ userId: authUser.id, projectId, nodes, edges, expiryValue, themeName })
     setBusy(false)
     if (result.error) {
       showToast(result.error)

@@ -55,9 +55,9 @@ function collectReferencedChecklistsAndTrades(nodes) {
   return { checklists, trades, validationRules }
 }
 
-export function encodeMapToParam(nodes, edges) {
+export function encodeMapToParam(nodes, edges, themeName) {
   const { checklists, trades, validationRules } = collectReferencedChecklistsAndTrades(nodes)
-  const json = JSON.stringify({ nodes, edges, checklists, trades, validationRules })
+  const json = JSON.stringify({ nodes, edges, checklists, trades, validationRules, themeName })
   return compressToEncodedURIComponent(json)
 }
 
@@ -65,9 +65,9 @@ export function encodeMapToParam(nodes, edges) {
 // snake_case keys ready to write into the `live_shares` table — shared by
 // both the initial "create live link" call and every later debounced sync,
 // so the two link types never drift out of sync on what they include.
-export function buildSharePayload(nodes, edges) {
+export function buildSharePayload(nodes, edges, themeName) {
   const { checklists, trades, validationRules } = collectReferencedChecklistsAndTrades(nodes)
-  return { nodes, edges, checklists, trades, validation_rules: validationRules }
+  return { nodes, edges, checklists, trades, validation_rules: validationRules, theme_name: themeName }
 }
 
 // Old links (created before this fix) were plain base64 — `atob` on a
@@ -120,8 +120,8 @@ function stripHeavyMedia(nodes) {
 // Returns { url } on success, { url, warning } if media had to be
 // stripped to make it fit, or { error } if the map is too large to share
 // as a link even after both compression and stripping.
-export function buildShareUrl(nodes, edges) {
-  const full = encodeMapToParam(nodes, edges)
+export function buildShareUrl(nodes, edges, themeName) {
+  const full = encodeMapToParam(nodes, edges, themeName)
   if (full.length <= MAX_URL_PARAM_LENGTH) {
     const url = new URL(window.location.href)
     url.searchParams.set('map', full)
@@ -131,7 +131,7 @@ export function buildShareUrl(nodes, edges) {
   const strippedNodes = stripHeavyMedia(nodes)
   const anyStripped = strippedNodes.some((n, i) => n !== nodes[i])
   if (anyStripped) {
-    const lean = encodeMapToParam(strippedNodes, edges)
+    const lean = encodeMapToParam(strippedNodes, edges, themeName)
     if (lean.length <= MAX_URL_PARAM_LENGTH) {
       const url = new URL(window.location.href)
       url.searchParams.set('map', lean)

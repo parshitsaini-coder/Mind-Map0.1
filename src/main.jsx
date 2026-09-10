@@ -32,6 +32,7 @@ function Root() {
           checklists={decoded.checklists || []}
           trades={decoded.trades || []}
           validationRules={decoded.validationRules || []}
+          themeName={decoded.themeName}
         />
       )
     }

@@ -95,7 +95,8 @@ export default function App() {
       clearTimeout(liveShareSaveTimeout.current)
       liveShareSaveTimeout.current = setTimeout(() => {
         const { nodes, edges } = useMapStore.getState()
-        useLiveShareStore.getState().pushUpdate(projectId, nodes, edges)
+        const themeName = useUiStore.getState().themeName
+        useLiveShareStore.getState().pushUpdate(projectId, nodes, edges, themeName)
       }, 1200)
     })
     return () => {
@@ -157,6 +158,22 @@ export default function App() {
   // whole UI (canvas bg, sidebar, cards, node fills) repaints instantly.
   useEffect(() => {
     applyThemeVars(themeName)
+  }, [themeName])
+
+  // Section — live share theme sync. Changing the theme alone (no node/edge
+  // edit) wouldn't otherwise trigger the map-change subscriber above, so an
+  // active live link's visitors would keep seeing the old background until
+  // the owner's next actual edit. Push it through on its own the moment the
+  // theme changes, same debounce pattern as everything else here.
+  useEffect(() => {
+    const projectId = useMapStore.getState().activeProjectId || 'default'
+    clearTimeout(liveShareSaveTimeout.current)
+    liveShareSaveTimeout.current = setTimeout(() => {
+      const { nodes, edges } = useMapStore.getState()
+      useLiveShareStore.getState().pushUpdate(projectId, nodes, edges, themeName)
+    }, 1200)
+    return () => clearTimeout(liveShareSaveTimeout.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [themeName])
 
   return (

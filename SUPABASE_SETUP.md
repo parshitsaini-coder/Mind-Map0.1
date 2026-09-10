@@ -112,6 +112,7 @@ create table public.live_shares (
   checklists jsonb not null default '[]',
   trades jsonb not null default '[]',
   validation_rules jsonb not null default '[]',
+  theme_name text,
   expires_at timestamptz,
   ended_at timestamptz,
   updated_at timestamptz not null default now(),
@@ -133,19 +134,44 @@ create policy "Owner manages own live shares"
 create or replace function public.get_live_share(share_id text)
 returns table (
   nodes jsonb, edges jsonb, checklists jsonb, trades jsonb,
-  validation_rules jsonb, expires_at timestamptz, ended_at timestamptz
+  validation_rules jsonb, theme_name text, expires_at timestamptz, ended_at timestamptz
 )
 language sql
 security definer
 set search_path = public
 as $$
-  select nodes, edges, checklists, trades, validation_rules, expires_at, ended_at
+  select nodes, edges, checklists, trades, validation_rules, theme_name, expires_at, ended_at
   from public.live_shares
   where id = share_id;
 $$;
 
 grant execute on function public.get_live_share(text) to anon, authenticated;
 ```
+
+> **Already created this table before?** (e.g. you ran this section previously
+> and only just added the `theme_name` column above.) Just run these two
+> statements instead of the full block — they add the new column and
+> refresh the function to return it, without touching your existing rows:
+>
+> ```sql
+> alter table public.live_shares add column if not exists theme_name text;
+>
+> create or replace function public.get_live_share(share_id text)
+> returns table (
+>   nodes jsonb, edges jsonb, checklists jsonb, trades jsonb,
+>   validation_rules jsonb, theme_name text, expires_at timestamptz, ended_at timestamptz
+> )
+> language sql
+> security definer
+> set search_path = public
+> as $$
+>   select nodes, edges, checklists, trades, validation_rules, theme_name, expires_at, ended_at
+>   from public.live_shares
+>   where id = share_id;
+> $$;
+>
+> grant execute on function public.get_live_share(text) to anon, authenticated;
+> ```
 
 Creating a live link requires being signed in (it needs somewhere to write
 to), so the Live Link tab in the share modal prompts sign-in if needed. The

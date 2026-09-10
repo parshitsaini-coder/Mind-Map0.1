@@ -25,10 +25,10 @@ export const useLiveShareStore = create(
 
       // Creates a new live link, or updates the existing one for this
       // project (new expiry, latest content) and keeps the same URL.
-      createOrUpdate: async ({ userId, projectId, nodes, edges, expiryValue }) => {
+      createOrUpdate: async ({ userId, projectId, nodes, edges, expiryValue, themeName }) => {
         if (!projectId) return { error: 'Open a project first.' }
         const existing = get().links[projectId]
-        const payload = buildSharePayload(nodes, edges)
+        const payload = buildSharePayload(nodes, edges, themeName)
         const result = await upsertLiveShare({
           userId,
           projectId,
@@ -48,10 +48,10 @@ export const useLiveShareStore = create(
 
       // Debounced push from App.jsx on every map change — no-op unless this
       // project currently has an active (not ended/expired) live link.
-      pushUpdate: async (projectId, nodes, edges) => {
+      pushUpdate: async (projectId, nodes, edges, themeName) => {
         const link = get().getActiveLink(projectId)
         if (!link) return
-        await pushLiveShareUpdate(link.id, buildSharePayload(nodes, edges))
+        await pushLiveShareUpdate(link.id, buildSharePayload(nodes, edges, themeName))
       },
 
       endSession: async (projectId) => {

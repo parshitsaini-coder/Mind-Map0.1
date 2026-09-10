@@ -56,7 +56,7 @@ export default function LiveMapView({ shareId }) {
     )
   }
 
-  const { nodes, edges, checklists, trades, validation_rules } = state.data
+  const { nodes, edges, checklists, trades, validation_rules, theme_name } = state.data
   return (
     <>
       <SharedMapView
@@ -65,6 +65,7 @@ export default function LiveMapView({ shareId }) {
         checklists={checklists || []}
         trades={trades || []}
         validationRules={validation_rules || []}
+        themeName={theme_name}
       />
       <div
         className="pointer-events-none fixed bottom-3 left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-full px-3 py-1 text-[10px] font-medium shadow"
