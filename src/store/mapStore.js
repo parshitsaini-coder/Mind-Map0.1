@@ -720,6 +720,9 @@ export const useMapStore = create(
                 animated: !!style.animated,
                 iconMid: style.iconMid || null,
                 cap: style.cap,
+                glow: !!style.glow,
+                gradient: style.gradient || null,
+                pulseWidth: !!style.pulseWidth,
                 // Preserve any Connector Calculation operator this
                 // connector already carried — a line-style pick shouldn't
                 // silently wipe out a +/-/×/÷/= calculation.

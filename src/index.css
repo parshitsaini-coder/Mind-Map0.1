@@ -68,6 +68,25 @@ body {
 .connector-preview-animated {
   animation: dashdraw 0.9s linear infinite;
 }
+
+/* Connector Styles panel — "Effects" category. Neon glow breathes in
+   intensity, width-pulse breathes the line's thickness; both read against
+   `--glow-color` set inline per-edge/per-swatch so one class works for
+   every color a connector might use. */
+@keyframes connectorGlowPulse {
+  0%, 100% { filter: drop-shadow(0 0 2px var(--glow-color, var(--color-accent))) drop-shadow(0 0 1px var(--glow-color, var(--color-accent))); }
+  50%      { filter: drop-shadow(0 0 7px var(--glow-color, var(--color-accent))) drop-shadow(0 0 3px var(--glow-color, var(--color-accent))); }
+}
+.connector-glow-pulse {
+  animation: connectorGlowPulse 1.7s ease-in-out infinite;
+}
+@keyframes connectorWidthPulse {
+  0%, 100% { stroke-width: var(--pulse-min, 2px); }
+  50%      { stroke-width: var(--pulse-max, 5px); }
+}
+.connector-width-pulse {
+  animation: connectorWidthPulse 1.3s ease-in-out infinite;
+}
 .clip-hex {
   clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
 }
@@ -285,10 +304,91 @@ body {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 12px 40px -8px rgba(31, 30, 80, 0.45);
 }
 
+/* Liquid Glass — floating dropdowns/popovers (calendar, stock/time-frame
+   lists, status picker, theme picker, filters). These sit *inside* an
+   `overflow-hidden`/`overflow-y-auto` card, so relying on the generic
+   `.rounded-lg` backdrop-filter rule above made the frosted look
+   inconsistent — it was blurring whatever opaque card sat directly behind
+   the popover instead of the colorful animated backdrop, so it read as
+   "no blur" even though the property was technically applied. This class
+   forces the frosted panel look directly (semi-transparent white +
+   strong blur + a visible highlight border) so every popover clearly
+   looks like glass regardless of what happens to be behind it, and is
+   applied on top of / instead of a plain `var(--ta-surface)` background. */
+[data-ta-theme="liquidglass"] .ta-glass-popover {
+  background: rgba(255, 255, 255, 0.42) !important;
+  backdrop-filter: blur(22px) saturate(170%);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  border: 1px solid rgba(255, 255, 255, 0.55) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65), 0 12px 40px -8px rgba(31, 30, 80, 0.45);
+}
+
 @keyframes taUnderlineGrow {
   from { width: 0; opacity: 0; }
   to { width: 28px; opacity: 1; }
 }
 .ta-title-underline {
   animation: taUnderlineGrow 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+}
+
+/* Node Inspector — panel-open motion. Every direct section (Shape, Size,
+   Fill Color, Text Style, Task, Image, ...) cascades in one after another
+   instead of popping in all at once. Re-triggers whenever the wrapping
+   element remounts (Sidebar/NodeInspector key it by the selected node id),
+   so switching between nodes replays the entrance. */
+@keyframes inspectorSectionIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.inspector-animate > * {
+  animation: inspectorSectionIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.inspector-animate > *:nth-child(1)  { animation-delay: 0.02s; }
+.inspector-animate > *:nth-child(2)  { animation-delay: 0.06s; }
+.inspector-animate > *:nth-child(3)  { animation-delay: 0.10s; }
+.inspector-animate > *:nth-child(4)  { animation-delay: 0.14s; }
+.inspector-animate > *:nth-child(5)  { animation-delay: 0.18s; }
+.inspector-animate > *:nth-child(6)  { animation-delay: 0.22s; }
+.inspector-animate > *:nth-child(7)  { animation-delay: 0.26s; }
+.inspector-animate > *:nth-child(8)  { animation-delay: 0.30s; }
+.inspector-animate > *:nth-child(9)  { animation-delay: 0.34s; }
+.inspector-animate > *:nth-child(10) { animation-delay: 0.38s; }
+.inspector-animate > *:nth-child(11) { animation-delay: 0.42s; }
+.inspector-animate > *:nth-child(12) { animation-delay: 0.46s; }
+.inspector-animate > *:nth-child(13) { animation-delay: 0.50s; }
+.inspector-animate > *:nth-child(14) { animation-delay: 0.54s; }
+.inspector-animate > *:nth-child(15) { animation-delay: 0.58s; }
+
+/* Panel title — animated gradient shimmer sweeping across the text, so
+   "Node Inspector" (and every other panel title) feels alive rather than
+   static, on top of the slide-in it already gets from Sidebar's motion.h2. */
+@keyframes panelTitleShimmer {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+.animated-panel-title {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-ink) 0%,
+    var(--color-accent) 25%,
+    var(--color-ink) 50%,
+    var(--color-accent) 75%,
+    var(--color-ink) 100%
+  );
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: panelTitleShimmer 3.2s linear infinite;
+}
+
+/* Image upload — the "tagda" success burst. Concentric rings expand and
+   fade out from the freshly-uploaded thumbnail, giving upload a moment of
+   payoff instead of the image just quietly appearing. */
+@keyframes imageUploadRing {
+  0%   { opacity: 0.7; transform: scale(0.6); }
+  100% { opacity: 0;   transform: scale(2.3); }
+}
+.image-upload-ring {
+  animation: imageUploadRing 0.9s ease-out both;
 }

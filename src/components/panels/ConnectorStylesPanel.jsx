@@ -8,6 +8,7 @@ import { ICONS } from '../../theme/iconSet'
 
 // Small inline preview so people can see what a style looks like before
 // applying it, without leaving the panel or opening the demo map.
+let previewCounter = 0
 function StylePreview({ style }) {
   const color = style.color || 'var(--color-slate)'
   const width = style.strokeWidth || 2
@@ -17,23 +18,44 @@ function StylePreview({ style }) {
   else if (style.pathType === 'bezier' || style.pathType === 'simplebezier') d = 'M4 12 C 22 2, 38 22, 56 12'
 
   const IconComp = style.iconMid ? ICONS[style.iconMid] : null
+  // Each swatch needs its own gradient id — several "Gradient Flow"/
+  // "Rainbow Arrow" previews render side by side, so a shared id would
+  // make every one of them paint with whichever def was declared last.
+  const [gradientId] = useState(() => `preview-gradient-${++previewCounter}`)
+  const strokeColor = style.gradient ? `url(#${gradientId})` : color
+  const effectClass = [style.animated ? 'connector-preview-animated' : '', style.glow ? 'connector-glow-pulse' : '', style.pulseWidth ? 'connector-width-pulse' : '']
+    .filter(Boolean)
+    .join(' ')
 
   return (
     <svg viewBox="0 0 60 24" className="h-6 w-14 shrink-0">
+      {style.gradient && (
+        <defs>
+          <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor={style.gradient[0]} />
+            <stop offset="100%" stopColor={style.gradient[1]} />
+          </linearGradient>
+        </defs>
+      )}
       <path
         d={d}
         fill="none"
-        stroke={color}
+        stroke={strokeColor}
         strokeWidth={width}
         strokeDasharray={style.dash || undefined}
         strokeLinecap={style.cap || undefined}
-        className={style.animated ? 'connector-preview-animated' : ''}
+        className={effectClass}
+        style={{
+          '--glow-color': style.color || 'var(--color-accent)',
+          '--pulse-min': Math.max(1, width - 1.5) + 'px',
+          '--pulse-max': width + 3 + 'px',
+        }}
       />
       {style.arrowEnd && (
-        <polygon points="56,12 49,9 49,15" fill={color} />
+        <polygon points="56,12 49,9 49,15" fill={style.gradient ? style.gradient[1] : color} />
       )}
       {style.arrowStart && (
-        <polygon points="4,12 11,9 11,15" fill={color} />
+        <polygon points="4,12 11,9 11,15" fill={style.gradient ? style.gradient[0] : color} />
       )}
       {IconComp && (
         <foreignObject x="22" y="2" width="16" height="16">
@@ -138,7 +160,7 @@ export default function ConnectorStylesPanel() {
                 </p>
               </div>
 
-              <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-0.5">
+              <div className="inspector-animate flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-0.5">
                 {groupedStyles.map((group) => (
                   <div key={group.key}>
                     <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-slate)]">
@@ -149,7 +171,11 @@ export default function ConnectorStylesPanel() {
                         <button
                           key={style.label}
                           onClick={() => handleApply(style)}
-                          className="flex items-center gap-2 rounded-md border border-[var(--color-sage)] px-2 py-1.5 text-left transition-colors hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/20"
+                          className={`flex items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-all duration-150 ${
+                            group.key === 'effect'
+                              ? 'border-[var(--color-sage)] hover:scale-[1.03] hover:border-[var(--color-accent)] hover:shadow-md'
+                              : 'border-[var(--color-sage)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/20'
+                          }`}
                         >
                           <StylePreview style={style} />
                           <span className="text-[10.5px] leading-tight text-[var(--color-ink)]">{style.label}</span>

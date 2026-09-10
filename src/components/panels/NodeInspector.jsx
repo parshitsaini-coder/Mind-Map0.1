@@ -179,6 +179,10 @@ export default function NodeInspector() {
   )
 
   const [imageUploading, setImageUploading] = useState(false)
+  // Drives the "tagda" success burst (rings + spring pop + badge) right
+  // after an image lands on the node — flips back off on its own so the
+  // burst plays once per upload rather than sticking around.
+  const [justUploaded, setJustUploaded] = useState(false)
 
   const uploadImageFile = async (file) => {
     if (!file || !selectedNode) return
@@ -186,6 +190,8 @@ export default function NodeInspector() {
     try {
       const { url, hosted, error } = await uploadNodeImage(file)
       updateNodeData(selectedNode.id, { image: url })
+      setJustUploaded(true)
+      setTimeout(() => setJustUploaded(false), 1500)
       if (!hosted) {
         useUiStore
           .getState()
@@ -347,7 +353,7 @@ export default function NodeInspector() {
   if (selectedNode) {
     const badges = selectedNode.data.badges || {}
     return (
-      <div className="flex flex-col gap-2">
+      <div key={selectedNode.id} className="inspector-animate flex flex-col gap-2">
         <div>
           <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Shape</p>
           <div className="flex flex-wrap gap-1">
@@ -834,13 +840,53 @@ export default function NodeInspector() {
             <p className="text-[10px] text-[var(--color-slate)]">Uploading…</p>
           ) : selectedNode.data.image ? (
             <div className="flex items-center gap-2">
-              <img src={selectedNode.data.image} alt="" className="h-8 w-8 rounded object-cover" />
+              <div className="relative flex h-8 w-8 items-center justify-center">
+                {justUploaded && (
+                  <>
+                    <span
+                      className="image-upload-ring pointer-events-none absolute inset-0 rounded-full"
+                      style={{ border: '2px solid var(--color-accent)' }}
+                    />
+                    <span
+                      className="image-upload-ring pointer-events-none absolute inset-0 rounded-full"
+                      style={{ border: '2px solid var(--color-accent)', animationDelay: '0.15s' }}
+                    />
+                    <span
+                      className="image-upload-ring pointer-events-none absolute inset-0 rounded-full"
+                      style={{ border: '2px solid var(--color-accent)', animationDelay: '0.3s' }}
+                    />
+                  </>
+                )}
+                <motion.img
+                  key={selectedNode.data.image}
+                  src={selectedNode.data.image}
+                  alt=""
+                  className="relative h-8 w-8 rounded object-cover"
+                  initial={justUploaded ? { scale: 0.15, opacity: 0, rotate: -20 } : false}
+                  animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                  transition={{ type: 'spring', stiffness: 420, damping: 16 }}
+                />
+              </div>
               <button
                 onClick={() => updateNodeData(selectedNode.id, { image: null })}
                 className="flex items-center gap-1 text-[10px] text-[var(--color-slate)] underline hover:text-[var(--color-ink)]"
               >
                 <XIcon size={10} /> Remove
               </button>
+              <AnimatePresence>
+                {justUploaded && (
+                  <motion.span
+                    initial={{ opacity: 0, y: 4, scale: 0.7 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.8 }}
+                    transition={{ duration: 0.25, ease: 'easeOut' }}
+                    className="rounded-full px-2 py-0.5 text-[9px] font-semibold"
+                    style={{ backgroundColor: 'var(--color-accent)', color: 'var(--color-ink)' }}
+                  >
+                    ✨ Added!
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </div>
           ) : (
             <label className="flex cursor-pointer flex-col items-center gap-0.5 rounded-md border border-dashed border-[var(--color-slate)] px-2 py-2 text-center text-[10px] text-[var(--color-slate)] hover:bg-[var(--color-sage)]/30">

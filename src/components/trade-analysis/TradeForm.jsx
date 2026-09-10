@@ -354,7 +354,7 @@ export default function TradeForm({ mode = 'sidebar' }) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -6, scale: 0.97 }}
               transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-              className="absolute left-0 right-0 top-full z-20 mt-1 flex max-h-44 flex-col gap-1 overflow-y-auto rounded-lg border p-1.5 shadow-lg"
+              className="ta-glass-popover absolute left-0 right-0 top-full z-20 mt-1 flex max-h-44 flex-col gap-1 overflow-y-auto rounded-lg border p-1.5 shadow-lg"
               style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)', transformOrigin: 'top' }}
             >
               {filteredInstruments.length === 0 ? (
@@ -422,7 +422,7 @@ export default function TradeForm({ mode = 'sidebar' }) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -6, scale: 0.97 }}
               transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-              className="absolute left-0 right-0 top-full z-20 mt-1 grid max-h-44 grid-cols-2 gap-1 overflow-y-auto rounded-lg border p-1.5 shadow-lg"
+              className="ta-glass-popover absolute left-0 right-0 top-full z-20 mt-1 grid max-h-44 grid-cols-2 gap-1 overflow-y-auto rounded-lg border p-1.5 shadow-lg"
               style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)', transformOrigin: 'top' }}
             >
               {TIMEFRAMES.map((tf, idx) => {

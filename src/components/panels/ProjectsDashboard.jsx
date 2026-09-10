@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Plus, FolderOpen, Trash2, Pencil, Check, X, Brain } from 'lucide-react'
+import { Plus, FolderOpen, Trash2, Pencil, Check, X } from 'lucide-react'
+import MindNodeIcon from '../common/MindNodeIcon'
 import { useProjectsStore, readProjectData } from '../../store/projectsStore'
 import { useMapStore } from '../../store/mapStore'
 
@@ -36,7 +37,7 @@ function ProjectCard({ project, isActive, onOpen, onRename, onDelete }) {
         style={{ backgroundColor: 'var(--color-cream)' }}
         title="Open project"
       >
-        <Brain size={22} color="var(--color-accent)" />
+        <MindNodeIcon size={22} color="var(--color-accent)" />
         <span className="text-[10px] text-[var(--color-slate)]/70">
           {nodeCount} {nodeCount === 1 ? 'node' : 'nodes'}
         </span>

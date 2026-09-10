@@ -46,7 +46,7 @@ export default function FiltersPopover({ open, onClose }) {
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={{ duration: 0.14, ease: 'easeOut' }}
             onClick={(e) => e.stopPropagation()}
-            className="absolute right-0 top-full z-[66] mt-1.5 flex w-72 flex-col gap-3 rounded-lg border p-3 shadow-xl"
+            className="ta-glass-popover absolute right-0 top-full z-[66] mt-1.5 flex w-72 flex-col gap-3 rounded-lg border p-3 shadow-xl"
             style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)' }}
           >
             <div className="flex items-center justify-between">

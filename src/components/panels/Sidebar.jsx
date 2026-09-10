@@ -175,9 +175,15 @@ export default function Sidebar() {
               </div>
               <div className="flex min-h-0 flex-1 flex-col p-3">
                 <div className="mb-2 flex items-center justify-between">
-                  <h2 className="text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
+                  <motion.h2
+                    key={activePanel}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.25, ease: 'easeOut' }}
+                    className="animated-panel-title text-sm font-semibold"
+                  >
                     {PANEL_TITLES[activePanel]}
-                  </h2>
+                  </motion.h2>
                   <button onClick={toggleSidebar} className="rounded-full p-1.5 hover:bg-[var(--color-sage)]">
                     <X size={16} />
                   </button>
@@ -207,9 +213,15 @@ export default function Sidebar() {
             >
               <div className="flex h-full w-[220px] flex-col p-3">
                 <div className="mb-2 flex items-center justify-between">
-                  <h2 className="text-xs font-semibold" style={{ color: 'var(--color-ink)' }}>
+                  <motion.h2
+                    key={activePanel}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.25, ease: 'easeOut' }}
+                    className="animated-panel-title text-xs font-semibold"
+                  >
                     {PANEL_TITLES[activePanel]}
-                  </h2>
+                  </motion.h2>
                   <button onClick={toggleSidebar} className="rounded p-0.5 hover:bg-[var(--color-sage)]">
                     <X size={13} />
                   </button>

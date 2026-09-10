@@ -41,6 +41,25 @@ export const CONNECTOR_STYLES = [
   { label: 'Step — Dotted Thin', pathType: 'step', dash: '1.5 4', cap: 'round', strokeWidth: 1, category: 'line' },
   { label: 'Pulse — Animated Dots', pathType: 'straight', dash: '2 6', cap: 'round', animated: true, color: '#4fb0a5', category: 'animated' },
   { label: 'Animated — Elbow Flow', pathType: 'step', dash: '5 3', animated: true, color: '#e07856', category: 'animated' },
+
+  // Section — "Effects" category: 12 extra styles beyond the base line/
+  // color/icon sets, built around three new visual mechanics that
+  // ConnectorDemoEdge/CustomEdge render: a persistent breathing glow
+  // (`glow` + `.connector-glow-pulse`), a two-stop gradient stroke
+  // (`gradient: [from, to]`, painted via a per-edge <linearGradient>), and
+  // a breathing line thickness (`pulseWidth` + `.connector-width-pulse`).
+  { label: 'Neon Glow — Straight', pathType: 'straight', color: '#f5cb5c', strokeWidth: 2.5, glow: true, category: 'effect' },
+  { label: 'Neon Glow — Curved', pathType: 'bezier', color: '#4fb0a5', strokeWidth: 2.5, glow: true, category: 'effect' },
+  { label: 'Electric Pulse — Arrow', pathType: 'smoothstep', dash: '4 4', animated: true, glow: true, arrowEnd: true, color: '#8a7fd1', category: 'effect' },
+  { label: 'Gradient Flow — Sunrise', pathType: 'bezier', gradient: ['#f5cb5c', '#e07856'], strokeWidth: 3, category: 'effect' },
+  { label: 'Gradient Flow — Ocean', pathType: 'simplebezier', gradient: ['#4fb0a5', '#4a6fa5'], strokeWidth: 3, category: 'effect' },
+  { label: 'Gradient Flow — Berry', pathType: 'smoothstep', gradient: ['#9163cb', '#e0607e'], strokeWidth: 3, category: 'effect' },
+  { label: 'Rainbow Arrow', pathType: 'bezier', gradient: ['#4361ee', '#f5cb5c'], arrowEnd: true, strokeWidth: 2.5, category: 'effect' },
+  { label: 'Pulsing Width — Curved', pathType: 'bezier', color: '#242423', pulseWidth: true, category: 'effect' },
+  { label: 'Pulsing Width — Arrow', pathType: 'straight', color: '#e07856', arrowEnd: true, pulseWidth: true, category: 'effect' },
+  { label: 'Dashed Glow — Elbow', pathType: 'step', dash: '6 4', color: '#6a9955', glow: true, category: 'effect' },
+  { label: 'Soft Glow Halo', pathType: 'smoothstep', color: '#5c7a89', strokeWidth: 3, glow: true, category: 'effect' },
+  { label: 'Comet Trail — Glow Arrow', pathType: 'bezier', dash: '3 7', animated: true, glow: true, arrowEnd: true, color: '#f5cb5c', category: 'effect' },
 ]
 
 // Ordered list of category sections shown in the Connector Styles panel.
@@ -49,6 +68,7 @@ export const CONNECTOR_STYLE_CATEGORIES = [
   { key: 'animated', label: 'Animated' },
   { key: 'color', label: 'Colors' },
   { key: 'icon', label: 'Icons' },
+  { key: 'effect', label: 'Effects \u2728' },
 ]
 
 export function buildConnectorDemo() {
@@ -90,6 +110,9 @@ export function buildConnectorDemo() {
         animated: !!style.animated,
         iconMid: style.iconMid || null,
         cap: style.cap,
+        glow: !!style.glow,
+        gradient: style.gradient || null,
+        pulseWidth: !!style.pulseWidth,
       },
     })
   })

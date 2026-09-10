@@ -93,7 +93,7 @@ export default function DatePicker({ value, onChange, inputCls }) {
             exit={{ opacity: 0, y: -6, scale: 0.96 }}
             transition={{ type: 'spring', stiffness: 420, damping: 32 }}
             style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)', transformOrigin: 'top left' }}
-            className="absolute left-0 top-full z-30 mt-1 w-[210px] rounded-lg border p-2 shadow-lg"
+            className="ta-glass-popover absolute left-0 top-full z-30 mt-1 w-[210px] rounded-lg border p-2 shadow-lg"
           >
             {/* Month header */}
             <div className="mb-1.5 flex items-center justify-between">

@@ -74,7 +74,7 @@ export default function StatusDropdown({ value, onChange }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.96 }}
             transition={{ duration: 0.14, ease: 'easeOut' }}
-            className="absolute left-0 top-full z-[70] mt-1 w-28 overflow-hidden rounded-lg border p-1 shadow-xl"
+            className="ta-glass-popover absolute left-0 top-full z-[70] mt-1 w-28 overflow-hidden rounded-lg border p-1 shadow-xl"
             style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)' }}
           >
             {STATUS_OPTIONS.map((option, i) => {

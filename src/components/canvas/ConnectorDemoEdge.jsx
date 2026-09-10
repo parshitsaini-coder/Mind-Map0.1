@@ -41,6 +41,7 @@ function resolvePath(pathType, params) {
 // straight through the node the moment either end has been dragged
 // somewhere that fixed handle doesn't face.
 function ConnectorDemoEdge({
+  id,
   source,
   target,
   sourceX,
@@ -75,20 +76,48 @@ function ConnectorDemoEdge({
   const calcOp = data?.calcOp
   const IconComp = calcOp ? CALC_OPERATOR_ICON[calcOp] : data?.iconMid ? ICONS[data.iconMid] : null
 
+  // Section — Connector "Effects": a two-stop gradient stroke needs its own
+  // <linearGradient>, scoped to this edge's id so multiple gradient
+  // connectors on the same map don't collide over one shared def.
+  const gradientId = data?.gradient ? `edge-gradient-${id}` : null
+  const baseColor = selected ? 'var(--color-accent)' : data?.color || 'var(--color-slate)'
+  const strokeColor = gradientId ? `url(#${gradientId})` : baseColor
+  const glowColor = data?.color || 'var(--color-accent)'
+  const effectClass = [data?.glow && !selected ? 'connector-glow-pulse' : '', data?.pulseWidth ? 'connector-width-pulse' : '']
+    .filter(Boolean)
+    .join(' ')
+  const baseWidth = (data?.strokeWidth || 2) + (selected ? 1.5 : 0)
+
   return (
     <>
+      {gradientId && (
+        <defs>
+          <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor={data.gradient[0]} />
+            <stop offset="100%" stopColor={data.gradient[1]} />
+          </linearGradient>
+        </defs>
+      )}
       <BaseEdge
         path={edgePath}
         markerEnd={markerEnd}
         markerStart={markerStart}
         interactionWidth={24}
+        className={effectClass}
         style={{
-          stroke: selected ? 'var(--color-accent)' : data?.color || 'var(--color-slate)',
-          strokeWidth: (data?.strokeWidth || 2) + (selected ? 1.5 : 0),
+          stroke: strokeColor,
+          strokeWidth: baseWidth,
           strokeDasharray: data?.dash || undefined,
           strokeLinecap: data?.cap || undefined,
           animation: data?.animated ? 'dashdraw 0.9s linear infinite' : undefined,
-          filter: selected ? 'drop-shadow(0 0 2px var(--color-accent))' : undefined,
+          filter: selected
+            ? 'drop-shadow(0 0 2px var(--color-accent))'
+            : data?.glow
+            ? 'drop-shadow(0 0 4px ' + glowColor + ')'
+            : undefined,
+          '--glow-color': glowColor,
+          '--pulse-min': Math.max(1, baseWidth - 1.5) + 'px',
+          '--pulse-max': baseWidth + 3 + 'px',
         }}
       />
       {IconComp && (

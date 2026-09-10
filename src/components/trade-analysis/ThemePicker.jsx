@@ -60,7 +60,7 @@ export default function ThemePicker() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-            className="absolute left-0 top-full z-[70] mt-1.5 flex w-48 flex-col gap-1 rounded-lg border p-1.5 shadow-xl"
+            className="ta-glass-popover absolute left-0 top-full z-[70] mt-1.5 flex w-48 flex-col gap-1 rounded-lg border p-1.5 shadow-xl"
             style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)', transformOrigin: 'top left' }}
           >
             <p className="px-1.5 pb-1 pt-0.5 text-[9px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ta-slate)' }}>
