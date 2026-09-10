@@ -61,6 +61,15 @@ export function encodeMapToParam(nodes, edges) {
   return compressToEncodedURIComponent(json)
 }
 
+// Same denormalized snapshot as encodeMapToParam, but as a plain object with
+// snake_case keys ready to write into the `live_shares` table — shared by
+// both the initial "create live link" call and every later debounced sync,
+// so the two link types never drift out of sync on what they include.
+export function buildSharePayload(nodes, edges) {
+  const { checklists, trades, validationRules } = collectReferencedChecklistsAndTrades(nodes)
+  return { nodes, edges, checklists, trades, validation_rules: validationRules }
+}
+
 // Old links (created before this fix) were plain base64 — `atob` on a
 // modern lz-string payload throws immediately, so trying the new format
 // first and falling back to the legacy one keeps previously-shared links

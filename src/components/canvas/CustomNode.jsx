@@ -48,7 +48,7 @@ function CustomNode({ id, data, selected }) {
   const [label, setLabel] = useState(data.label)
   const addChildNode = useMapStore((s) => s.addChildNode)
   const updateNodeData = useMapStore((s) => s.updateNodeData)
-  const deleteNode = useMapStore((s) => s.deleteNode)
+  const deleteNode = useMapStore((s) => s.deleteNodeAnimated)
   const toggleCollapse = useMapStore((s) => s.toggleCollapse)
   const childCount = useMapStore(
     (s) => s.edges.filter((e) => e.source === id && e.type !== 'crossEdge').length
@@ -201,7 +201,9 @@ function CustomNode({ id, data, selected }) {
         )}
 
         {childCount > 0 && (
-          <button
+          <motion.button
+            whileTap={{ scale: 0.8 }}
+            transition={{ duration: 0.12 }}
             onClick={(e) => {
               e.stopPropagation()
               toggleCollapse(id)
@@ -209,8 +211,16 @@ function CustomNode({ id, data, selected }) {
             className="absolute -right-4 top-1/2 -translate-y-1/2 rounded-full bg-[var(--color-cream)] p-0.5 shadow"
             title={data.collapsed ? `Expand (${childCount} hidden)` : 'Collapse branch'}
           >
-            {data.collapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
-          </button>
+            <motion.span
+              key={data.collapsed ? 'collapsed' : 'expanded'}
+              initial={{ rotate: -90, opacity: 0 }}
+              animate={{ rotate: 0, opacity: 1 }}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
+              className="flex"
+            >
+              {data.collapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
+            </motion.span>
+          </motion.button>
         )}
 
         {hasExtras && (
@@ -344,7 +354,10 @@ function CustomNode({ id, data, selected }) {
       <div
         className={`absolute -bottom-6 left-1/2 -translate-x-1/2 gap-1 group-hover:flex ${selected ? 'flex' : 'hidden'}`}
       >
-        <button
+        <motion.button
+          whileHover={{ scale: 1.12 }}
+          whileTap={{ scale: 0.82 }}
+          transition={{ duration: 0.14 }}
           onClick={(e) => {
             e.stopPropagation()
             addChildNode(id, { fromHandle: 'bottom' })
@@ -353,25 +366,31 @@ function CustomNode({ id, data, selected }) {
           title="Add child below"
         >
           <Plus size={10} />
-        </button>
+        </motion.button>
       </div>
 
       <div className={`absolute -top-6 right-0 gap-1 group-hover:flex ${selected ? 'flex' : 'hidden'}`}>
-        <button
+        <motion.button
+          whileHover={{ scale: 1.12 }}
+          whileTap={{ scale: 0.82 }}
+          transition={{ duration: 0.14 }}
           onClick={() => addChildNode(id)}
           className="rounded-full bg-[var(--color-accent)] p-0.5 shadow hover:brightness-95"
           title="Add child (Tab)"
         >
           <Plus size={10} />
-        </button>
+        </motion.button>
         {!data.isRoot && (
-          <button
+          <motion.button
+            whileHover={{ scale: 1.12 }}
+            whileTap={{ scale: 0.82 }}
+            transition={{ duration: 0.14 }}
             onClick={() => deleteNode(id)}
             className="rounded-full bg-[var(--color-sage)] p-0.5 shadow hover:brightness-95"
             title="Delete (Del)"
           >
             <Trash2 size={10} />
-          </button>
+          </motion.button>
         )}
       </div>
     </motion.div>

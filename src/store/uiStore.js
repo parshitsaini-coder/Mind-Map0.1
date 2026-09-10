@@ -18,6 +18,7 @@ export const useUiStore = create(
       toastMessage: null,
       connectorPanelOpen: false,
       authModalOpen: false,
+      shareModalOpen: false,
       styleLibraryOpen: false,
       imageLightboxUrl: null, // set to an image URL to open it fullscreen; null when closed
       jumpToken: null, // { id, ts } — set to ask the canvas to pan/zoom to and select a node (used by Linked Nodes / Backlinks jump buttons)
@@ -44,6 +45,7 @@ export const useUiStore = create(
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       toggleConnectorPanel: () => set((s) => ({ connectorPanelOpen: !s.connectorPanelOpen })),
       toggleAuthModal: () => set((s) => ({ authModalOpen: !s.authModalOpen })),
+      toggleShareModal: () => set((s) => ({ shareModalOpen: !s.shareModalOpen })),
       toggleStyleLibrary: () => set((s) => ({ styleLibraryOpen: !s.styleLibraryOpen })),
       toggleRelationshipMode: () => set((s) => ({ relationshipMode: !s.relationshipMode })),
       setActivePanel: (panel) => set({ activePanel: panel, sidebarOpen: true }),

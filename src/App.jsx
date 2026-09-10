@@ -7,6 +7,7 @@ import ProjectsDashboard from './components/panels/ProjectsDashboard'
 import StyleLibraryPanel from './components/panels/StyleLibraryPanel'
 import ChecklistPanel from './components/panels/ChecklistPanel'
 import AuthPanel from './components/auth/AuthPanel'
+import ShareModal from './components/toolbar/ShareModal'
 import ImageLightbox from './components/common/ImageLightbox'
 import Whiteboard from './components/whiteboard/Whiteboard'
 import TradeAnalysis from './components/trade-analysis/TradeAnalysis'
@@ -18,6 +19,7 @@ import { useMapStore } from './store/mapStore'
 import { useProjectsStore } from './store/projectsStore'
 import { useAuthStore } from './store/authStore'
 import { useTradeAnalysisStore } from './store/tradeAnalysisStore'
+import { useLiveShareStore } from './store/liveShareStore'
 import { applyThemeVars } from './theme/tokens'
 import { isSupabaseConfigured } from './lib/supabaseClient'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
@@ -33,6 +35,7 @@ export default function App() {
   const tradeSaveTimeout = useRef(null)
   const hasLoadedTradesForUser = useRef(null)
   const projectSaveTimeout = useRef(null)
+  const liveShareSaveTimeout = useRef(null)
   useKeyboardShortcuts()
 
   // Restore an existing Supabase session (if any) once on app start.
@@ -77,6 +80,26 @@ export default function App() {
     })
     return () => {
       clearTimeout(projectSaveTimeout.current)
+      unsubscribe()
+    }
+  }, [])
+
+  // Section — live share sync. If the active project currently has a live
+  // link out (see ShareModal), push every edit up to Supabase (debounced,
+  // same pattern as the cloud/project autosaves) so a visitor refreshing
+  // that link sees the latest map instead of a frozen snapshot. No-ops
+  // instantly (no network call) when there's no active live link.
+  useEffect(() => {
+    const unsubscribe = useMapStore.subscribe(() => {
+      const projectId = useMapStore.getState().activeProjectId || 'default'
+      clearTimeout(liveShareSaveTimeout.current)
+      liveShareSaveTimeout.current = setTimeout(() => {
+        const { nodes, edges } = useMapStore.getState()
+        useLiveShareStore.getState().pushUpdate(projectId, nodes, edges)
+      }, 1200)
+    })
+    return () => {
+      clearTimeout(liveShareSaveTimeout.current)
       unsubscribe()
     }
   }, [])
@@ -165,6 +188,7 @@ export default function App() {
         </div>
       )}
       <AuthPanel />
+      <ShareModal />
       <ProjectsDashboard />
       <StyleLibraryPanel />
       <ImageLightbox />

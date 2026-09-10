@@ -1,4 +1,5 @@
-import { motion } from 'framer-motion'
+import 'motion-icons-react/style.css'
+import { MotionIcon } from 'motion-icons-react'
 import {
   Plus,
   StickyNote,
@@ -38,22 +39,28 @@ import { useWhiteboardStore } from '../../store/whiteboardStore'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useAuthStore } from '../../store/authStore'
 import { useProjectsStore } from '../../store/projectsStore'
-import { buildShareUrl } from '../../utils/exportShareLink'
+
 import { exportMapAsPng, exportMapAsPdf } from '../../utils/exportImage'
 import { downloadMapBackup, readMapBackup } from '../../utils/exportImportBackup'
 
 const IconBtn = ({ icon: Icon, label, onClick, active }) => (
-  <motion.button
-    whileHover={{ scale: 1.06 }}
-    whileTap={{ scale: 0.94 }}
+  <button
     onClick={onClick}
     title={label}
     className={`flex shrink-0 items-center justify-center rounded-md p-1 transition-colors ${
       active ? 'bg-[var(--color-accent)]' : 'hover:bg-[var(--color-sage)]'
     }`}
   >
-    <Icon size={13} color="var(--color-ink)" />
-  </motion.button>
+    <MotionIcon
+      name={Icon.displayName || Icon.name}
+      size={13}
+      color="var(--color-ink)"
+      interactive
+      trigger="hover"
+      animation="nudge"
+      animationDuration={180}
+    />
+  </button>
 )
 
 export default function TopToolbar() {
@@ -87,21 +94,7 @@ export default function TopToolbar() {
   const [exporting, setExporting] = useState(false)
   const backupInputRef = useRef(null)
 
-  const handleShare = async () => {
-    const result = buildShareUrl(nodes, edges)
-    if (result.error) {
-      showToast(result.error)
-      return
-    }
-    const { url, warning } = result
-    try {
-      await navigator.clipboard.writeText(url)
-      showToast(warning || 'View-only share link copied to clipboard')
-    } catch {
-      window.prompt('Copy this share link:', url)
-      if (warning) showToast(warning)
-    }
-  }
+  const toggleShareModal = useUiStore((s) => s.toggleShareModal)
 
   const handleExportPng = async () => {
     if (exporting) return
@@ -200,7 +193,7 @@ export default function TopToolbar() {
         <IconBtn icon={MessageSquare} label="Comments" active={activePanel === 'comments'} onClick={() => setActivePanel('comments')} />
         <IconBtn icon={History} label="Activity / version history" active={activePanel === 'activity'} onClick={() => setActivePanel('activity')} />
         <IconBtn icon={FolderOpen} label="Workspaces" active={activePanel === 'workspaces'} onClick={() => setActivePanel('workspaces')} />
-        <IconBtn icon={Share2} label="Copy share link" onClick={handleShare} />
+        <IconBtn icon={Share2} label="Share (one-time or live link)" onClick={toggleShareModal} />
         <IconBtn icon={Download} label="Export as PNG image" onClick={handleExportPng} />
         <IconBtn icon={FileDown} label="Export as PDF" onClick={handleExportPdf} />
         <IconBtn icon={FileJson} label="Download backup (.json) — full map, restorable" onClick={handleExportJson} />

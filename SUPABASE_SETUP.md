@@ -94,6 +94,63 @@ create policy "Users can update own trade data"
   using (auth.uid() = user_id);
 ```
 
+## 3c. Create the `live_shares` table (optional — Live share links)
+
+The toolbar's Share button offers two kinds of link: **One-time** (the
+existing behaviour — the whole map is encoded into the URL itself, works
+without this table) and **Live** (a short link backed by this table — the
+owner keeps editing, and anyone with the link sees the latest version on
+their next refresh, until it expires or the owner ends it).
+
+```sql
+create table public.live_shares (
+  id text primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  project_id text not null,
+  nodes jsonb not null default '[]',
+  edges jsonb not null default '[]',
+  checklists jsonb not null default '[]',
+  trades jsonb not null default '[]',
+  validation_rules jsonb not null default '[]',
+  expires_at timestamptz,
+  ended_at timestamptz,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  unique (user_id, project_id)
+);
+
+alter table public.live_shares enable row level security;
+
+create policy "Owner manages own live shares"
+  on public.live_shares for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Visitors never get a direct SELECT policy on this table — that would let
+-- anyone with the anon key list/dump every user's live shares. Instead they
+-- read through this function, which only ever returns the one row whose id
+-- they already have (and hides it once expired/ended).
+create or replace function public.get_live_share(share_id text)
+returns table (
+  nodes jsonb, edges jsonb, checklists jsonb, trades jsonb,
+  validation_rules jsonb, expires_at timestamptz, ended_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select nodes, edges, checklists, trades, validation_rules, expires_at, ended_at
+  from public.live_shares
+  where id = share_id;
+$$;
+
+grant execute on function public.get_live_share(text) to anon, authenticated;
+```
+
+Creating a live link requires being signed in (it needs somewhere to write
+to), so the Live Link tab in the share modal prompts sign-in if needed. The
+One-time tab keeps working for anyone with no login and no setup at all.
+
 ## 4. Get your API keys
 
 **Project Settings → API**. You need two values:

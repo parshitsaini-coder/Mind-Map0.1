@@ -20,6 +20,11 @@ const nextGroupId = () => `group_${Date.now()}_${idCounter++}`
 const BURST_WINDOW_MS = 700
 let burstTimer = null
 
+// How long a deleted node's fade-out plays before it's actually removed
+// from the store — matches the global `.react-flow__node` opacity
+// transition duration in index.css so the two stay in lockstep.
+const DELETE_FADE_MS = 350
+
 const initialNodes = [
   {
     id: 'root',
@@ -460,6 +465,27 @@ export const useMapStore = create(
           edges: get().edges.filter((e) => e.source !== id && e.target !== id),
         })
         get().logActivity(`🗑️ Deleted "${node?.data?.label || id}"`)
+      },
+
+      // Same as deleteNode, but fades the node (and its connected edges) out
+      // first instead of popping it out of existence instantly — called from
+      // the node's own delete button and the right-click "Delete" item.
+      // `.react-flow__node`/`.react-flow__edge-path` already carry a global
+      // opacity transition (see index.css), so setting opacity: 0 here is
+      // all it takes; the actual removal (and its undo snapshot) just waits
+      // out that transition.
+      deleteNodeAnimated: (id) => {
+        set({
+          nodes: get().nodes.map((n) =>
+            n.id === id ? { ...n, style: { ...n.style, opacity: 0, pointerEvents: 'none' } } : n
+          ),
+          edges: get().edges.map((e) =>
+            e.source === id || e.target === id ? { ...e, style: { ...e.style, opacity: 0 } } : e
+          ),
+        })
+        setTimeout(() => {
+          if (get().nodes.some((n) => n.id === id)) get().deleteNode(id)
+        }, DELETE_FADE_MS)
       },
 
       // Right-click context menu — delete a node's entire branch (all of

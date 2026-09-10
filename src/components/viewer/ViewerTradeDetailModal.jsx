@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { X, TrendingUp } from 'lucide-react'
 import { useViewerStore } from '../../store/viewerStore'
+import { useUiStore } from '../../store/uiStore'
 
 const TYPE_BADGE_STYLE = {
   Equity: { bg: 'rgba(235,94,40,0.18)', text: '#c1450f' },
@@ -150,20 +151,26 @@ export default function ViewerTradeDetailModal() {
                 <div className="flex gap-2">
                   {trade.screenshotUrl && (
                     <Field label="Screenshot">
-                      <img
-                        src={trade.screenshotUrl}
-                        alt="Entry screenshot"
-                        className="h-14 w-14 rounded object-cover"
-                      />
+                      <button onClick={() => useUiStore.getState().openImageLightbox(trade.screenshotUrl)}>
+                        <img
+                          src={trade.screenshotUrl}
+                          alt="Entry screenshot"
+                          title="Click to view full size"
+                          className="h-14 w-14 cursor-zoom-in rounded object-cover"
+                        />
+                      </button>
                     </Field>
                   )}
                   {trade.resultImageUrl && (
                     <Field label="Result">
-                      <img
-                        src={trade.resultImageUrl}
-                        alt="Result screenshot"
-                        className="h-14 w-14 rounded object-cover"
-                      />
+                      <button onClick={() => useUiStore.getState().openImageLightbox(trade.resultImageUrl)}>
+                        <img
+                          src={trade.resultImageUrl}
+                          alt="Result screenshot"
+                          title="Click to view full size"
+                          className="h-14 w-14 cursor-zoom-in rounded object-cover"
+                        />
+                      </button>
                     </Field>
                   )}
                 </div>

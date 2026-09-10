@@ -22,6 +22,7 @@ import SearchBar from '../toolbar/SearchBar'
 import MockCursors from './MockCursors'
 import NodeContextMenu from './NodeContextMenu'
 import { computeHidden } from '../../utils/graphUtils'
+import { useDeferredHidden } from '../../hooks/useDeferredHidden'
 
 
 function FlowInner() {
@@ -53,6 +54,14 @@ function FlowInner() {
 
   // Section 4.6 — expand/collapse: hide descendants of collapsed nodes.
   const { hiddenNodeIds, hiddenEdgeIds } = useMemo(() => computeHidden(nodes, edges), [nodes, edges])
+
+  // Section — collapse now fades a branch out instead of popping it away:
+  // exitingNodeIds/exitingEdgeIds stay rendered at opacity 0 for one beat
+  // before removedNodeIds/removedEdgeIds actually drops them from what
+  // React Flow renders. Re-expanding cancels the fade and remounts the
+  // node fresh, which plays CustomNode's own entrance animation.
+  const { exitingIds: exitingNodeIds, removedIds: removedNodeIds } = useDeferredHidden(hiddenNodeIds)
+  const { exitingIds: exitingEdgeIds, removedIds: removedEdgeIds } = useDeferredHidden(hiddenEdgeIds)
 
   // Section 4.6 — focus mode: dim everything outside the selected branch.
   const selectedNode = nodes.find((n) => n.selected && n.type !== 'boundaryGroup')
@@ -106,16 +115,27 @@ function FlowInner() {
   }, [jumpToken, fitView])
 
   const visibleNodes = nodes
-    .filter((n) => !hiddenNodeIds.has(n.id))
+    .filter((n) => !removedNodeIds.has(n.id))
     .map((n) => {
+      const exiting = exitingNodeIds.has(n.id)
       const dimmed = (focusIds && !focusIds.has(n.id)) || (presentationMode && n.id !== presentationOrder[presentationIndex % presentationOrder.length])
-      return dimmed ? { ...n, style: { ...n.style, opacity: 0.18 } } : n
+      if (!exiting && !dimmed) return n
+      return {
+        ...n,
+        style: {
+          ...n.style,
+          opacity: exiting ? 0 : 0.18,
+          pointerEvents: exiting ? 'none' : n.style?.pointerEvents,
+        },
+      }
     })
   const visibleEdges = edges
-    .filter((e) => !hiddenEdgeIds.has(e.id))
+    .filter((e) => !removedEdgeIds.has(e.id))
     .map((e) => {
+      const exiting = exitingEdgeIds.has(e.id)
       const dimmed = focusIds && (!focusIds.has(e.source) || !focusIds.has(e.target))
-      return dimmed ? { ...e, style: { ...e.style, opacity: 0.15 } } : e
+      if (!exiting && !dimmed) return e
+      return { ...e, style: { ...e.style, opacity: exiting ? 0 : 0.15 } }
     })
 
   // Right-click on a node opens a small context menu (add child/sibling,

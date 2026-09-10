@@ -72,10 +72,17 @@ body {
   clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
 }
 
-/* Section 4.8 — smooth dimming for focus mode / presentation mode. Scoped to
-   opacity only (never transform) so dragging nodes stays instant and jank-free. */
+/* Section 4.8 — smooth dimming for focus mode / presentation mode, plus a
+   baseline position transition for any programmatic move (new sibling
+   insertion shifting a branch, autolayout, group padding changes) so nodes
+   glide to their new spot instead of teleporting. Scoped to :not(.dragging)
+   — React Flow adds that class while a node is actively being dragged by
+   the user, and a transition there would make dragging feel laggy. */
 .react-flow__node {
   transition: opacity 0.35s ease;
+}
+.react-flow__node:not(.dragging) {
+  transition: opacity 0.35s ease, transform 0.28s cubic-bezier(0.23, 1, 0.32, 1);
 }
 .react-flow__edge-path {
   transition: opacity 0.35s ease, stroke 0.2s ease, stroke-width 0.2s ease;

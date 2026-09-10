@@ -15,7 +15,7 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
   const addChildNode = useMapStore((s) => s.addChildNode)
   const addSiblingNode = useMapStore((s) => s.addSiblingNode)
   const duplicateNode = useMapStore((s) => s.duplicateNode)
-  const deleteNode = useMapStore((s) => s.deleteNode)
+  const deleteNode = useMapStore((s) => s.deleteNodeAnimated)
   const deleteChildren = useMapStore((s) => s.deleteChildren)
   const toggleCollapse = useMapStore((s) => s.toggleCollapse)
   const updateNodeData = useMapStore((s) => s.updateNodeData)
