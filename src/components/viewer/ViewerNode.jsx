@@ -15,6 +15,15 @@ const shapeClass = {
   'no-border': 'rounded-none border-none shadow-none',
 }
 
+// Section — Full-bleed node image, mirrors CustomNode.jsx's imageRadiusClass.
+const imageRadiusClass = {
+  rectangle: 'rounded-md',
+  oval: 'rounded-full',
+  cloud: 'rounded-[40%]',
+  hexagon: 'rounded-lg clip-hex',
+  'no-border': 'rounded-none',
+}
+
 function ProgressRing({ percent }) {
   const r = 7
   const c = 2 * Math.PI * r
@@ -64,6 +73,8 @@ function ViewerNode({ id, data }) {
   const hasNotes = (data.notes || '').replace(/<[^>]*>/g, '').trim().length > 0
   const hasExtras = hasNotes || (data.attachments || []).length > 0 || data.audioNote || data.videoEmbed
   const task = data.task
+  // Section — Full-bleed node image, mirrors CustomNode.jsx.
+  const hasImage = Boolean(data.image)
 
   return (
     <motion.div
@@ -76,39 +87,47 @@ function ViewerNode({ id, data }) {
         borderColor: 'var(--color-slate)',
         borderWidth: 1,
         color: data.textColor || 'var(--color-ink)',
-        minWidth: appliedChecklists.length > 0 ? 180 : 90,
+        minWidth: appliedChecklists.length > 0 ? 180 : hasImage ? 170 : 90,
+        minHeight: hasImage ? 110 : undefined,
         textAlign: 'center',
       }}
     >
       <Handle type="target" position={Position.Left} className="!pointer-events-none !bg-slate-600 !w-1.5 !h-1.5" />
 
-      <div className="relative flex w-full items-center gap-1.5 px-3 py-1.5">
+      {hasImage && (
+        <img
+          src={data.image}
+          alt=""
+          onClick={(e) => {
+            e.stopPropagation()
+            useUiStore.getState().openImageLightbox(data.image)
+          }}
+          title="Click to view full size"
+          className={`nodrag nopan pointer-events-auto absolute inset-0 h-full w-full cursor-zoom-in object-cover ${imageRadiusClass[data.shape] || 'rounded-md'}`}
+        />
+      )}
+
+      <div
+        className={`relative flex w-full items-center gap-1.5 px-3 py-1.5 ${hasImage ? 'mt-auto rounded-b-[inherit] bg-black/45' : ''}`}
+        style={hasImage ? { color: '#fff' } : undefined}
+      >
         {task && (
           <span className="shrink-0" title={task.dueDate ? `Due ${task.dueDate}` : 'To-do'}>
             {task.done ? (
-              <CheckSquare size={13} color="var(--color-ink)" />
+              <CheckSquare size={13} color={hasImage ? '#fff' : 'var(--color-ink)'} />
             ) : (
-              <Square size={13} color="var(--color-ink)" />
+              <Square size={13} color={hasImage ? '#fff' : 'var(--color-ink)'} />
             )}
           </span>
         )}
 
-        {data.image && (
-          <img
-            src={data.image}
-            alt=""
-            onClick={(e) => {
-              e.stopPropagation()
-              useUiStore.getState().openImageLightbox(data.image)
-            }}
-            title="Click to view full size"
-            className="nodrag nopan pointer-events-auto h-5 w-5 shrink-0 cursor-zoom-in rounded object-cover"
-          />
-        )}
         {!data.image && data.emoji && <span className="shrink-0">{data.emoji}</span>}
         {!data.image && !data.emoji && IconComp && <IconComp size={13} className="shrink-0" />}
 
-        <span className={`flex-1 ${task?.done ? 'line-through opacity-60' : ''}`} style={nodeTextStyle(data)}>
+        <span
+          className={`flex-1 ${task?.done ? 'line-through opacity-60' : ''}`}
+          style={hasImage ? { ...nodeTextStyle(data), color: '#fff' } : nodeTextStyle(data)}
+        >
           {data.label}
         </span>
 
@@ -161,7 +180,7 @@ function ViewerNode({ id, data }) {
           local/visual, same as the editor. */}
       {appliedChecklists.length > 0 && (
         <div
-          className="nodrag nopan pointer-events-auto w-full cursor-default border-t px-2.5 py-1.5"
+          className="relative nodrag nopan pointer-events-auto w-full cursor-default border-t px-2.5 py-1.5"
           style={{ borderColor: 'rgba(0,0,0,0.12)', textAlign: 'left' }}
         >
           {appliedChecklists.map((applied) => {

@@ -17,6 +17,19 @@ const shapeClass = {
   'no-border': 'rounded-none border-none shadow-none',
 }
 
+// Section — Full-bleed node image. Border-radius-only counterpart to
+// shapeClass above, used on the <img> itself so it can match the node's
+// outer rounding without inheriting shapeClass's layout utilities (oval's
+// `px-5`, for instance, would letterbox an edge-to-edge image instead of
+// letting it fill the node).
+const imageRadiusClass = {
+  rectangle: 'rounded-md',
+  oval: 'rounded-full',
+  cloud: 'rounded-[40%]',
+  hexagon: 'rounded-lg clip-hex',
+  'no-border': 'rounded-none',
+}
+
 function ProgressRing({ percent }) {
   const r = 7
   const c = 2 * Math.PI * r
@@ -91,6 +104,12 @@ function CustomNode({ id, data, selected }) {
   const task = data.task
   const overdue = task?.dueDate && !task.done && new Date(task.dueDate) < new Date()
   const textStyle = nodeTextStyle(data)
+  // Section — Full-bleed node image. When a node carries an image it
+  // should fill the entire node edge-to-edge (no empty space around it),
+  // rather than sit as a small icon next to the label. The node itself
+  // grows to give the image real room, and the label overlays it on a
+  // translucent bar for legibility over any photo.
+  const hasImage = Boolean(data.image)
 
   // Section — Style Library. `customBg` carries a full CSS `background`
   // value (gradients) that takes priority over the plain `color` swatch;
@@ -117,7 +136,8 @@ function CustomNode({ id, data, selected }) {
         boxShadow: glowShadow || undefined,
         '--sonar-color': data.glowColor ? `${data.glowColor}8c` : undefined,
         color: data.textColor || 'var(--color-ink)',
-        minWidth: appliedChecklists.length > 0 ? 180 : 90,
+        minWidth: appliedChecklists.length > 0 ? 180 : hasImage ? 170 : 90,
+        minHeight: hasImage ? 110 : undefined,
         textAlign: 'center',
       }}
       onDoubleClick={() => !data.locked && setEditing(true)}
@@ -126,10 +146,28 @@ function CustomNode({ id, data, selected }) {
       <Handle type="target" position={Position.Top} id="top" className="!bg-slate-600 !w-1.5 !h-1.5" />
       <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-slate-600 !w-1.5 !h-1.5" />
 
+      {hasImage && (
+        <img
+          src={data.image}
+          alt=""
+          onClick={(e) => {
+            e.stopPropagation()
+            useUiStore.getState().openImageLightbox(data.image)
+          }}
+          title="Click to view full size"
+          className={`absolute inset-0 h-full w-full cursor-zoom-in object-cover ${imageRadiusClass[data.shape] || 'rounded-md'}`}
+        />
+      )}
+
       {/* Header row — label, icon/emoji, linked-trade tag, assignee. Kept as
           its own row (rather than the whole card) so the Section — Checklist
-          Library body below can render full-width beneath it. */}
-      <div className="relative flex w-full items-center gap-1.5 px-3 py-1.5">
+          Library body below can render full-width beneath it. Gets a dark
+          translucent backdrop when the node has a full-bleed image behind
+          it, so the label stays readable over any photo. */}
+      <div
+        className={`relative flex w-full items-center gap-1.5 px-3 py-1.5 ${hasImage ? 'mt-auto rounded-b-[inherit] bg-black/45' : ''}`}
+        style={hasImage ? { color: '#fff' } : undefined}
+      >
         {task && (
           <button
             onClick={(e) => {
@@ -140,25 +178,13 @@ function CustomNode({ id, data, selected }) {
             title={task.dueDate ? `Due ${task.dueDate}` : 'To-do'}
           >
             {task.done ? (
-              <CheckSquare size={13} color="var(--color-ink)" />
+              <CheckSquare size={13} color={hasImage ? '#fff' : 'var(--color-ink)'} />
             ) : (
-              <Square size={13} color={overdue ? '#c1443c' : 'var(--color-ink)'} />
+              <Square size={13} color={overdue ? '#c1443c' : hasImage ? '#fff' : 'var(--color-ink)'} />
             )}
           </button>
         )}
 
-        {data.image && (
-          <img
-            src={data.image}
-            alt=""
-            onClick={(e) => {
-              e.stopPropagation()
-              useUiStore.getState().openImageLightbox(data.image)
-            }}
-            title="Click to view full size"
-            className="h-5 w-5 shrink-0 cursor-zoom-in rounded object-cover"
-          />
-        )}
         {!data.image && data.emoji && <span className="shrink-0">{data.emoji}</span>}
         {!data.image && !data.emoji && IconComp && <IconComp size={13} className="shrink-0" />}
 
@@ -166,14 +192,25 @@ function CustomNode({ id, data, selected }) {
           <input
             autoFocus
             value={label}
-            onChange={(e) => setLabel(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value
+              setLabel(value)
+              // Section — Connector Calculations. Live-write every
+              // keystroke into the store (not just on blur/Enter) so any
+              // "=" connector reading this node recalculates while typing,
+              // like a spreadsheet — not just after clicking away.
+              updateNodeData(id, { label: value })
+            }}
             onBlur={commit}
             onKeyDown={(e) => e.key === 'Enter' && commit()}
-            style={textStyle}
+            style={hasImage ? { ...textStyle, color: '#fff' } : textStyle}
             className="w-full bg-transparent text-center outline-none"
           />
         ) : (
-          <span className={`flex-1 ${task?.done ? 'line-through opacity-60' : ''}`} style={textStyle}>
+          <span
+            className={`flex-1 ${task?.done ? 'line-through opacity-60' : ''}`}
+            style={hasImage ? { ...textStyle, color: '#fff' } : textStyle}
+          >
             {data.label}
           </span>
         )}
@@ -253,7 +290,7 @@ function CustomNode({ id, data, selected }) {
           checklists, rename items, or remove one from this node. */}
       {appliedChecklists.length > 0 && (
         <div
-          className="w-full cursor-default border-t px-2.5 py-1.5"
+          className="relative w-full cursor-default border-t px-2.5 py-1.5"
           style={{ borderColor: 'rgba(0,0,0,0.12)', textAlign: 'left' }}
           onDoubleClick={(e) => e.stopPropagation()}
         >
