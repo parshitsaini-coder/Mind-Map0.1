@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, SlidersHorizontal, ShieldPlus, ChevronLeft, ChevronRight, Table2, LineChart } from 'lucide-react'
+import { ArrowLeft, SlidersHorizontal, ShieldPlus, ChevronLeft, ChevronRight, Table2, LineChart, Wallet, Target } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useIsMobile } from '../../hooks/useIsMobile'
@@ -11,6 +11,7 @@ import FiltersPopover, { countActiveFilters } from './FiltersPopover'
 import ThemePicker from './ThemePicker'
 import AnalysisTab from './analysis/AnalysisTab'
 import { tradeThemeCssVars } from '../../theme/tradeAnalysisThemes'
+import { getKpis } from '../../utils/tradeAnalytics'
 
 const SIDEBAR_WIDTH = 230
 const SIDEBAR_SPRING = { type: 'spring', stiffness: 340, damping: 32 }
@@ -55,8 +56,64 @@ function ViewSwitch({ activeView, onChange }) {
   )
 }
 
-// Trade Analysis — a separate full-screen feature (own overlay, own left
-// "new trade" form, own entries table), isolated from the mind-map canvas
+// "Pow" pass — Total P&L and Win Rate summary pills, sitting between the
+// Table/Analysis toggle and the Filters/Add Validation Rule group so
+// they're visible in both views. Purely derived from `trades` via
+// getKpis; re-pop with a little spring whenever the underlying number
+// changes (new trade, edited P&L, status flip).
+function StatsPills({ trades }) {
+  const { totalPnl, winRatePct, tradesWithPnl } = getKpis(trades)
+  const pnlPositive = tradesWithPnl > 0 && totalPnl > 0
+  const pnlNegative = tradesWithPnl > 0 && totalPnl < 0
+
+  return (
+    <div className="ml-2 flex shrink-0 items-center gap-1.5">
+      <motion.div
+        key={`pnl-${totalPnl}-${tradesWithPnl}`}
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 420, damping: 20 }}
+        title={tradesWithPnl ? `Total P&L across ${tradesWithPnl} logged trade${tradesWithPnl === 1 ? '' : 's'}` : 'No P&L logged yet'}
+        className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
+        style={
+          pnlPositive
+            ? { backgroundColor: 'rgba(22,163,74,0.14)', color: '#16a34a' }
+            : pnlNegative
+              ? { backgroundColor: 'rgba(220,38,38,0.14)', color: '#dc2626' }
+              : { backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }
+        }
+      >
+        <Wallet size={11} />
+        Total P&L
+        <span>{tradesWithPnl ? `${totalPnl > 0 ? '+' : ''}${totalPnl.toLocaleString('en-IN')}` : '—'}</span>
+      </motion.div>
+
+      <motion.div
+        key={`wr-${winRatePct}`}
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 420, damping: 20, delay: 0.03 }}
+        title="Win rate across resolved trades (Target Hit vs SL Hit)"
+        className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
+        style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }}
+      >
+        <motion.span
+          initial={{ rotate: -90, opacity: 0 }}
+          animate={{ rotate: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 16 }}
+          className="flex"
+          style={{ color: 'var(--ta-accent)' }}
+        >
+          <Target size={11} />
+        </motion.span>
+        Win Rate
+        <span>{winRatePct == null ? '—' : `${winRatePct.toFixed(0)}%`}</span>
+      </motion.div>
+    </div>
+  )
+}
+
+
 // underneath. Step 1 of trade-analysis-master-prompt.md: this file is just
 // the shell — toolbar entry point, overlay open/close, and the top bar with
 // Back / Filters / Add Validation Rule. Steps 2+ fill in the sidebar form,
@@ -72,6 +129,7 @@ export default function TradeAnalysis() {
   const filters = useTradeAnalysisStore((s) => s.filters)
   const theme = useTradeAnalysisStore((s) => s.theme)
   const activeView = useTradeAnalysisStore((s) => s.activeView)
+  const trades = useTradeAnalysisStore((s) => s.trades)
   const [rulesModalOpen, setRulesModalOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const activeFilterCount = countActiveFilters(filters)
@@ -149,6 +207,8 @@ export default function TradeAnalysis() {
               activeView={activeView}
               onChange={(v) => useTradeAnalysisStore.getState().setActiveView(v)}
             />
+
+            <StatsPills trades={trades} />
 
             {/* Filters / Add Validation Rule act on table rows, so they
                 only make sense (and only render) in Table view — Step 1. */}

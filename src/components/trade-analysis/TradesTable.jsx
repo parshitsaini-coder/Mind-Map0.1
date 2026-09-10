@@ -38,6 +38,8 @@ export default function TradesTable() {
   const [expandedNotes, setExpandedNotes] = useState(() => new Set())
   const [uploadingResultId, setUploadingResultId] = useState(null)
   const resultInputRefs = useRef({})
+  const [editingPnlId, setEditingPnlId] = useState(null)
+  const [pnlDraft, setPnlDraft] = useState('')
 
   // "Pow" pass — flash-highlight whichever row was just added, and pop a
   // little confetti burst on whichever row just got marked Target Hit.
@@ -102,6 +104,17 @@ export default function TradesTable() {
       else next.add(id)
       return next
     })
+
+  const startEditPnl = (trade) => {
+    setEditingPnlId(trade.id)
+    setPnlDraft(trade.pnl == null ? '' : String(trade.pnl))
+  }
+  const commitPnl = (id) => {
+    const val = pnlDraft.trim()
+    const num = val === '' ? null : Number(val)
+    useTradeAnalysisStore.getState().updateTradePnl(id, val === '' || Number.isNaN(num) ? null : num)
+    setEditingPnlId(null)
+  }
 
   const handleResultImagePick = async (trade, file) => {
     if (!file) return
@@ -170,10 +183,10 @@ export default function TradesTable() {
 
   return (
     <div className="h-full w-full overflow-auto">
-      <table className="w-full min-w-[1180px] border-collapse">
+      <table className="w-full min-w-[1260px] border-collapse">
         <thead>
           <tr style={{ backgroundColor: 'var(--ta-surface)' }}>
-            {['No.', 'Date', 'Stock/Forex', 'Type', 'Time frame', 'Direction', 'Price', 'Screenshot', 'Status', 'Validation', 'Notes', 'Result', 'Actions'].map(
+            {['No.', 'Date', 'Stock/Forex', 'Type', 'Time frame', 'Direction', 'Price', 'P&L', 'Screenshot', 'Status', 'Validation', 'Notes', 'Result', 'Actions'].map(
               (h) => (
                 <th
                   key={h}
@@ -295,6 +308,50 @@ export default function TradesTable() {
                   </td>
 
                   <td className={td} style={{ color: 'var(--ta-ink)' }}>{trade.price}</td>
+
+                  {/* P&L — click the value (or the dash) to edit it inline;
+                      Enter/blur saves, Escape cancels. Green/red by sign,
+                      same convention as the Direction badge. */}
+                  <td className={td}>
+                    {editingPnlId === trade.id ? (
+                      <motion.input
+                        autoFocus
+                        type="number"
+                        step="any"
+                        inputMode="decimal"
+                        value={pnlDraft}
+                        onChange={(e) => setPnlDraft(e.target.value)}
+                        onBlur={() => commitPnl(trade.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') commitPnl(trade.id)
+                          if (e.key === 'Escape') setEditingPnlId(null)
+                        }}
+                        initial={{ scale: 0.95, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="w-16 rounded border px-1 py-0.5 text-[9px] outline-none"
+                        style={{ borderColor: 'var(--ta-accent)', color: 'var(--ta-ink)' }}
+                      />
+                    ) : (
+                      <motion.button
+                        whileHover={{ scale: 1.06 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => startEditPnl(trade)}
+                        title="Click to edit P&L"
+                        className="rounded-full px-1.5 py-0.5 text-[8.5px] font-bold transition-colors hover:brightness-95"
+                        style={
+                          trade.pnl == null
+                            ? { color: 'var(--ta-slate)', border: '1px dashed var(--ta-slate)' }
+                            : trade.pnl > 0
+                              ? { backgroundColor: 'rgba(22,163,74,0.14)', color: '#16a34a' }
+                              : trade.pnl < 0
+                                ? { backgroundColor: 'rgba(220,38,38,0.14)', color: '#dc2626' }
+                                : { backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }
+                        }
+                      >
+                        {trade.pnl == null ? '+ Add' : `${trade.pnl > 0 ? '+' : ''}${trade.pnl}`}
+                      </motion.button>
+                    )}
+                  </td>
 
                   <td className={td}>
                     {trade.screenshotUrl ? (

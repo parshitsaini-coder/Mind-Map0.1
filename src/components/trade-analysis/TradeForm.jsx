@@ -15,6 +15,7 @@ import {
   ListChecks,
   Camera,
   Plus,
+  Wallet,
 } from 'lucide-react'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useUiStore } from '../../store/uiStore'
@@ -37,6 +38,7 @@ const blankForm = () => ({
   timeframe: '15m',
   direction: 'Buy',
   price: '',
+  pnl: '',
   notes: '',
   validationRuleIds: [],
 })
@@ -51,6 +53,7 @@ const formFromTrade = (trade) => ({
   timeframe: trade.timeframe,
   direction: trade.direction,
   price: String(trade.price ?? ''),
+  pnl: trade.pnl == null ? '' : String(trade.pnl),
   notes: trade.notes || '',
   validationRuleIds: trade.validationRuleIds || [],
 })
@@ -228,6 +231,7 @@ export default function TradeForm({ mode = 'sidebar' }) {
         timeframe: form.timeframe,
         direction: form.direction,
         price: priceNum,
+        pnl: form.pnl === '' || Number.isNaN(Number(form.pnl)) ? null : Number(form.pnl),
         notes: form.notes.trim(),
         validationRuleIds: form.validationRuleIds,
         validationScore: activeRules.length ? { checked: checkedCount, total: activeRules.length } : null,
@@ -499,6 +503,45 @@ export default function TradeForm({ mode = 'sidebar' }) {
           ))}
         </div>
       </motion.div>
+
+      {/* 6b. P&L — optional; fill in once the trade closes (or update it
+          later via Edit). Border/text tint flips green/red live so the
+          sign is obvious while typing, same convention as the Result
+          column's colors elsewhere in this feature. */}
+      <motion.label variants={itemVariants} className="flex flex-col gap-1">
+        <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>
+          <Wallet size={10} style={{ color: 'var(--ta-accent)' }} />
+          P&amp;L <span className="normal-case font-normal opacity-70">(optional)</span>
+        </span>
+        <motion.input
+          type="number"
+          step="any"
+          inputMode="decimal"
+          value={form.pnl}
+          onChange={(e) => patch({ pnl: e.target.value })}
+          placeholder="e.g. 1500 or -600"
+          className={inputCls}
+          animate={{
+            borderColor:
+              form.pnl === '' || Number.isNaN(Number(form.pnl))
+                ? 'var(--ta-slate)'
+                : Number(form.pnl) > 0
+                  ? '#16a34a'
+                  : Number(form.pnl) < 0
+                    ? '#dc2626'
+                    : 'var(--ta-slate)',
+            color:
+              form.pnl === '' || Number.isNaN(Number(form.pnl))
+                ? 'var(--ta-ink)'
+                : Number(form.pnl) > 0
+                  ? '#16a34a'
+                  : Number(form.pnl) < 0
+                    ? '#dc2626'
+                    : 'var(--ta-ink)',
+          }}
+          transition={{ duration: 0.15 }}
+        />
+      </motion.label>
 
       {/* 7. Notes */}
       <motion.label variants={itemVariants} className="flex flex-col gap-1">

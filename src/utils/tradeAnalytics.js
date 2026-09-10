@@ -50,6 +50,12 @@ const winRatePct = (won, lost) => {
   return resolved === 0 ? null : (won / resolved) * 100
 }
 
+// Numeric P&L helper — trades store `pnl` as a number or null/undefined
+// (never logged yet). Treated as "not logged" rather than 0 everywhere
+// below so an unlogged trade never silently drags the average down.
+const hasPnl = (t) => t.pnl !== undefined && t.pnl !== null && t.pnl !== '' && !Number.isNaN(Number(t.pnl))
+const pnlOf = (t) => Number(t.pnl)
+
 const rankBy = (map, limit) =>
   [...map.entries()].map(([name, v]) => ({ name, ...v })).sort((a, b) => b.count - a.count).slice(0, limit)
 
@@ -62,7 +68,57 @@ export function getKpis(trades) {
   const pending = trades.filter(isPending).length
   const targetHit = trades.filter(isWin).length
   const slHit = trades.filter(isLoss).length
-  return { total, pending, targetHit, slHit, winRatePct: winRatePct(targetHit, slHit) }
+  const withPnl = trades.filter(hasPnl)
+  const totalPnl = withPnl.reduce((sum, t) => sum + pnlOf(t), 0)
+  return {
+    total,
+    pending,
+    targetHit,
+    slHit,
+    winRatePct: winRatePct(targetHit, slHit),
+    totalPnl,
+    tradesWithPnl: withPnl.length,
+  }
+}
+
+// ---------------------------------------------------------------------
+// P&L — Total/Avg P&L, best/worst trade, and a monthly P&L trend for the
+// Analysis tab's dedicated P&L section.
+// ---------------------------------------------------------------------
+
+export function getPnlStats(trades) {
+  const withPnl = trades.filter(hasPnl)
+  const totalPnl = withPnl.reduce((sum, t) => sum + pnlOf(t), 0)
+  const avgPnl = withPnl.length ? totalPnl / withPnl.length : null
+  const sorted = [...withPnl].sort((a, b) => pnlOf(b) - pnlOf(a))
+  const bestTrade = sorted[0] || null
+  const worstTrade = sorted.length ? sorted[sorted.length - 1] : null
+  const winningTrades = withPnl.filter((t) => pnlOf(t) > 0).length
+  const losingTrades = withPnl.filter((t) => pnlOf(t) < 0).length
+  const breakEvenTrades = withPnl.filter((t) => pnlOf(t) === 0).length
+  return {
+    totalPnl,
+    avgPnl,
+    bestTrade,
+    worstTrade,
+    winningTrades,
+    losingTrades,
+    breakEvenTrades,
+    tradesWithPnl: withPnl.length,
+  }
+}
+
+export function getPnlTrend(trades, months = 6) {
+  const base = getMonthlyActivity(trades, months).map((b) => ({ ...b, pnl: 0 }))
+  const byKey = new Map(base.map((b) => [b.key, b]))
+  trades.forEach((t) => {
+    if (!hasPnl(t)) return
+    const d = parseDate(t)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const row = byKey.get(key)
+    if (row) row.pnl += pnlOf(t)
+  })
+  return base
 }
 
 export function getTopStocks(trades, limit = 6) {

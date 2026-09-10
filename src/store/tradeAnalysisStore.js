@@ -30,7 +30,7 @@ const initialState = {
   // form; set to a trade id when Edit was clicked on a table row (Step 8).
   editingTradeId: null,
 
-  trades: [], // { id, name, date, pair, instrumentType, timeframe, direction, price, notes, validationRuleIds, screenshotUrl, screenshotHosted, resultImageUrl, resultImageHosted, status, createdAt, updatedAt }
+  trades: [], // { id, name, date, pair, instrumentType, timeframe, direction, price, pnl, notes, validationRuleIds, screenshotUrl, screenshotHosted, resultImageUrl, resultImageHosted, status, createdAt, updatedAt }
 
   validationRules: [], // { id, label, active }
 
@@ -120,6 +120,14 @@ export const useTradeAnalysisStore = create(
           trades: s.trades.map((t) =>
             t.id === id ? { ...t, resultImageUrl, resultImageHosted, updatedAt: Date.now() } : t
           ),
+        })),
+
+      // P&L quick-edit — lets the table's inline P&L cell update just that
+      // one field without opening the full Edit modal. `pnl` is a number or
+      // null (cleared).
+      updateTradePnl: (id, pnl) =>
+        set((s) => ({
+          trades: s.trades.map((t) => (t.id === id ? { ...t, pnl, updatedAt: Date.now() } : t)),
         })),
 
       // Step 8 (revised) — edit / delete row flow. `setEditingTrade` just

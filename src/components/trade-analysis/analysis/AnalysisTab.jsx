@@ -2,6 +2,7 @@ import { LineChart } from 'lucide-react'
 import { useTradeAnalysisStore } from '../../../store/tradeAnalysisStore'
 import { EmptyTab } from './primitives'
 import KpiStrip from './KpiStrip'
+import PnlSection from './PnlSection'
 import ActivitySection from './ActivitySection'
 import WinRateSection from './WinRateSection'
 import QuickStats from './QuickStats'
@@ -42,6 +43,7 @@ export default function AnalysisTab() {
     <div className="h-full overflow-y-auto p-3" style={{ backgroundColor: 'var(--ta-bg)' }}>
       <div className="mx-auto flex max-w-[1400px] flex-col gap-3 pb-6">
         <KpiStrip trades={trades} />
+        <PnlSection trades={trades} />
         <ActivitySection trades={trades} />
         <WinRateSection trades={trades} />
         <QuickStats trades={trades} />
