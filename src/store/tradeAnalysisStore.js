@@ -162,10 +162,26 @@ export const useTradeAnalysisStore = create(
           .select('trades, validation_rules')
           .eq('user_id', userId)
           .maybeSingle()
-        if (error || !data) return
+        if (error) return
+
+        const cloudTrades = data?.trades || []
+        const cloudRules = data?.validation_rules || []
+        const { trades: localTrades, validationRules: localRules } = get()
+        const cloudIsEmpty = cloudTrades.length === 0 && cloudRules.length === 0
+        const localHasData = localTrades.length > 0 || localRules.length > 0
+
+        // Guard against the very first sync (or a not-yet-created cloud
+        // row) wiping out real local data with an empty cloud row: if the
+        // cloud has nothing yet but this device already has trades/rules,
+        // push the local data up instead of overwriting it with emptiness.
+        if (cloudIsEmpty && localHasData) {
+          get().saveToCloud(userId)
+          return
+        }
+
         set({
-          trades: data.trades || [],
-          validationRules: data.validation_rules || [],
+          trades: cloudTrades,
+          validationRules: cloudRules,
         })
       },
       saveToCloud: async (userId) => {

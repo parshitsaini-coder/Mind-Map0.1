@@ -100,9 +100,26 @@ export const useMapStore = create(
           .select('nodes, edges')
           .eq('user_id', userId)
           .maybeSingle()
-        if (error || !data) return
+        if (error) return
+
+        const cloudNodes = data?.nodes || []
+        const cloudEdges = data?.edges || []
+        const cloudIsEmpty = cloudNodes.length === 0 && cloudEdges.length === 0
+        const { nodes: localNodes, edges: localEdges } = get()
+        // "Blank" locally means still just the single default root node with
+        // no connections — anything more than that is real work.
+        const localHasData = localNodes.length > 1 || localEdges.length > 0
+
+        // Same guard as trade-analysis sync: don't let the very first sync
+        // (or a not-yet-created cloud row) wipe out a real local map with
+        // an empty cloud row — push the local map up instead.
+        if (cloudIsEmpty && localHasData) {
+          get().saveToCloud(userId)
+          return
+        }
+
         get().pushSnapshot()
-        set({ nodes: data.nodes?.length ? data.nodes : initialNodes, edges: data.edges || [] })
+        set({ nodes: cloudNodes.length ? cloudNodes : initialNodes, edges: cloudEdges })
       },
 
       // Debounced auto-save target (called from App.jsx whenever the map
