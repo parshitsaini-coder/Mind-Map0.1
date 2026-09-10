@@ -461,6 +461,10 @@ export const useMapStore = create(
         set({
           nodes: get().nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)),
         })
+        // Live recalculation: if a node's own value changed (its label),
+        // any "=" connector downstream needs to be re-evaluated so typing
+        // a new number keeps the calculated result in sync automatically.
+        if (Object.prototype.hasOwnProperty.call(patch, 'label')) get().recalcAllChains()
       },
 
       // Bulk variant of updateNodeData — applies the same patch to every node
@@ -813,7 +817,8 @@ export const useMapStore = create(
         })
       },
 
-      runCalculation: (equalsEdgeId) => {
+      runCalculation: (equalsEdgeId, options = {}) => {
+        const { snapshot = true, log = true } = options
         const { nodes, edges } = get()
         const edgeById = new Map(edges.map((e) => [e.id, e]))
         const incomingCalcEdge = (nodeId) =>
@@ -835,7 +840,7 @@ export const useMapStore = create(
         }
 
         const valueOf = (nodeId) => {
-          const n = nodes.find((nd) => nd.id === nodeId)
+          const n = get().nodes.find((nd) => nd.id === nodeId)
           const v = parseFloat(n?.data?.label)
           return Number.isFinite(v) ? v : 0
         }
@@ -872,14 +877,31 @@ export const useMapStore = create(
         // Trim floating-point noise (e.g. 0.1 + 0.2) and drop a trailing
         // ".0" so whole-number results still just look like "6" not "6.0".
         const result = Math.round(running * 1e6) / 1e6
+        const resultStr = String(result)
 
-        get().pushSnapshot()
+        const targetNode = get().nodes.find((n) => n.id === eqEdge.target)
+        if (targetNode?.data?.label === resultStr) return // already up to date
+
+        if (snapshot) get().pushSnapshot()
         set({
           nodes: get().nodes.map((n) =>
-            n.id === eqEdge.target ? { ...n, data: { ...n.data, label: String(result) } } : n
+            n.id === eqEdge.target ? { ...n, data: { ...n.data, label: resultStr } } : n
           ),
         })
-        get().logActivity(`🧮 Calculated result "${result}" into node`)
+        if (log) get().logActivity(`🧮 Calculated result "${resultStr}" into node`)
+      },
+
+      // Re-runs every "=" connector's calculation against the graph's
+      // current node values. Called automatically whenever a node's label
+      // changes (see updateNodeData) so results stay live as numbers are
+      // typed, without spamming the undo history or activity log on every
+      // keystroke. Left-to-right edge order means a chain feeding into
+      // another chain resolves correctly in a single pass.
+      recalcAllChains: () => {
+        const equalsEdgeIds = get()
+          .edges.filter((e) => e.data?.calcOp === '=')
+          .map((e) => e.id)
+        equalsEdgeIds.forEach((id) => get().runCalculation(id, { snapshot: false, log: false }))
       },
 
       // Section — Style Library. Applies a preset from nodeStyles.js onto
