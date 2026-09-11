@@ -208,6 +208,13 @@ function CustomNode({ id, data, selected }) {
         opacity: data.opacity != null ? data.opacity : undefined,
         borderRadius: data.borderRadius != null ? `${data.borderRadius}px` : undefined,
       }}
+      onClick={() => {
+        // Section — Numbers-only node type. Skip the double-click step for
+        // these: since the field can only ever hold a number anyway, a
+        // single click is enough to drop straight into typing, instead of
+        // making every edit start with an extra double-click.
+        if (data.numbersOnly && !data.locked && !editing) setEditing(true)
+      }}
       onDoubleClick={() => !data.locked && setEditing(true)}
     >
       <Handle type="target" position={Position.Left} className="!bg-slate-600 !w-1.5 !h-1.5" />

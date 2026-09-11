@@ -569,11 +569,9 @@ export default function NodeInspector() {
         <div>
           <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Date</p>
           <div className="flex flex-col gap-1">
-            <input
-              type="date"
+            <DatePicker
               value={selectedNode.data.date || ''}
-              onChange={(e) => updateNodeData(selectedNode.id, { date: e.target.value || null })}
-              className="rounded-md border border-[var(--color-sage)] bg-white/60 px-1.5 py-1 text-[10px]"
+              onChange={(v) => updateNodeData(selectedNode.id, { date: v || null })}
             />
             {selectedNode.data.date && (
               <div className="flex items-center justify-between">
