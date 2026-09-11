@@ -1,4 +1,4 @@
-import { Plus, CornerDownRight, Copy, ClipboardPaste, Trash2, ChevronsUpDown, Scissors, TrendingUp, ListChecks, Lock, LockOpen } from 'lucide-react'
+import { Plus, CornerDownRight, Copy, Files, ClipboardPaste, Trash2, ChevronsUpDown, Scissors, TrendingUp, ListChecks, Lock, LockOpen } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
 
@@ -18,6 +18,9 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
   const copyNode = useMapStore((s) => s.copyNode)
   const pasteNodeOnto = useMapStore((s) => s.pasteNodeOnto)
   const hasClipboard = useMapStore((s) => Boolean(s.nodeClipboard))
+  const copyConnectedGroup = useMapStore((s) => s.copyConnectedGroup)
+  const pasteConnectedGroupOnto = useMapStore((s) => s.pasteConnectedGroupOnto)
+  const hasGroupClipboard = useMapStore((s) => Boolean(s.nodeGroupClipboard))
   const deleteNode = useMapStore((s) => s.deleteNodeAnimated)
   const deleteChildren = useMapStore((s) => s.deleteChildren)
   const toggleCollapse = useMapStore((s) => s.toggleCollapse)
@@ -47,6 +50,15 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
     { icon: Copy, label: 'Copy', onClick: () => run(() => copyNode(id)) },
     ...(hasClipboard
       ? [{ icon: ClipboardPaste, label: 'Paste here', onClick: () => run(() => pasteNodeOnto(id)) }]
+      : []),
+    // Section — "Copy all". Copies every node connected to this one
+    // through any chain of connectors (parents, children, cross-linked
+    // calc nodes — a whole self-contained cluster like a TP/SL row) with
+    // full details, so it can be pasted as one unit elsewhere via
+    // "Paste all here" on any node.
+    { icon: Files, label: 'Copy all (connected)', onClick: () => run(() => copyConnectedGroup(id)) },
+    ...(hasGroupClipboard
+      ? [{ icon: ClipboardPaste, label: 'Paste all here', onClick: () => run(() => pasteConnectedGroupOnto(id)) }]
       : []),
     {
       icon: isLocked ? LockOpen : Lock,

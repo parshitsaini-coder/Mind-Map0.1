@@ -111,6 +111,14 @@ export const useMapStore = create(
       // together. Deliberately NOT persisted/undo-tracked itself — it's
       // just an in-memory clipboard, same as a system copy/paste buffer.
       nodeClipboard: null,
+      // Section — "Copy all" (right-click → Copy all connected). Unlike
+      // nodeClipboard above (one node, visual fields only), this holds an
+      // entire connected cluster of nodes — every node reachable from the
+      // one right-clicked by following connectors in either direction —
+      // with their FULL data (notes, checklists, tasks, everything) plus
+      // every edge between them, so a whole self-contained chain (like a
+      // TP/SL calculation row) can be duplicated as one unit elsewhere.
+      nodeGroupClipboard: null,
       cloudStatus: 'idle', // 'idle' | 'saving' | 'saved' | 'error'
       activeProjectId: null,
 
@@ -806,6 +814,120 @@ export const useMapStore = create(
         set({ nodes: [...get().nodes, newNode], edges: [...get().edges, newEdge] })
         get().logActivity(`📋 Pasted "${newNode.data.label}" under "${parent.data.label}"`)
         return id
+      },
+
+      // Section — "Copy all" (right-click → Copy all connected). Walks
+      // every edge from `id` in BOTH directions (source→target AND
+      // target→source, across mindEdge AND crossEdge alike) so the whole
+      // connected cluster the node belongs to — parents, children,
+      // siblings-through-a-chain, cross-linked calc nodes, all of it —
+      // comes along as one unit. Node data is copied in full (unlike
+      // copyNode, nothing is stripped) and positions are stored relative
+      // to the clicked node so pasting elsewhere keeps the same internal
+      // layout.
+      copyConnectedGroup: (id) => {
+        const { nodes, edges } = get()
+        const anchor = nodes.find((n) => n.id === id)
+        if (!anchor) return
+        const visited = new Set([id])
+        const queue = [id]
+        while (queue.length) {
+          const current = queue.shift()
+          edges.forEach((e) => {
+            if (e.source === current && !visited.has(e.target)) {
+              visited.add(e.target)
+              queue.push(e.target)
+            }
+            if (e.target === current && !visited.has(e.source)) {
+              visited.add(e.source)
+              queue.push(e.source)
+            }
+          })
+        }
+        const groupNodes = nodes.filter((n) => visited.has(n.id))
+        const groupEdges = edges.filter((e) => visited.has(e.source) && visited.has(e.target))
+
+        set({
+          nodeGroupClipboard: {
+            anchorId: id,
+            nodes: groupNodes.map((n) => ({
+              id: n.id,
+              type: n.type,
+              position: { x: n.position.x - anchor.position.x, y: n.position.y - anchor.position.y },
+              data: { ...n.data },
+              draggable: n.draggable,
+            })),
+            edges: groupEdges.map((e) => ({
+              source: e.source,
+              target: e.target,
+              type: e.type,
+              animated: e.animated,
+              style: e.style || null,
+              data: e.data || null,
+              sourceHandle: e.sourceHandle || null,
+              targetHandle: e.targetHandle || null,
+              markerEnd: e.markerEnd || null,
+              markerStart: e.markerStart || null,
+            })),
+          },
+        })
+        get().logActivity(`📚 Copied ${groupNodes.length} connected node${groupNodes.length > 1 ? 's' : ''} (from "${anchor.data?.label || id}")`)
+        useUiStore.getState().showToast?.(`Copied ${groupNodes.length} connected nodes — right-click anywhere and choose "Paste all here"`)
+      },
+
+      // Paste onto `targetId` — recreates the entire copied cluster with
+      // fresh ids (remapping every internal edge to match), positioned
+      // relative to the target using the same layout the original cluster
+      // had, then wires the cluster's original anchor node in as a new
+      // child of `targetId` so the whole thing attaches in one place.
+      pasteConnectedGroupOnto: (targetId) => {
+        const clip = get().nodeGroupClipboard
+        const parent = get().nodes.find((n) => n.id === targetId)
+        if (!clip || !parent || !clip.nodes.length) return []
+        get().pushSnapshot()
+
+        const idMap = new Map()
+        clip.nodes.forEach((n) => idMap.set(n.id, nextId()))
+
+        const newNodes = clip.nodes.map((n) => ({
+          id: idMap.get(n.id),
+          type: n.type,
+          position: { x: parent.position.x + 260 + n.position.x, y: parent.position.y + n.position.y },
+          // A pasted copy is never a central topic itself (it's being
+          // attached under another node) — everything else about the
+          // node's data carries over untouched.
+          data: { ...n.data, isRoot: false },
+          ...(n.draggable === false ? { draggable: false } : {}),
+        }))
+
+        const newEdges = clip.edges.map((e) => ({
+          id: `e_${idMap.get(e.source)}_${idMap.get(e.target)}`,
+          source: idMap.get(e.source),
+          target: idMap.get(e.target),
+          type: e.type,
+          animated: e.animated,
+          style: e.style || undefined,
+          data: e.data || undefined,
+          sourceHandle: e.sourceHandle || undefined,
+          targetHandle: e.targetHandle || undefined,
+          markerEnd: e.markerEnd || undefined,
+          markerStart: e.markerStart || undefined,
+        }))
+
+        const anchorNewId = idMap.get(clip.anchorId)
+        if (anchorNewId) {
+          newEdges.push({
+            id: `e_${targetId}_${anchorNewId}`,
+            source: targetId,
+            target: anchorNewId,
+            type: 'mindEdge',
+            animated: true,
+          })
+        }
+
+        set({ nodes: [...get().nodes, ...newNodes], edges: [...get().edges, ...newEdges] })
+        get().logActivity(`📚 Pasted ${newNodes.length} connected nodes under "${parent.data?.label || targetId}"`)
+        return newNodes.map((n) => n.id)
       },
 
       // Section 4.8 — connector line styles showcase (curved, straight,
