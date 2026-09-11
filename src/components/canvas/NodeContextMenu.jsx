@@ -57,6 +57,21 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
         run(() => deleteNode(id))
       },
     },
+    {
+      icon: isLocked ? LockOpen : Lock,
+      label: isLocked ? 'Unlock node' : 'Lock node',
+      onClick: () => run(() => toggleNodeLock(id)),
+    },
+    {
+      icon: EyeOff,
+      label: 'Hide node',
+      onClick: () => run(() => toggleHidden(id)),
+    },
+    {
+      icon: ListChecks,
+      label: 'Checklist',
+      onClick: () => run(() => useUiStore.getState().openChecklistPanel(id)),
+    },
   ]
 
   const items = [
@@ -79,21 +94,6 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
     ...(hasGroupClipboard
       ? [{ icon: ClipboardPaste, label: 'Paste all here', color: '#6366f1', onClick: () => run(() => pasteConnectedGroupOnto(id)) }]
       : []),
-    {
-      icon: isLocked ? LockOpen : Lock,
-      label: isLocked ? 'Unlock node' : 'Lock node',
-      color: '#d97706',
-      onClick: () => run(() => toggleNodeLock(id)),
-    },
-    // Section — Hide single node. Collapses this node down to a small
-    // clickable eye placeholder (CustomNode.jsx) without touching its
-    // children — see the "Hide single node" note in graphUtils.js.
-    {
-      icon: EyeOff,
-      label: 'Hide node',
-      color: '#64748b',
-      onClick: () => run(() => toggleHidden(id)),
-    },
     // Section — Link a Trade. Opens the trade-picker popup (see
     // TradeLinkPickerModal) scoped to this node; once a trade is picked,
     // the node shows its pair/stock as a small badge (CustomNode.jsx) and
@@ -117,15 +117,6 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
           },
         ]
       : []),
-    // Section — Checklist Library. Opens the left-side ChecklistPanel
-    // scoped to this node, where any saved checklist can be applied (and
-    // new ones created) — see ChecklistPanel.jsx / checklistStore.js.
-    {
-      icon: ListChecks,
-      label: 'Checklist',
-      color: '#14b8a6',
-      onClick: () => run(() => useUiStore.getState().openChecklistPanel(id)),
-    },
     {
       icon: ChevronsUpDown,
       label: node.data?.collapsed ? 'Expand branch' : 'Collapse branch',
@@ -155,7 +146,7 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
         }}
       />
       <motion.div
-        className="fixed z-50 w-48 overflow-hidden rounded-xl border shadow-xl"
+        className="fixed z-50 w-56 overflow-hidden rounded-xl border shadow-xl"
         style={{ top: y, left: x, backgroundColor: 'var(--color-cream)', borderColor: 'var(--color-sage)' }}
         initial={{ opacity: 0, scale: 0.9, y: -6 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -172,7 +163,7 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
               onClick={action.onClick}
               disabled={action.disabled}
               title={action.label}
-              className={`group relative flex items-center justify-center rounded-lg p-2 transition-colors ${
+              className={`group relative flex items-center justify-center rounded-lg p-1.5 transition-colors ${
                 action.disabled ? 'cursor-not-allowed opacity-40' : ''
               } ${action.danger ? 'text-[#c1443c]' : 'text-[var(--color-ink)]'}`}
               initial={{ opacity: 0, y: -6 }}
