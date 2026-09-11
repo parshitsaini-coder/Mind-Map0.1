@@ -38,10 +38,27 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
   const hasLinkedTrade = Boolean(node.data?.linkedTradeId)
   const isLocked = Boolean(node.data?.locked)
 
-  const items = [
-    { icon: Plus, label: 'Add child node', onClick: () => run(() => addChildNode(id)) },
-    { icon: CornerDownRight, label: 'Add sibling node', onClick: () => run(() => addSiblingNode(id)) },
+  // Top quick-action row — the 3 most frequently used actions, shown as
+  // icon-only buttons with a hover tooltip (label appears below the icon
+  // on hover), Notion/Figma-style. Delete here mirrors the same
+  // disabled/danger logic as the full "Delete node" entry further down.
+  const quickActions = [
+    { icon: Plus, label: 'Add child', onClick: () => run(() => addChildNode(id)) },
     { icon: Copy, label: 'Duplicate', onClick: () => run(() => duplicateNode(id)) },
+    {
+      icon: Trash2,
+      label: isLastRoot ? 'Only central topic' : isLocked ? 'Locked' : 'Delete',
+      danger: true,
+      disabled: isLastRoot || isLocked,
+      onClick: () => {
+        if (isLastRoot || isLocked) return
+        run(() => deleteNode(id))
+      },
+    },
+  ]
+
+  const items = [
+    { icon: CornerDownRight, label: 'Add sibling node', onClick: () => run(() => addSiblingNode(id)) },
     // Section — Copy/Paste. "Copy" snapshots this node's full look (text,
     // size, colors, shape, motion) plus its incoming connector's style;
     // "Paste" (shown on ANY node once something's been copied) creates a
@@ -108,17 +125,6 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
       onClick: () => run(() => deleteChildren(id)),
     })
   }
-  items.push({
-    icon: Trash2,
-    label: isLastRoot ? 'Delete node (only central topic)' : isLocked ? 'Delete node (locked)' : 'Delete node',
-    danger: true,
-    disabled: isLastRoot || isLocked,
-    onClick: () => {
-      if (isLastRoot || isLocked) return
-      run(() => deleteNode(id))
-    },
-  })
-
   return (
     <>
       {/* Full-viewport transparent layer so a click/right-click anywhere
@@ -132,31 +138,52 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
         }}
       />
       <div
-        className="fixed z-50 w-44 overflow-hidden rounded-md border py-1 shadow-lg"
+        className="fixed z-50 w-44 overflow-hidden rounded-md border shadow-lg"
         style={{ top: y, left: x, backgroundColor: 'var(--color-cream)', borderColor: 'var(--color-sage)' }}
       >
+        {/* Quick-action row — icon-only, label shows on hover as a tooltip */}
+        <div
+          className="flex items-center justify-around border-b py-1.5"
+          style={{ borderColor: 'var(--color-sage)' }}
+        >
+          {quickActions.map((action) => (
+            <button
+              key={action.label}
+              onClick={action.onClick}
+              disabled={action.disabled}
+              title={action.label}
+              className={`group relative flex items-center justify-center rounded p-1.5 transition-colors ${
+                action.disabled
+                  ? 'cursor-not-allowed opacity-40'
+                  : 'hover:bg-[var(--color-sage)]/60'
+              } ${action.danger ? 'text-[#c1443c]' : 'text-[var(--color-ink)]'}`}
+            >
+              <action.icon size={16} />
+              {/* Tooltip label, shown below the icon on hover */}
+              <span
+                className="pointer-events-none absolute top-full left-1/2 z-10 mt-1 -translate-x-1/2 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] opacity-0 shadow transition-opacity group-hover:opacity-100"
+                style={{ backgroundColor: 'var(--color-ink)', color: 'var(--color-cream)' }}
+              >
+                {action.label}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="py-1">
         {items.map((item) => (
           <button
             key={item.label}
             onClick={item.onClick}
-            disabled={item.disabled}
-            title={
-              item.disabled
-                ? isLastRoot
-                  ? 'Add another central topic before deleting this one'
-                  : 'Unlock this node before deleting it'
-                : undefined
-            }
-            className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors ${
-              item.disabled
-                ? 'cursor-not-allowed opacity-40'
-                : 'hover:bg-[var(--color-sage)]/60'
-            } ${item.danger ? 'text-[#c1443c]' : 'text-[var(--color-ink)]'}`}
+            className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-[var(--color-sage)]/60 ${
+              item.danger ? 'text-[#c1443c]' : 'text-[var(--color-ink)]'
+            }`}
           >
             <item.icon size={13} />
             {item.label}
           </button>
         ))}
+        </div>
       </div>
     </>
   )
