@@ -31,7 +31,7 @@ import {
   PenSquare,
   CandlestickChart,
   ListChecks,
-  LayoutTemplate,
+  LibraryBig,
 } from 'lucide-react'
 import { useState, useRef } from 'react'
 import { useMapStore } from '../../store/mapStore'
@@ -84,8 +84,8 @@ export default function TopToolbar() {
   const toggleAuthModal = useUiStore((s) => s.toggleAuthModal)
   const styleLibraryOpen = useUiStore((s) => s.styleLibraryOpen)
   const toggleStyleLibrary = useUiStore((s) => s.toggleStyleLibrary)
-  const nodesLibraryOpen = useUiStore((s) => s.nodesLibraryOpen)
-  const toggleNodesLibrary = useUiStore((s) => s.toggleNodesLibrary)
+  const nodeLibraryOpen = useUiStore((s) => s.nodeLibraryOpen)
+  const toggleNodeLibrary = useUiStore((s) => s.toggleNodeLibrary)
   const authUser = useAuthStore((s) => s.user)
   const showToast = useUiStore((s) => s.showToast)
   const nodes = useMapStore((s) => s.nodes)
@@ -222,10 +222,10 @@ export default function TopToolbar() {
           onClick={toggleStyleLibrary}
         />
         <IconBtn
-          icon={LayoutTemplate}
-          label="Nodes Library — select a node, then batch-add styled child nodes in a horizontal, vertical, circular, or grid layout"
-          active={nodesLibraryOpen}
-          onClick={toggleNodesLibrary}
+          icon={LibraryBig}
+          label="Node Library — add multiple nodes in a layout (horizontal, vertical, circular, grid)"
+          active={nodeLibraryOpen}
+          onClick={toggleNodeLibrary}
         />
       </div>
 

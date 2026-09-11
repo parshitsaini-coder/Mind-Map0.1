@@ -39,6 +39,57 @@ const DEFAULT_NODE_W = 130
 const DEFAULT_NODE_H = 36
 const GROUP_PADDING = 28
 
+// Section — Node Library. Given a parent node and a layout id, returns an
+// array of { x, y } positions (one per new node) arranged around/relative
+// to the parent — same spirit as the layouts/ folder algorithms, but for
+// *placing brand-new sibling nodes* in a shape rather than re-flowing an
+// existing tree. Kept as a small pure function so NodeLibraryPanel.jsx can
+// also import it to draw a matching live preview.
+export function computeNodeLibraryPositions(layout, count, parent) {
+  const baseX = parent.position.x
+  const baseY = parent.position.y
+  const positions = []
+
+  if (layout === 'vertical') {
+    const spacingY = 90
+    const startY = baseY + 130
+    for (let i = 0; i < count; i++) positions.push({ x: baseX, y: startY + i * spacingY })
+  } else if (layout === 'circular') {
+    const radius = count <= 1 ? 0 : 90 + count * 20
+    for (let i = 0; i < count; i++) {
+      const angle = (2 * Math.PI * i) / count - Math.PI / 2
+      positions.push({
+        x: baseX + radius * Math.cos(angle),
+        y: baseY + radius * Math.sin(angle) + 130,
+      })
+    }
+  } else if (layout === 'grid') {
+    const cols = Math.max(1, Math.ceil(Math.sqrt(count)))
+    const spacingX = 180
+    const spacingY = 90
+    const startX = baseX + 260
+    for (let i = 0; i < count; i++) {
+      const row = Math.floor(i / cols)
+      const col = i % cols
+      positions.push({ x: startX + col * spacingX, y: baseY + row * spacingY })
+    }
+  } else {
+    // 'horizontal' (default) — a row of nodes to the right of the parent.
+    const spacingX = 190
+    const startX = baseX + 260
+    for (let i = 0; i < count; i++) positions.push({ x: startX + i * spacingX, y: baseY })
+  }
+
+  return positions
+}
+
+export const NODE_LIBRARY_LAYOUTS = [
+  { id: 'horizontal', label: 'Horizontal' },
+  { id: 'vertical', label: 'Vertical' },
+  { id: 'circular', label: 'Circular' },
+  { id: 'grid', label: 'Grid' },
+]
+
 export const useMapStore = create(
   persist(
     (set, get) => ({
@@ -437,6 +488,49 @@ export const useMapStore = create(
         return get().addChildNode(parentEdge.source)
       },
 
+      // Section — Node Library (toolbar → "Node Library" icon). Bulk-creates
+      // `count` new sibling nodes under `parentId`, arranged in the chosen
+      // layout shape (see computeNodeLibraryPositions above), all sharing
+      // the same style options picked in the panel (background color, text
+      // color, font size). One undo snapshot for the whole batch, so
+      // Ctrl+Z removes everything the panel just added in one step.
+      addNodeLayoutBatch: (parentId, { layout = 'horizontal', count = 4, fontSize, color, textColor } = {}) => {
+        const parent = get().nodes.find((n) => n.id === parentId)
+        if (!parent) return []
+        const safeCount = Math.max(1, Math.min(24, Math.round(count) || 1))
+        get().pushSnapshot()
+
+        const positions = computeNodeLibraryPositions(layout, safeCount, parent)
+        const newNodes = []
+        const newEdges = []
+        for (let i = 0; i < safeCount; i++) {
+          const id = nextId()
+          newNodes.push({
+            id,
+            type: 'mindNode',
+            position: positions[i],
+            data: {
+              label: `New Node ${i + 1}`,
+              shape: 'rectangle',
+              color: color || '#e8eddf',
+              ...(textColor ? { textColor } : {}),
+              ...(fontSize ? { fontSize } : {}),
+            },
+          })
+          newEdges.push({
+            id: `e_${parentId}_${id}`,
+            source: parentId,
+            target: id,
+            type: 'mindEdge',
+            animated: true,
+          })
+        }
+
+        set({ nodes: [...get().nodes, ...newNodes], edges: [...get().edges, ...newEdges] })
+        get().logActivity(`📚 Added ${safeCount} nodes (${layout} layout) under "${parent.data?.label || parentId}"`)
+        return newNodes.map((n) => n.id)
+      },
+
       addFloatingNode: () => {
         get().pushSnapshot()
         const id = nextId()
@@ -448,61 +542,6 @@ export const useMapStore = create(
         }
         set({ nodes: [...get().nodes, newNode] })
         return id
-      },
-
-      // Section — Nodes Library (toolbar). Batch-creates `count` new child
-      // nodes under `parentId`, arranged in one of a few layout shapes
-      // (horizontal row, vertical column, circular/radial, or a grid
-      // cluster), each styled with the chosen font size / background /
-      // text color. Every node is wired to the parent with its own
-      // connector, same as any single "Add child node" — this is just
-      // that action run N times with a shared style and a shape-aware
-      // position formula instead of one node at a time.
-      addNodeBatch: (parentId, { layout = 'horizontal', count = 3, fontSize = 12, bgColor = '#e8eddf', textColor = '#242423' } = {}) => {
-        const parent = get().nodes.find((n) => n.id === parentId)
-        if (!parent) return []
-        const n = Math.max(1, Math.min(30, Math.round(count)))
-        get().pushSnapshot()
-
-        const RADIUS = 160
-        const H_GAP = 160
-        const V_GAP = 70
-        const GRID_COLS = Math.ceil(Math.sqrt(n))
-
-        const newNodes = []
-        const newEdges = []
-        for (let i = 0; i < n; i++) {
-          const id = nextId()
-          let position
-          if (layout === 'vertical') {
-            position = { x: parent.position.x, y: parent.position.y + 110 + i * V_GAP }
-          } else if (layout === 'circular') {
-            const angle = (2 * Math.PI * i) / n - Math.PI / 2
-            position = {
-              x: parent.position.x + RADIUS * Math.cos(angle),
-              y: parent.position.y + RADIUS * Math.sin(angle) + RADIUS,
-            }
-          } else if (layout === 'grid') {
-            position = {
-              x: parent.position.x + 220 + (i % GRID_COLS) * H_GAP,
-              y: parent.position.y + Math.floor(i / GRID_COLS) * V_GAP,
-            }
-          } else {
-            // 'horizontal' — a straight row to the right of the parent.
-            position = { x: parent.position.x + 220 + i * H_GAP, y: parent.position.y }
-          }
-          newNodes.push({
-            id,
-            type: 'mindNode',
-            position,
-            data: { label: `New Node ${i + 1}`, shape: 'rectangle', color: bgColor, textColor, fontSize },
-          })
-          newEdges.push({ id: `e_${parentId}_${id}`, source: parentId, target: id, type: 'mindEdge', animated: true })
-        }
-
-        set({ nodes: [...get().nodes, ...newNodes], edges: [...get().edges, ...newEdges] })
-        get().logActivity(`🗂️ Added ${n} nodes (${layout}) under "${parent.data?.label}"`)
-        return newNodes.map((nd) => nd.id)
       },
 
       // Section — Node Linking / Backlinks. A "link" is a one-way pointer
