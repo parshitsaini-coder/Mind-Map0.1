@@ -18,9 +18,12 @@ export function timelineLayout(nodes, edges) {
       positions[eventId] = { x, y: baseY }
 
       let stack = 0
+      const visited = new Set([eventId])
       const placeDescendants = (id) => {
         const kids = childrenMap.get(id) || []
         kids.forEach((kidId) => {
+          if (visited.has(kidId)) return // cyclic childrenMap — stop instead of recursing forever
+          visited.add(kidId)
           stack += 1
           positions[kidId] = { x, y: baseY + stack * STACK_GAP }
           placeDescendants(kidId)

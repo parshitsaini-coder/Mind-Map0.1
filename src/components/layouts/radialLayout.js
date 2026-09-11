@@ -12,7 +12,10 @@ export function radialLayout(nodes, edges) {
     const cy = 0
     positions[rootId] = { x: cx, y: cy }
 
+    const visited = new Set()
     const place = (id, depth, angleStart, angleEnd) => {
+      if (visited.has(id)) return // cyclic childrenMap — stop instead of recursing forever
+      visited.add(id)
       const kids = childrenMap.get(id) || []
       if (kids.length === 0) return
       const span = angleEnd - angleStart

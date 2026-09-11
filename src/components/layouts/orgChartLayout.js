@@ -18,7 +18,10 @@ export function orgChartLayout(nodes, edges, direction = 'vertical') {
     const start = cursor
     cursor += leaves * LEAF_GAP + ROOT_GAP
 
+    const visited = new Set()
     const place = (id, depth, bandStart, bandEnd) => {
+      if (visited.has(id)) return // cyclic childrenMap — stop instead of recursing forever
+      visited.add(id)
       const mid = (bandStart + bandEnd) / 2
       if (direction === 'horizontal') {
         positions[id] = { x: depth * LEVEL_GAP, y: mid }

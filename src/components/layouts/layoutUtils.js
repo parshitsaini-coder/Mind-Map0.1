@@ -43,10 +43,19 @@ export function nodeSize(node) {
 // a tree of n nodes that's O(n^2) (e.g. a single long chain re-counts a
 // shrinking subtree n times). With the cache, each node's leaf count is
 // computed once and reused, so the whole layout is O(n).
-export function countLeaves(id, childrenMap, memo = new Map()) {
+//
+// `visiting` guards against a cyclic childrenMap (e.g. a connector edge
+// that loops back to an ancestor) — without it, two nodes that are each
+// other's descendant recurse forever and crash the tab with a stack
+// overflow. A node already on the current path is treated as a leaf
+// (count 1) instead of being walked again.
+export function countLeaves(id, childrenMap, memo = new Map(), visiting = new Set()) {
   if (memo.has(id)) return memo.get(id)
+  if (visiting.has(id)) return 1
+  visiting.add(id)
   const kids = childrenMap.get(id) || []
-  const result = kids.length === 0 ? 1 : kids.reduce((sum, c) => sum + countLeaves(c, childrenMap, memo), 0)
+  const result = kids.length === 0 ? 1 : kids.reduce((sum, c) => sum + countLeaves(c, childrenMap, memo, visiting), 0)
+  visiting.delete(id)
   memo.set(id, result)
   return result
 }

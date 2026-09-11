@@ -19,9 +19,12 @@ export function fishboneLayout(nodes, edges) {
       const spineX = -(i + 1) * SPINE_GAP
       positions[causeId] = { x: spineX, y: baseY + dir * BRANCH_OFFSET }
 
+      const visited = new Set([causeId])
       const placeSubCauses = (id, depth) => {
         const kids = childrenMap.get(id) || []
         kids.forEach((kidId, j) => {
+          if (visited.has(kidId)) return // cyclic childrenMap — stop instead of recursing forever
+          visited.add(kidId)
           positions[kidId] = {
             x: spineX - depth * 40,
             y: baseY + dir * (BRANCH_OFFSET + depth * DEEPEN_GAP + j * 46),

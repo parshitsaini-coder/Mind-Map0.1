@@ -12,9 +12,12 @@ export function logicChartLayout(nodes, edges) {
     const baseX = rootIdx * ROOT_COL_GAP
     positions[rootId] = { x: baseX, y: 0 }
 
+    const visited = new Set([rootId])
     const place = (id, depth, x) => {
       const kids = childrenMap.get(id) || []
       kids.forEach((childId, i) => {
+        if (visited.has(childId)) return // cyclic childrenMap — stop instead of recursing forever
+        visited.add(childId)
         const childX = kids.length === 1 ? x : x + (i - (kids.length - 1) / 2) * BRANCH_GAP
         positions[childId] = { x: childX, y: depth * LEVEL_GAP }
         place(childId, depth + 1, childX)
