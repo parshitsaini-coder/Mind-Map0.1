@@ -5,6 +5,7 @@ import Sidebar from './components/panels/Sidebar'
 import ConnectorStylesPanel from './components/panels/ConnectorStylesPanel'
 import ProjectsDashboard from './components/panels/ProjectsDashboard'
 import StyleLibraryPanel from './components/panels/StyleLibraryPanel'
+import NodesLibraryPanel from './components/panels/NodesLibraryPanel'
 import ChecklistPanel from './components/panels/ChecklistPanel'
 import AuthPanel from './components/auth/AuthPanel'
 import ShareModal from './components/toolbar/ShareModal'
@@ -208,6 +209,7 @@ export default function App() {
       <ShareModal />
       <ProjectsDashboard />
       <StyleLibraryPanel />
+      <NodesLibraryPanel />
       <ImageLightbox />
       <Whiteboard />
       <TradeAnalysis />

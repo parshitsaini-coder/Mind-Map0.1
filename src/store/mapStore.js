@@ -47,6 +47,19 @@ export const useMapStore = create(
       groups: [],
       history: { past: [], future: [] },
       activityLog: [],
+      // Section — Custom Style Library. User-built styles saved from the
+      // Style Library's "Custom" tab (CustomStyleBuilder.jsx), stored
+      // alongside the built-in NODE_STYLE_PRESETS so they show up in the
+      // same gallery / apply the same way via applyNodeStyle.
+      customNodeStyles: [],
+      // Section — Copy/Paste a node. Right-click "Copy" (NodeContextMenu)
+      // snapshots a node's full data (label, size, colors, fonts, shape,
+      // icon/emoji, motion — everything CustomNode.jsx renders) plus the
+      // style of whichever connector feeds into it, so "Paste" elsewhere
+      // can recreate both the node's look and its connector's look
+      // together. Deliberately NOT persisted/undo-tracked itself — it's
+      // just an in-memory clipboard, same as a system copy/paste buffer.
+      nodeClipboard: null,
       cloudStatus: 'idle', // 'idle' | 'saving' | 'saved' | 'error'
       activeProjectId: null,
 
@@ -261,6 +274,26 @@ export const useMapStore = create(
         })
       },
 
+      // Hide / unhide a node from the Outline View. Hiding a node removes
+      // it (and its descendants) from the canvas via computeHidden, same
+      // mechanism as collapse, but tracked with its own flag so it's
+      // independent of the expand/collapse state.
+      toggleHidden: (id) => {
+        get().pushSnapshot()
+        set({
+          nodes: get().nodes.map((n) =>
+            n.id === id ? { ...n, data: { ...n.data, hidden: !n.data.hidden } } : n
+          ),
+        })
+      },
+
+      // Delete a single connector/edge — used by ConnectorCalcMenu.jsx's
+      // right-click "Delete connector" option.
+      deleteEdge: (id) => {
+        get().pushSnapshot()
+        set({ edges: get().edges.filter((e) => e.id !== id) })
+      },
+
       // Lock / unlock a node from its right-click context menu. Locking
       // sets both `data.locked` (read by CustomNode.jsx to block the
       // double-click-to-rename editor and by NodeContextMenu.jsx to grey
@@ -415,6 +448,61 @@ export const useMapStore = create(
         }
         set({ nodes: [...get().nodes, newNode] })
         return id
+      },
+
+      // Section — Nodes Library (toolbar). Batch-creates `count` new child
+      // nodes under `parentId`, arranged in one of a few layout shapes
+      // (horizontal row, vertical column, circular/radial, or a grid
+      // cluster), each styled with the chosen font size / background /
+      // text color. Every node is wired to the parent with its own
+      // connector, same as any single "Add child node" — this is just
+      // that action run N times with a shared style and a shape-aware
+      // position formula instead of one node at a time.
+      addNodeBatch: (parentId, { layout = 'horizontal', count = 3, fontSize = 12, bgColor = '#e8eddf', textColor = '#242423' } = {}) => {
+        const parent = get().nodes.find((n) => n.id === parentId)
+        if (!parent) return []
+        const n = Math.max(1, Math.min(30, Math.round(count)))
+        get().pushSnapshot()
+
+        const RADIUS = 160
+        const H_GAP = 160
+        const V_GAP = 70
+        const GRID_COLS = Math.ceil(Math.sqrt(n))
+
+        const newNodes = []
+        const newEdges = []
+        for (let i = 0; i < n; i++) {
+          const id = nextId()
+          let position
+          if (layout === 'vertical') {
+            position = { x: parent.position.x, y: parent.position.y + 110 + i * V_GAP }
+          } else if (layout === 'circular') {
+            const angle = (2 * Math.PI * i) / n - Math.PI / 2
+            position = {
+              x: parent.position.x + RADIUS * Math.cos(angle),
+              y: parent.position.y + RADIUS * Math.sin(angle) + RADIUS,
+            }
+          } else if (layout === 'grid') {
+            position = {
+              x: parent.position.x + 220 + (i % GRID_COLS) * H_GAP,
+              y: parent.position.y + Math.floor(i / GRID_COLS) * V_GAP,
+            }
+          } else {
+            // 'horizontal' — a straight row to the right of the parent.
+            position = { x: parent.position.x + 220 + i * H_GAP, y: parent.position.y }
+          }
+          newNodes.push({
+            id,
+            type: 'mindNode',
+            position,
+            data: { label: `New Node ${i + 1}`, shape: 'rectangle', color: bgColor, textColor, fontSize },
+          })
+          newEdges.push({ id: `e_${parentId}_${id}`, source: parentId, target: id, type: 'mindEdge', animated: true })
+        }
+
+        set({ nodes: [...get().nodes, ...newNodes], edges: [...get().edges, ...newEdges] })
+        get().logActivity(`🗂️ Added ${n} nodes (${layout}) under "${parent.data?.label}"`)
+        return newNodes.map((nd) => nd.id)
       },
 
       // Section — Node Linking / Backlinks. A "link" is a one-way pointer
@@ -619,6 +707,67 @@ export const useMapStore = create(
       },
 
       setNodesPositions: (nodes) => set({ nodes }),
+
+      // Section — Copy/Paste a node (right-click menu). Copy grabs this
+      // node's full `data` (text, size, colors, shape, icon/emoji, motion
+      // class — every visual field CustomNode.jsx reads) plus the style
+      // of the connector feeding into it, if any. Excludes purely
+      // relational/instance fields (isRoot, links, linkedTradeId, task,
+      // notes/attachments, collapsed/locked/hidden state) since those
+      // describe THIS node's place in the map, not its look — copying
+      // them onto a pasted node elsewhere would carry over things like
+      // "locked" or a linked trade that make no sense detached from the
+      // original.
+      copyNode: (id) => {
+        const node = get().nodes.find((n) => n.id === id)
+        if (!node) return
+        const {
+          isRoot, links, linkedTradeId, task, notes, attachments, audioNote, videoEmbed,
+          collapsed, locked, hidden, badges, date, checklists,
+          ...visualData
+        } = node.data || {}
+        const incomingEdge = get().edges.find((e) => e.target === id && e.type !== 'crossEdge')
+        set({
+          nodeClipboard: {
+            data: { ...visualData },
+            edgeStyle: incomingEdge
+              ? { style: incomingEdge.style || null, animated: incomingEdge.animated, data: incomingEdge.data || null }
+              : null,
+          },
+        })
+        get().logActivity(`📋 Copied "${node.data?.label}"`)
+        useUiStore.getState().showToast?.(`Copied "${node.data?.label}"`)
+      },
+
+      // Paste onto `targetId` — creates a brand-new child node under the
+      // right-clicked node using the copied visual data, and wires up the
+      // new connector with the copied connector's style so both the node
+      // AND the line leading to it match the original.
+      pasteNodeOnto: (targetId) => {
+        const clip = get().nodeClipboard
+        const parent = get().nodes.find((n) => n.id === targetId)
+        if (!clip || !parent) return null
+        get().pushSnapshot()
+        const id = nextId()
+        const newNode = {
+          id,
+          type: 'mindNode',
+          position: { x: parent.position.x + 220, y: parent.position.y + (Math.random() * 80 - 40) },
+          data: { ...clip.data, isRoot: false },
+        }
+        const newEdge = {
+          id: `e_${targetId}_${id}`,
+          source: targetId,
+          target: id,
+          type: 'mindEdge',
+          animated: clip.edgeStyle?.animated ?? true,
+          style: clip.edgeStyle?.style || undefined,
+          data: clip.edgeStyle?.data || undefined,
+        }
+        set({ nodes: [...get().nodes, newNode], edges: [...get().edges, newEdge] })
+        get().logActivity(`📋 Pasted "${newNode.data.label}" under "${parent.data.label}"`)
+        return id
+      },
 
       // Section 4.8 — connector line styles showcase (curved, straight,
       // dashed, arrows, icon-in-middle, animated flow…). Swaps the canvas
@@ -852,6 +1001,7 @@ export const useMapStore = create(
                 glowColor: preset.glowColor || null,
                 customBorder: preset.customBorder || null,
                 animationClass: preset.animationClass || null,
+                sizeScale: preset.sizeScale || n.data.sizeScale,
               },
             }
           }),
@@ -859,7 +1009,20 @@ export const useMapStore = create(
         get().logActivity(`🎨 Applied "${preset.name}" style to ${targetIds.length} node${targetIds.length > 1 ? 's' : ''}`)
         return targetIds.length
       },
+
+      // Section — Custom Style Library. Saves a user-built preset (from
+      // CustomStyleBuilder.jsx) into customNodeStyles so it shows up
+      // under the Style Library's "Custom" tab from then on, same shape
+      // as the built-in NODE_STYLE_PRESETS so applyNodeStyle handles it
+      // identically either way.
+      addCustomNodeStyle: (preset) => {
+        set({ customNodeStyles: [...get().customNodeStyles, preset] })
+      },
+
+      deleteCustomNodeStyle: (id) => {
+        set({ customNodeStyles: get().customNodeStyles.filter((p) => p.id !== id) })
+      },
     }),
-    { name: 'mindmap-storage', partialize: (state) => ({ nodes: state.nodes, edges: state.edges, groups: state.groups, activityLog: state.activityLog }) }
+    { name: 'mindmap-storage', partialize: (state) => ({ nodes: state.nodes, edges: state.edges, groups: state.groups, activityLog: state.activityLog, customNodeStyles: state.customNodeStyles }) }
   )
 )

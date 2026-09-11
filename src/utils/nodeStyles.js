@@ -9,7 +9,22 @@
 // so the gallery, the live preview swatches, and the actual canvas node all
 // read from the exact same source of truth.
 
-export const STYLE_CATEGORIES = ['Solid', 'Pastel', 'Gradient', 'Glow', 'Outline', 'Motion']
+export const STYLE_CATEGORIES = ['Solid', 'Pastel', 'Gradient', 'Glow', 'Outline', 'Motion', 'Custom']
+
+// Used by CustomStyleBuilder.jsx's motion/effect dropdown — every
+// node-anim-* class defined in index.css, so the builder can never offer
+// an animation the CSS doesn't actually implement.
+export const ANIMATION_OPTIONS = [
+  { value: '', label: 'None' },
+  { value: 'node-anim-float', label: 'Floating' },
+  { value: 'node-anim-breathe', label: 'Breathing' },
+  { value: 'node-anim-wiggle', label: 'Wiggle Alert' },
+  { value: 'node-anim-bounce-soft', label: 'Bounce Soft' },
+  { value: 'node-anim-pulse-glow', label: 'Pulse Glow' },
+  { value: 'node-anim-shimmer', label: 'Shimmer Sweep' },
+  { value: 'node-anim-gradient-shift', label: 'Gradient Shift' },
+  { value: 'node-anim-sonar', label: 'Sonar Ping' },
+]
 
 export const NODE_STYLE_PRESETS = [
   // ── Solid ────────────────────────────────────────────────────────────

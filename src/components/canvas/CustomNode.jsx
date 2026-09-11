@@ -1,7 +1,7 @@
 import { memo, useState, useCallback } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Plus, Trash2, Star, FileText, CheckSquare, Square, ChevronRight, ChevronDown, Link2, Pin, TrendingUp, ListChecks, Lock } from 'lucide-react'
+import { Plus, Trash2, Star, FileText, CheckSquare, Square, ChevronRight, ChevronDown, Link2, Pin, TrendingUp, ListChecks, Lock, CalendarDays } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
@@ -103,6 +103,15 @@ function CustomNode({ id, data, selected }) {
   const hasExtras = hasNotes || (data.attachments || []).length > 0 || data.audioNote || data.videoEmbed
   const task = data.task
   const overdue = task?.dueDate && !task.done && new Date(task.dueDate) < new Date()
+  // Section — Node Inspector's standalone Date picker. Parsed as a local
+  // date (not `new Date(dateStr)` directly) so the weekday chip can't roll
+  // back a day in negative-offset timezones.
+  const dateLabel = (() => {
+    if (!data.date) return null
+    const [y, m, d] = data.date.split('-').map(Number)
+    const dt = new Date(y, m - 1, d)
+    return dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+  })()
   const textStyle = nodeTextStyle(data)
   // Section — Full-bleed node image. When a node carries an image it
   // should fill the entire node edge-to-edge (no empty space around it),
@@ -257,6 +266,20 @@ function CustomNode({ id, data, selected }) {
             {linkedTrade.pair}
           </button>
         )}
+        {dateLabel && (
+          <span
+            title={`Date: ${dateLabel}`}
+            className="flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
+            style={{
+              backgroundColor: hasImage ? 'rgba(0,0,0,0.35)' : 'var(--color-sage)',
+              color: hasImage ? '#fff' : 'var(--color-ink)',
+            }}
+          >
+            <CalendarDays size={9} />
+            {dateLabel}
+          </span>
+        )}
+
         {task?.assignee && (
           <span
             title={task.assignee}

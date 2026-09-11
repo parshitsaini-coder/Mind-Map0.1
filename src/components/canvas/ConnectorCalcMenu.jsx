@@ -1,3 +1,4 @@
+import { Trash2 } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 import { CALC_OPERATOR_META } from '../../utils/calcOperators'
 
@@ -10,6 +11,7 @@ import { CALC_OPERATOR_META } from '../../utils/calcOperators'
 export default function ConnectorCalcMenu({ id, x, y, onClose }) {
   const edge = useMapStore((s) => s.edges.find((e) => e.id === id))
   const setEdgeCalcOp = useMapStore((s) => s.setEdgeCalcOp)
+  const deleteEdge = useMapStore((s) => s.deleteEdge)
 
   if (!edge) return null
 
@@ -71,6 +73,17 @@ export default function ConnectorCalcMenu({ id, x, y, onClose }) {
             Clear operator
           </button>
         )}
+        <button
+          onClick={() => {
+            deleteEdge(id)
+            onClose()
+          }}
+          className="flex w-full items-center gap-2 border-t px-3 py-1.5 text-left text-xs text-[#c1443c] hover:bg-[var(--color-sage)]/60"
+          style={{ borderColor: 'var(--color-sage)' }}
+        >
+          <Trash2 size={13} />
+          Delete connector
+        </button>
       </div>
     </>
   )

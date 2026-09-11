@@ -21,6 +21,17 @@ function PanelLoading() {
   return <p className="px-1 py-2 text-[10px] text-[var(--color-slate)]">Loading…</p>
 }
 
+// `date` is stored as a plain 'YYYY-MM-DD' string from <input type="date">.
+// Parsing it with just `new Date(dateStr)` reads it as UTC midnight, which
+// can roll back a day in negative-offset timezones — split it into parts
+// and construct a local date instead so the weekday always matches what
+// the person actually picked on the calendar.
+export function formatNodeDate(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  return date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })
+}
+
 const PALETTE = Object.values(COLORS)
 const TEXT_COLORS = ['var(--color-ink)', 'var(--color-slate)', 'var(--color-accent)', 'var(--color-cream)', '#ffffff']
 
@@ -548,6 +559,37 @@ export default function NodeInspector() {
               + Link a trade
             </button>
           )}
+        </div>
+
+        {/* Section — Date. A plain calendar picker independent of the
+            to-do Task's own due-date field. Storing just the ISO date
+            string (`data.date`) is enough — the weekday shown here and on
+            the node's canvas chip is derived from it with
+            toLocaleDateString rather than persisted separately, so it
+            can never drift out of sync with the date itself. */}
+        <div>
+          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Date</p>
+          <div className="flex flex-col gap-1">
+            <input
+              type="date"
+              value={selectedNode.data.date || ''}
+              onChange={(e) => updateNodeData(selectedNode.id, { date: e.target.value || null })}
+              className="rounded-md border border-[var(--color-sage)] bg-white/60 px-1.5 py-1 text-[10px]"
+            />
+            {selectedNode.data.date && (
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-[var(--color-slate)]">
+                  {formatNodeDate(selectedNode.data.date)}
+                </span>
+                <button
+                  onClick={() => updateNodeData(selectedNode.id, { date: null })}
+                  className="text-[10px] text-[var(--color-slate)] underline hover:text-[#c1443c]"
+                >
+                  Remove
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Section 4.4 — rich text notes, hyperlinks, attachments, audio, video */}

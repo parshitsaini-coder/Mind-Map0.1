@@ -1,4 +1,4 @@
-import { Plus, CornerDownRight, Copy, Trash2, ChevronsUpDown, Scissors, TrendingUp, ListChecks, Lock, LockOpen } from 'lucide-react'
+import { Plus, CornerDownRight, Copy, ClipboardPaste, Trash2, ChevronsUpDown, Scissors, TrendingUp, ListChecks, Lock, LockOpen } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
 
@@ -15,6 +15,9 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
   const addChildNode = useMapStore((s) => s.addChildNode)
   const addSiblingNode = useMapStore((s) => s.addSiblingNode)
   const duplicateNode = useMapStore((s) => s.duplicateNode)
+  const copyNode = useMapStore((s) => s.copyNode)
+  const pasteNodeOnto = useMapStore((s) => s.pasteNodeOnto)
+  const hasClipboard = useMapStore((s) => Boolean(s.nodeClipboard))
   const deleteNode = useMapStore((s) => s.deleteNodeAnimated)
   const deleteChildren = useMapStore((s) => s.deleteChildren)
   const toggleCollapse = useMapStore((s) => s.toggleCollapse)
@@ -36,6 +39,15 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
     { icon: Plus, label: 'Add child node', onClick: () => run(() => addChildNode(id)) },
     { icon: CornerDownRight, label: 'Add sibling node', onClick: () => run(() => addSiblingNode(id)) },
     { icon: Copy, label: 'Duplicate', onClick: () => run(() => duplicateNode(id)) },
+    // Section — Copy/Paste. "Copy" snapshots this node's full look (text,
+    // size, colors, shape, motion) plus its incoming connector's style;
+    // "Paste" (shown on ANY node once something's been copied) creates a
+    // new node with that same look as a child of whichever node you
+    // right-clicked, connected with a matching connector style too.
+    { icon: Copy, label: 'Copy', onClick: () => run(() => copyNode(id)) },
+    ...(hasClipboard
+      ? [{ icon: ClipboardPaste, label: 'Paste here', onClick: () => run(() => pasteNodeOnto(id)) }]
+      : []),
     {
       icon: isLocked ? LockOpen : Lock,
       label: isLocked ? 'Unlock node' : 'Lock node',

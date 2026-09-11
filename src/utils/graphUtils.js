@@ -10,7 +10,10 @@ export function computeHidden(nodes, edges) {
   })
 
   const collapsedIds = nodes.filter((n) => n.data?.collapsed).map((n) => n.id)
-  const hiddenNodeIds = new Set()
+  // Nodes explicitly hidden from the Outline View (see toggleHidden in
+  // mapStore) are hidden themselves plus all of their descendants.
+  const manuallyHiddenIds = nodes.filter((n) => n.data?.hidden).map((n) => n.id)
+  const hiddenNodeIds = new Set(manuallyHiddenIds)
 
   const hideDescendants = (id) => {
     const kids = childrenMap.get(id) || []
@@ -22,6 +25,7 @@ export function computeHidden(nodes, edges) {
     })
   }
   collapsedIds.forEach(hideDescendants)
+  manuallyHiddenIds.forEach(hideDescendants)
 
   const hiddenEdgeIds = new Set(
     edges.filter((e) => hiddenNodeIds.has(e.source) || hiddenNodeIds.has(e.target)).map((e) => e.id)

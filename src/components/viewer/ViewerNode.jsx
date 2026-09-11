@@ -1,7 +1,7 @@
 import { memo, useState } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronRight, ChevronDown, CheckSquare, Square, Star, FileText, ListChecks, TrendingUp } from 'lucide-react'
+import { ChevronRight, ChevronDown, CheckSquare, Square, Star, FileText, ListChecks, TrendingUp, CalendarDays } from 'lucide-react'
 import { useViewerStore } from '../../store/viewerStore'
 import { useUiStore } from '../../store/uiStore'
 import { ICONS } from '../../theme/iconSet'
@@ -171,6 +171,21 @@ function ViewerNode({ id, data }) {
             {linkedTrade.pair}
           </button>
         )}
+
+        {data.date && (() => {
+          const [y, m, d] = data.date.split('-').map(Number)
+          const label = new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+          return (
+            <span
+              title={`Date: ${label}`}
+              className="flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
+              style={{ backgroundColor: 'var(--color-sage)', color: 'var(--color-ink)' }}
+            >
+              <CalendarDays size={9} />
+              {label}
+            </span>
+          )
+        })()}
 
         {task?.assignee && (
           <span

@@ -4,6 +4,7 @@ import { Plus, FolderOpen, Trash2, Pencil, Check, X } from 'lucide-react'
 import MindNodeIcon from '../common/MindNodeIcon'
 import { useProjectsStore, readProjectData } from '../../store/projectsStore'
 import { useMapStore } from '../../store/mapStore'
+import DeleteConfirmModal from './DeleteConfirmModal'
 
 function formatDate(ts) {
   if (!ts) return ''
@@ -88,6 +89,10 @@ export default function ProjectsDashboard() {
   const deleteProject = useProjectsStore((s) => s.deleteProject)
   const closeDashboard = useProjectsStore((s) => s.closeDashboard)
   const [newName, setNewName] = useState('')
+  // Section — password-gated delete. Holds the project awaiting
+  // confirmation (or null when no delete is in progress) so
+  // DeleteConfirmModal can be mounted/unmounted around it.
+  const [pendingDelete, setPendingDelete] = useState(null)
 
   if (!dashboardOpen) return null
 
@@ -110,8 +115,9 @@ export default function ProjectsDashboard() {
     useMapStore.getState().loadProject(id)
   }
 
-  const handleDelete = (id) => {
-    if (!window.confirm('Delete this project? This cannot be undone.')) return
+  const handleDeleteConfirmed = () => {
+    const id = pendingDelete.id
+    setPendingDelete(null)
     deleteProject(id)
     const stillActive = useProjectsStore.getState().activeProjectId
     if (stillActive && stillActive !== id) {
@@ -173,7 +179,7 @@ export default function ProjectsDashboard() {
                     isActive={p.id === activeProjectId}
                     onOpen={handleOpen}
                     onRename={renameProject}
-                    onDelete={handleDelete}
+                    onDelete={() => setPendingDelete(p)}
                   />
                 ))}
               </AnimatePresence>
@@ -181,6 +187,13 @@ export default function ProjectsDashboard() {
           )}
         </motion.div>
       </motion.div>
+      {pendingDelete && (
+        <DeleteConfirmModal
+          projectName={pendingDelete.name}
+          onConfirm={handleDeleteConfirmed}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
     </AnimatePresence>
   )
 }
