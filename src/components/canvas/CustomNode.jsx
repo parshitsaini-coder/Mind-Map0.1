@@ -168,6 +168,8 @@ function CustomNode({ id, data, selected }) {
         maxWidth: hasImage ? 96 * sizeScale : undefined,
         overflow: hasImage ? 'hidden' : undefined,
         textAlign: 'center',
+        opacity: data.opacity != null ? data.opacity : undefined,
+        borderRadius: data.borderRadius != null ? `${data.borderRadius}px` : undefined,
       }}
       onDoubleClick={() => !data.locked && setEditing(true)}
     >

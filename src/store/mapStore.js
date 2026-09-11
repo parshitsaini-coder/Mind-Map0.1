@@ -1041,6 +1041,18 @@ export const useMapStore = create(
                 customBorder: preset.customBorder || null,
                 animationClass: preset.animationClass || null,
                 sizeScale: preset.sizeScale || n.data.sizeScale,
+                // Section — Custom Style Library extras. Same "explicitly
+                // clear when the preset doesn't set it" rule as the fields
+                // above, so switching presets never leaves a stale font
+                // size / bold flag / opacity / corner radius behind from a
+                // previously-applied style.
+                fontSize: preset.fontSize || null,
+                fontFamily: preset.fontFamily || null,
+                bold: !!preset.bold,
+                italic: !!preset.italic,
+                underline: !!preset.underline,
+                opacity: preset.opacity != null ? preset.opacity : null,
+                borderRadius: preset.borderRadius != null ? preset.borderRadius : null,
               },
             }
           }),

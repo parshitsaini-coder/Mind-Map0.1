@@ -30,6 +30,12 @@ function PresetSwatch({ preset, onApply }) {
           boxShadow: glowShadow || undefined,
           '--sonar-color': preset.glowColor ? `${preset.glowColor}8c` : undefined,
           color: preset.textColor || '#242423',
+          fontSize: preset.fontSize ? `${preset.fontSize}px` : undefined,
+          fontWeight: preset.bold ? 700 : undefined,
+          fontStyle: preset.italic ? 'italic' : undefined,
+          textDecoration: preset.underline ? 'underline' : undefined,
+          opacity: preset.opacity != null ? preset.opacity : undefined,
+          borderRadius: preset.borderRadius != null ? `${preset.borderRadius}px` : undefined,
         }}
       >
         Node
@@ -86,6 +92,12 @@ function CustomPresetSwatch({ preset, onApply, onDelete }) {
             boxShadow: glowShadow || undefined,
             '--sonar-color': preset.glowColor ? `${preset.glowColor}8c` : undefined,
             color: preset.textColor || '#242423',
+            fontSize: preset.fontSize ? `${preset.fontSize}px` : undefined,
+            fontWeight: preset.bold ? 700 : undefined,
+            fontStyle: preset.italic ? 'italic' : undefined,
+            textDecoration: preset.underline ? 'underline' : undefined,
+            opacity: preset.opacity != null ? preset.opacity : undefined,
+            borderRadius: preset.borderRadius != null ? `${preset.borderRadius}px` : undefined,
           }}
         >
           Node
