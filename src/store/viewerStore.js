@@ -38,6 +38,17 @@ export const useViewerStore = create((set) => ({
       ),
     })),
 
+  // Section — Numbers-only node type. The one read/write exception on an
+  // otherwise read-only viewer: a node whose style has `numbersOnly` set
+  // stays live-editable for anyone with the link (see the input in
+  // ViewerNode.jsx), so the field itself works like a shared counter/input
+  // rather than a static label. Local to this tab only — it does not write
+  // back to the owner's saved map or the live-share row.
+  updateNodeLabel: (id, label) =>
+    set((s) => ({
+      nodes: s.nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, label } } : n)),
+    })),
+
   openTradeDetail: (tradeId) => set({ tradeDetail: { tradeId } }),
   closeTradeDetail: () => set({ tradeDetail: null }),
 }))

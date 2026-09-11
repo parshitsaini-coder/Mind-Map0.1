@@ -1176,6 +1176,7 @@ export const useMapStore = create(
                 underline: !!preset.underline,
                 opacity: preset.opacity != null ? preset.opacity : null,
                 borderRadius: preset.borderRadius != null ? preset.borderRadius : null,
+                numbersOnly: !!preset.numbersOnly,
               },
             }
           }),

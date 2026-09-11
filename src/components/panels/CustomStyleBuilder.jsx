@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Bold, Italic, Underline, Palette, Type, Square, Sparkles, Move, Wand2 } from 'lucide-react'
+import { X, Bold, Italic, Underline, Palette, Type, Square, Sparkles, Move, Wand2, Hash } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 import { ANIMATION_OPTIONS } from '../../utils/nodeStyles'
 import { FONT_FAMILIES, MIN_FONT_SIZE, MAX_FONT_SIZE, DEFAULT_FONT_SIZE } from '../../utils/textStyle'
@@ -140,6 +140,10 @@ export default function CustomStyleBuilder({ onClose }) {
   const [bold, setBold] = useState(false)
   const [italic, setItalic] = useState(false)
   const [underline, setUnderline] = useState(false)
+  // Section — Numbers-only node type. When enabled, any node this style
+  // is applied to strips non-numeric characters on every keystroke
+  // (see the `numbersOnly` check in CustomNode.jsx's label input).
+  const [numbersOnly, setNumbersOnly] = useState(false)
 
   const customBg = useGradient ? `linear-gradient(${gradAngle}deg, ${gradFrom}, ${gradTo})` : null
   const glowShadow = useGlow ? `0 0 10px 2px ${glowColor}55` : null
@@ -163,6 +167,7 @@ export default function CustomStyleBuilder({ onClose }) {
     bold,
     italic,
     underline,
+    numbersOnly,
   })
 
   const handleSave = () => {
@@ -254,6 +259,11 @@ export default function CustomStyleBuilder({ onClose }) {
                   placeholder="e.g. Sunset Pop"
                 />
               </Field>
+              <label className="col-span-2 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">
+                <input type="checkbox" checked={numbersOnly} onChange={(e) => setNumbersOnly(e.target.checked)} />
+                <Hash size={11} className="text-[var(--color-accent)]" />
+                Numbers only (no words)
+              </label>
             </Section>
 
             <Section icon={Palette} title="Background" index={1}>

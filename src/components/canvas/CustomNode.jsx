@@ -269,8 +269,15 @@ function CustomNode({ id, data, selected }) {
           <input
             autoFocus
             value={label}
+            inputMode={data.numbersOnly ? 'decimal' : 'text'}
             onChange={(e) => {
-              const value = e.target.value
+              // Section — Numbers-only node type. When a style with
+              // `numbersOnly` is applied (CustomStyleBuilder's "Content"
+              // toggle), strip anything that isn't a digit, decimal point,
+              // or leading minus sign on every keystroke — so the node can
+              // never end up holding words, only a number.
+              let value = e.target.value
+              if (data.numbersOnly) value = value.replace(/[^0-9.-]/g, '')
               setLabel(value)
               // Section — Connector Calculations. Live-write every
               // keystroke into the store (not just on blur/Enter) so any

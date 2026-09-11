@@ -9,6 +9,7 @@ import { uploadNodeImage } from '../../lib/imageUpload'
 import { COLORS, NODE_SHAPES } from '../../theme/tokens'
 import { FONT_FAMILIES, MIN_FONT_SIZE, MAX_FONT_SIZE, DEFAULT_FONT_SIZE } from '../../utils/textStyle'
 import IconLibrary from './IconLibrary'
+import DatePicker from '../common/DatePicker'
 
 // Section 14 — perf pass: Tiptap (NotesEditor) and emoji-picker-react are the
 // two biggest contributors to bundle size, and neither is needed until the
@@ -482,13 +483,11 @@ export default function NodeInspector() {
               </label>
               <label className="flex flex-col gap-0.5 text-[10px]">
                 Due date
-                <input
-                  type="date"
+                <DatePicker
                   value={selectedNode.data.task.dueDate || ''}
-                  onChange={(e) =>
-                    updateNodeData(selectedNode.id, { task: { ...selectedNode.data.task, dueDate: e.target.value } })
+                  onChange={(v) =>
+                    updateNodeData(selectedNode.id, { task: { ...selectedNode.data.task, dueDate: v } })
                   }
-                  className="rounded-md border border-[var(--color-sage)] bg-white/60 px-1.5 py-1 text-[10px]"
                 />
               </label>
               <label className="flex flex-col gap-0.5 text-[10px]">

@@ -52,10 +52,13 @@ function ProgressRing({ percent }) {
 // (shape, colors, icon/emoji/image, task state, badges, notes indicator,
 // applied checklists, linked trade) but strips every editing affordance —
 // no rename, no add/delete child, no dragging, no task toggling, no
-// ticking checklist items. The interactive bits kept are the
-// expand/collapse chevron (branch + per-checklist) and the linked-trade
-// badge, which opens a read-only trade detail popup (ViewerTradeDetailModal)
-// sourced from the checklists/trades snapshot embedded in the share link.
+// ticking checklist items. One exception: a node whose style has
+// `numbersOnly` set (CustomStyleBuilder's "Numbers only" toggle) renders
+// as a live-editable number field, so anyone with the link can type a
+// number into it. The interactive bits kept are the expand/collapse
+// chevron (branch + per-checklist) and the linked-trade badge, which
+// opens a read-only trade detail popup (ViewerTradeDetailModal) sourced
+// from the checklists/trades snapshot embedded in the share link.
 function ViewerNode({ id, data }) {
   const toggleCollapse = useViewerStore((s) => s.toggleCollapse)
   const childCount = useViewerStore(
@@ -146,16 +149,36 @@ function ViewerNode({ id, data }) {
         )}
         {!data.image && !data.emoji && IconComp && <IconComp size={iconSize} className="shrink-0" />}
 
-        <span
-          className={`flex-1 truncate ${task?.done ? 'line-through opacity-60' : ''}`}
-          style={{
-            ...nodeTextStyle(data),
-            fontSize: `${(nodeTextStyle(data).fontSize ? parseFloat(nodeTextStyle(data).fontSize) : baseFontSize) * sizeScale}px`,
-            ...(hasImage ? { color: '#fff' } : undefined),
-          }}
-        >
-          {data.label}
-        </span>
+        {data.numbersOnly ? (
+          <input
+            value={data.label}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              const value = e.target.value.replace(/[^0-9.-]/g, '')
+              useViewerStore.getState().updateNodeLabel(id, value)
+            }}
+            inputMode="decimal"
+            title="Anyone with this link can type a number here"
+            className={`nodrag nopan pointer-events-auto flex-1 truncate border-b border-dashed bg-transparent text-center outline-none ${task?.done ? 'line-through opacity-60' : ''}`}
+            style={{
+              ...nodeTextStyle(data),
+              fontSize: `${(nodeTextStyle(data).fontSize ? parseFloat(nodeTextStyle(data).fontSize) : baseFontSize) * sizeScale}px`,
+              borderColor: hasImage ? 'rgba(255,255,255,0.5)' : 'var(--color-slate)',
+              ...(hasImage ? { color: '#fff' } : undefined),
+            }}
+          />
+        ) : (
+          <span
+            className={`flex-1 truncate ${task?.done ? 'line-through opacity-60' : ''}`}
+            style={{
+              ...nodeTextStyle(data),
+              fontSize: `${(nodeTextStyle(data).fontSize ? parseFloat(nodeTextStyle(data).fontSize) : baseFontSize) * sizeScale}px`,
+              ...(hasImage ? { color: '#fff' } : undefined),
+            }}
+          >
+            {data.label}
+          </span>
+        )}
 
         {linkedTrade && (
           <button
