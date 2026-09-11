@@ -1,7 +1,40 @@
 import { useCallback, useEffect, useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, DownloadCloud, Check } from 'lucide-react'
 import { fetchLiveShare } from '../../lib/liveShare'
 import SharedMapView from './SharedMapView'
+import { useProjectsStore, writeProjectData } from '../../store/projectsStore'
+import { useChecklistStore } from '../../store/checklistStore'
+import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
+
+// Pulls this live link's nodes/edges (plus any checklists/trades/validation
+// rules it references) into a brand-new local project — the recovery path
+// for when a browser's own project data got wiped (cleared site data, new
+// device, etc.) but a live link for that map is still live server-side.
+// Checklists/trades/validation-rules are merged into the existing library
+// by id rather than overwritten, so importing twice — or importing into a
+// browser that already has some of its own checklists — never duplicates
+// or clobbers anything.
+function importLiveShareAsProject(data) {
+  const { nodes = [], edges = [], checklists = [], trades = [], validation_rules = [] } = data
+
+  useChecklistStore.setState((s) => {
+    const existing = new Set(s.checklists.map((c) => c.id))
+    return { checklists: [...s.checklists, ...checklists.filter((c) => !existing.has(c.id))] }
+  })
+  useTradeAnalysisStore.setState((s) => {
+    const existingRules = new Set(s.validationRules.map((r) => r.id))
+    const existingTrades = new Set(s.trades.map((t) => t.id))
+    return {
+      validationRules: [...s.validationRules, ...validation_rules.filter((r) => !existingRules.has(r.id))],
+      trades: [...s.trades, ...trades.filter((t) => !existingTrades.has(t.id))],
+    }
+  })
+
+  const name = `Recovered — ${new Date().toLocaleDateString()}`
+  const id = useProjectsStore.getState().createProject(name)
+  writeProjectData(id, { nodes, edges, groups: [], activityLog: [] })
+  return id
+}
 
 const ERROR_MESSAGES = {
   ended: 'This live link was ended by its owner.',
@@ -20,6 +53,7 @@ const ERROR_MESSAGES = {
 export default function LiveMapView({ shareId }) {
   const [state, setState] = useState({ status: 'loading', data: null, error: null })
   const [refreshing, setRefreshing] = useState(false)
+  const [imported, setImported] = useState(false)
 
   const load = useCallback(async () => {
     const result = await fetchLiveShare(shareId)
@@ -57,6 +91,16 @@ export default function LiveMapView({ shareId }) {
   }
 
   const { nodes, edges, checklists, trades, validation_rules, theme_name } = state.data
+
+  const handleImport = () => {
+    if (imported) return
+    importLiveShareAsProject(state.data)
+    setImported(true)
+    setTimeout(() => {
+      window.location.href = '/'
+    }, 700)
+  }
+
   return (
     <>
       <SharedMapView
@@ -67,15 +111,27 @@ export default function LiveMapView({ shareId }) {
         validationRules={validation_rules || []}
         themeName={theme_name}
       />
-      <button
-        onClick={handleRefresh}
-        title="Refresh to see the latest edits"
-        className="fixed right-4 top-4 z-30 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium shadow transition-transform duration-100 hover:scale-105 active:scale-95"
-        style={{ backgroundColor: 'var(--color-ink)', color: 'var(--color-cream)' }}
-      >
-        <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
-        Refresh
-      </button>
+      <div className="fixed right-4 top-4 z-30 flex items-center gap-2">
+        <button
+          onClick={handleImport}
+          title="Save a copy of this map into your own Mind Maps"
+          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium shadow transition-transform duration-100 hover:scale-105 active:scale-95 disabled:opacity-70"
+          style={{ backgroundColor: imported ? '#2e7d32' : 'var(--color-ink)', color: 'var(--color-cream)' }}
+          disabled={imported}
+        >
+          {imported ? <Check size={12} /> : <DownloadCloud size={12} />}
+          {imported ? 'Saved — opening…' : 'Save a copy to my Mind Maps'}
+        </button>
+        <button
+          onClick={handleRefresh}
+          title="Refresh to see the latest edits"
+          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium shadow transition-transform duration-100 hover:scale-105 active:scale-95"
+          style={{ backgroundColor: 'var(--color-ink)', color: 'var(--color-cream)' }}
+        >
+          <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
+          Refresh
+        </button>
+      </div>
       <div
         className="pointer-events-none fixed bottom-3 left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-full px-3 py-1 text-[10px] font-medium shadow"
         style={{ backgroundColor: 'var(--color-ink)', color: 'var(--color-cream)' }}

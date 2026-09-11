@@ -182,6 +182,51 @@ Creating a live link requires being signed in (it needs somewhere to write
 to), so the Live Link tab in the share modal prompts sign-in if needed. The
 One-time tab keeps working for anyone with no login and no setup at all.
 
+## 3c-2. Create the `project_maps` table (recommended — backs up every project, not just one)
+
+The `maps` table above only ever holds **one** map per user — whatever's
+currently on the canvas. The dashboard's "My Mind Maps" list (every project
+you've made) lives only in that browser's local storage unless this table
+exists too. **Without it, clearing your browser's site data — or switching
+devices — permanently deletes every project except whichever one happened to
+be open at the time.** This table is what makes the whole dashboard, not
+just the current tab, survive that:
+
+```sql
+create table public.project_maps (
+  project_id text primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null default 'Untitled Mind Map',
+  nodes jsonb not null default '[]',
+  edges jsonb not null default '[]',
+  groups jsonb not null default '[]',
+  activity_log jsonb not null default '[]',
+  updated_at timestamptz not null default now()
+);
+
+alter table public.project_maps enable row level security;
+
+create policy "Users can view own projects"
+  on public.project_maps for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own projects"
+  on public.project_maps for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own projects"
+  on public.project_maps for update
+  using (auth.uid() = user_id);
+
+create policy "Users can delete own projects"
+  on public.project_maps for delete
+  using (auth.uid() = user_id);
+```
+
+Once this exists, every project auto-backs-up to its own row (debounced,
+same as the rest of the app) while you're signed in, and signing in on any
+browser/device pulls down every project that's ever synced — not just one.
+
 ## 3d. Enable Google sign-in (optional — "Continue with Google" button)
 
 The login panel's Google button calls Supabase's built-in Google OAuth

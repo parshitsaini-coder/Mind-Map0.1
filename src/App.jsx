@@ -17,12 +17,13 @@ import TradeDetailModal from './components/trade-analysis/TradeDetailModal'
 import MindMapCanvas from './components/canvas/MindMapCanvas'
 import { useUiStore } from './store/uiStore'
 import { useMapStore } from './store/mapStore'
-import { useProjectsStore } from './store/projectsStore'
+import { useProjectsStore, readProjectData } from './store/projectsStore'
 import { useAuthStore } from './store/authStore'
 import { useTradeAnalysisStore } from './store/tradeAnalysisStore'
 import { useLiveShareStore } from './store/liveShareStore'
 import { applyThemeVars } from './theme/tokens'
 import { isSupabaseConfigured } from './lib/supabaseClient'
+import { upsertProjectCloud, deleteProjectCloud } from './lib/projectCloudSync'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
 export default function App() {
@@ -37,6 +38,9 @@ export default function App() {
   const hasLoadedTradesForUser = useRef(null)
   const projectSaveTimeout = useRef(null)
   const liveShareSaveTimeout = useRef(null)
+  const projectCloudSaveTimeout = useRef(null)
+  const hasMergedProjectsForUser = useRef(null)
+  const prevProjectsRef = useRef(null)
   useKeyboardShortcuts()
 
   // Restore an existing Supabase session (if any) once on app start.
@@ -61,6 +65,7 @@ export default function App() {
   // the canvas so returning users land back where they left off.
   useEffect(() => {
     useProjectsStore.getState().init()
+    prevProjectsRef.current = useProjectsStore.getState().projects
     const id = useProjectsStore.getState().activeProjectId
     if (id) useMapStore.getState().loadProject(id)
   }, [])
@@ -84,6 +89,70 @@ export default function App() {
       unsubscribe()
     }
   }, [])
+
+  // Section — per-project cloud backup (data). Piggybacks on the same
+  // "canvas changed" signal as the local autosave above, but on its own
+  // debounce/timer and gated on being signed in, so this is the fix for the
+  // bug that caused real data loss: every project's full nodes/edges now
+  // gets backed up to its own cloud row, not just whichever one is open —
+  // clearing site data (or moving devices) no longer loses anything that
+  // ever synced once while signed in.
+  useEffect(() => {
+    const unsubscribe = useMapStore.subscribe(() => {
+      if (!user) return
+      const projectId = useMapStore.getState().activeProjectId
+      if (!projectId) return
+      clearTimeout(projectCloudSaveTimeout.current)
+      projectCloudSaveTimeout.current = setTimeout(() => {
+        const { nodes, edges, groups, activityLog } = useMapStore.getState()
+        const project = useProjectsStore.getState().projects.find((p) => p.id === projectId)
+        upsertProjectCloud(user.id, {
+          id: projectId,
+          name: project?.name,
+          nodes,
+          edges,
+          groups,
+          activityLog,
+          updatedAt: Date.now(),
+        })
+      }, 1200)
+    })
+    return () => {
+      clearTimeout(projectCloudSaveTimeout.current)
+      unsubscribe()
+    }
+  }, [user])
+
+  // Section — per-project cloud backup (metadata: create/rename/delete).
+  // Diffs the projects list against its previous snapshot so a brand-new
+  // project gets its first cloud row immediately (not just at the 1.2s data
+  // debounce above), a rename pushes the new name, and — importantly — a
+  // deletion actually removes that project's cloud row too, so it doesn't
+  // reappear via mergeFromCloud on another device later.
+  useEffect(() => {
+    const unsubscribe = useProjectsStore.subscribe((s) => {
+      if (!user) {
+        prevProjectsRef.current = s.projects
+        return
+      }
+      const prev = prevProjectsRef.current || []
+      const prevIds = new Set(prev.map((p) => p.id))
+      const currIds = new Set(s.projects.map((p) => p.id))
+
+      for (const p of s.projects) {
+        const prior = prev.find((x) => x.id === p.id)
+        if (!prior || prior.name !== p.name) {
+          const data = readProjectData(p.id)
+          upsertProjectCloud(user.id, { id: p.id, name: p.name, ...(data || {}), updatedAt: p.updatedAt })
+        }
+      }
+      for (const p of prev) {
+        if (!currIds.has(p.id)) deleteProjectCloud(user.id, p.id)
+      }
+      prevProjectsRef.current = s.projects
+    })
+    return unsubscribe
+  }, [user])
 
   // Section — live share sync. If the active project currently has a live
   // link out (see ShareModal), push every edit up to Supabase (debounced,
@@ -116,6 +185,12 @@ export default function App() {
       useMapStore.getState().loadFromCloud(user.id)
     }
     if (!user) hasLoadedForUser.current = null
+
+    if (user && hasMergedProjectsForUser.current !== user.id) {
+      hasMergedProjectsForUser.current = user.id
+      useProjectsStore.getState().mergeFromCloud(user.id)
+    }
+    if (!user) hasMergedProjectsForUser.current = null
 
     const unsubscribe = useMapStore.subscribe(() => {
       if (!user) return

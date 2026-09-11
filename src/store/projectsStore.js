@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { fetchAllProjectsCloud, upsertProjectCloud } from '../lib/projectCloudSync'
 
 // ---------------------------------------------------------------------------
 // Multi-project support.
@@ -152,6 +153,48 @@ export const useProjectsStore = create(
         set((s) => ({
           projects: s.projects.map((p) => (p.id === activeProjectId ? { ...p, updatedAt: Date.now() } : p)),
         }))
+      },
+
+      // Pulls every cloud-backed project this account has and adds whichever
+      // ones aren't already in this browser's local list — never touches or
+      // removes anything already here. This is the recovery path: sign in on
+      // a fresh/cleared browser and any project that ever made it to the
+      // cloud (pushed by the autosave in App.jsx from *any* device) reappears
+      // in the dashboard. Deliberately additive-only so a first-time device
+      // with an empty cloud row can never wipe real local data, and a device
+      // with its own not-yet-synced projects never loses them either.
+      mergeFromCloud: async (userId) => {
+        const { data, error } = await fetchAllProjectsCloud(userId)
+        if (error || !data?.length) return
+        set((s) => {
+          const localIds = new Set(s.projects.map((p) => p.id))
+          const additions = []
+          for (const row of data) {
+            if (localIds.has(row.project_id)) continue
+            writeProjectData(row.project_id, {
+              nodes: row.nodes || [],
+              edges: row.edges || [],
+              groups: row.groups || [],
+              activityLog: row.activity_log || [],
+            })
+            const ts = row.updated_at ? new Date(row.updated_at).getTime() : Date.now()
+            additions.push({ id: row.project_id, name: row.name || 'Untitled Mind Map', createdAt: ts, updatedAt: ts })
+          }
+          if (!additions.length) return {}
+          return { projects: [...s.projects, ...additions] }
+        })
+
+        // Reverse direction: any project that exists locally but never made
+        // it to this cloud account (e.g. created while signed out, or on a
+        // device that was offline) gets pushed up now too — otherwise it'd
+        // only sync up on that project's *next* edit, and would be invisible
+        // to mergeFromCloud on another device until then.
+        const cloudIds = new Set(data.map((row) => row.project_id))
+        for (const p of get().projects) {
+          if (cloudIds.has(p.id)) continue
+          const pdata = readProjectData(p.id)
+          upsertProjectCloud(userId, { id: p.id, name: p.name, ...(pdata || {}), updatedAt: p.updatedAt })
+        }
       },
     }),
     { name: 'mindmap-projects', partialize: (s) => ({ projects: s.projects, openTabs: s.openTabs, activeProjectId: s.activeProjectId }) }
