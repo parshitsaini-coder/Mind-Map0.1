@@ -146,67 +146,63 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
         }}
       />
       <motion.div
-        className="fixed z-50 w-56 overflow-hidden rounded-xl border shadow-xl"
+        className="fixed z-50 w-40 overflow-hidden rounded-xl border shadow-xl"
         style={{ top: y, left: x, backgroundColor: 'var(--color-cream)', borderColor: 'var(--color-sage)' }}
-        initial={{ opacity: 0, scale: 0.9, y: -6 }}
+        initial={{ opacity: 0, scale: 0.92, y: -4 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ type: 'spring', stiffness: 420, damping: 28, mass: 0.6 }}
+        transition={{ type: 'spring', stiffness: 700, damping: 32, mass: 0.4 }}
       >
         {/* Quick-action row — icon-only, label shows on hover as a tooltip */}
         <div
-          className="flex items-center justify-around border-b py-2"
+          className="flex items-center justify-around border-b py-1.5"
           style={{ borderColor: 'var(--color-sage)' }}
         >
-          {quickActions.map((action, i) => (
-            <motion.button
+          {quickActions.map((action) => (
+            <button
               key={action.label}
               onClick={action.onClick}
               disabled={action.disabled}
               title={action.label}
-              className={`group relative flex items-center justify-center rounded-lg p-1.5 transition-colors ${
+              className={`group relative flex items-center justify-center rounded-lg p-1 transition-transform duration-100 hover:scale-110 active:scale-90 ${
                 action.disabled ? 'cursor-not-allowed opacity-40' : ''
               } ${action.danger ? 'text-[#c1443c]' : 'text-[var(--color-ink)]'}`}
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.03 }}
-              whileHover={action.disabled ? {} : { scale: 1.15, backgroundColor: action.danger ? 'rgba(193,68,60,0.12)' : 'var(--color-sage)' }}
-              whileTap={action.disabled ? {} : { scale: 0.9 }}
+              style={{ '--tw-bg-opacity': 1 }}
+              onMouseEnter={(e) => {
+                if (!action.disabled) e.currentTarget.style.backgroundColor = action.danger ? 'rgba(193,68,60,0.12)' : 'var(--color-sage)'
+              }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '' }}
             >
-              <action.icon size={16} />
+              <action.icon size={14} />
               {/* Tooltip label, shown below the icon on hover */}
               <span
-                className="pointer-events-none absolute top-full left-1/2 z-10 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] opacity-0 shadow transition-opacity duration-150 group-hover:opacity-100"
+                className="pointer-events-none absolute top-full left-1/2 z-10 mt-1 -translate-x-1/2 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] opacity-0 shadow transition-opacity duration-100 group-hover:opacity-100"
                 style={{ backgroundColor: 'var(--color-ink)', color: 'var(--color-cream)' }}
               >
                 {action.label}
               </span>
-            </motion.button>
+            </button>
           ))}
         </div>
 
-        <div className="py-1.5">
-        {items.map((item, i) => (
-          <motion.button
+        <div className="py-1">
+        {items.map((item) => (
+          <button
             key={item.label}
             onClick={item.onClick}
-            className="flex w-full items-center gap-2.5 px-2.5 py-1.5 text-left text-xs"
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.05 + i * 0.025 }}
-            whileHover={{ x: 3, backgroundColor: 'var(--color-sage)' }}
-            whileTap={{ scale: 0.98 }}
+            className="flex w-full items-center gap-2 px-2 py-1 text-left text-[11px] transition-colors duration-75 hover:translate-x-0.5"
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--color-sage)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '' }}
           >
-            <motion.span
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+            <span
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md"
               style={{ backgroundColor: `${item.color}1f`, color: item.color }}
-              whileHover={{ rotate: item.danger ? 0 : -8, scale: 1.1 }}
             >
-              <item.icon size={13} />
-            </motion.span>
+              <item.icon size={11} />
+            </span>
             <span className={item.danger ? 'text-[#c1443c]' : 'text-[var(--color-ink)]'}>
               {item.label}
             </span>
-          </motion.button>
+          </button>
         ))}
         </div>
       </motion.div>
