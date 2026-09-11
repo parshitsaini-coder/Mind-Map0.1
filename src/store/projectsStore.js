@@ -92,7 +92,7 @@ export const useProjectsStore = create(
       createProject: (name) => {
         const id = nextProjectId()
         const now = Date.now()
-        const project = { id, name: name?.trim() || 'Untitled Mind Map', createdAt: now, updatedAt: now }
+        const project = { id, name: name?.trim() || 'Untitled Mind Map', createdAt: now, updatedAt: now, cloudSynced: false }
         writeProjectData(id, { nodes: [], edges: [], groups: [], activityLog: [] })
         set((s) => ({
           projects: [project, ...s.projects],
@@ -155,45 +155,92 @@ export const useProjectsStore = create(
         }))
       },
 
-      // Pulls every cloud-backed project this account has and adds whichever
-      // ones aren't already in this browser's local list — never touches or
-      // removes anything already here. This is the recovery path: sign in on
-      // a fresh/cleared browser and any project that ever made it to the
-      // cloud (pushed by the autosave in App.jsx from *any* device) reappears
-      // in the dashboard. Deliberately additive-only so a first-time device
-      // with an empty cloud row can never wipe real local data, and a device
-      // with its own not-yet-synced projects never loses them either.
-      mergeFromCloud: async (userId) => {
+      markSynced: (id) => {
+        set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, cloudSynced: true } : p)) }))
+      },
+
+      // Full two-way sync — this is what makes every device converge on the
+      // exact same dashboard, not just recover from a wipe. Called on login,
+      // and then repeatedly (poll + on window focus + on opening the
+      // dashboard) from App.jsx while signed in:
+      //   - cloud has a project this browser doesn't  -> add it here
+      //   - both have it, cloud row is newer           -> pull cloud's copy
+      //     down over the local one (name + full data)
+      //   - both have it, this browser's copy is newer -> push it up
+      //   - this browser has it but cloud doesn't, AND it was previously
+      //     confirmed synced -> it was deleted on another device; remove it
+      //     here too (a brand-new, never-yet-synced project is left alone)
+      // The currently *open* project is skipped for incoming pulls only, so
+      // a sync tick can never yank the canvas out from under someone mid-edit
+      // — it still gets pushed up normally on its own debounce.
+      syncWithCloud: async (userId) => {
         const { data, error } = await fetchAllProjectsCloud(userId)
-        if (error || !data?.length) return
-        set((s) => {
-          const localIds = new Set(s.projects.map((p) => p.id))
-          const additions = []
-          for (const row of data) {
-            if (localIds.has(row.project_id)) continue
-            writeProjectData(row.project_id, {
-              nodes: row.nodes || [],
-              edges: row.edges || [],
-              groups: row.groups || [],
-              activityLog: row.activity_log || [],
-            })
-            const ts = row.updated_at ? new Date(row.updated_at).getTime() : Date.now()
-            additions.push({ id: row.project_id, name: row.name || 'Untitled Mind Map', createdAt: ts, updatedAt: ts })
+        if (error) return
+        const cloudById = new Map(data.map((row) => [row.project_id, row]))
+        const activeId = get().activeProjectId
+
+        const kept = []
+        for (const p of get().projects) {
+          const row = cloudById.get(p.id)
+          if (!row) {
+            if (p.cloudSynced) {
+              deleteProjectData(p.id) // deleted elsewhere — drop it here too
+              continue
+            }
+            kept.push(p) // never synced yet — keep, will push below
+            continue
           }
-          if (!additions.length) return {}
-          return { projects: [...s.projects, ...additions] }
+          const cloudTs = row.updated_at ? new Date(row.updated_at).getTime() : 0
+          if (cloudTs > (p.updatedAt || 0)) {
+            if (p.id !== activeId) {
+              writeProjectData(p.id, {
+                nodes: row.nodes || [],
+                edges: row.edges || [],
+                groups: row.groups || [],
+                activityLog: row.activity_log || [],
+              })
+            }
+            // Metadata (name) is safe to take from the cloud even for the
+            // active project — only its live canvas *data* is protected.
+            kept.push({ ...p, name: row.name || p.name, updatedAt: cloudTs, cloudSynced: true })
+          } else {
+            kept.push({ ...p, cloudSynced: true })
+          }
+          cloudById.delete(p.id)
+        }
+
+        // Whatever's left in cloudById exists only in the cloud -> add it.
+        for (const row of cloudById.values()) {
+          writeProjectData(row.project_id, {
+            nodes: row.nodes || [],
+            edges: row.edges || [],
+            groups: row.groups || [],
+            activityLog: row.activity_log || [],
+          })
+          const ts = row.updated_at ? new Date(row.updated_at).getTime() : Date.now()
+          kept.push({ id: row.project_id, name: row.name || 'Untitled Mind Map', createdAt: ts, updatedAt: ts, cloudSynced: true })
+        }
+
+        set((s) => {
+          const keptIds = new Set(kept.map((p) => p.id))
+          const openTabs = s.openTabs.filter((t) => keptIds.has(t))
+          let activeProjectId = s.activeProjectId
+          if (activeProjectId && !keptIds.has(activeProjectId)) {
+            activeProjectId = openTabs[openTabs.length - 1] || null
+          }
+          return { projects: kept, openTabs, activeProjectId }
         })
 
-        // Reverse direction: any project that exists locally but never made
-        // it to this cloud account (e.g. created while signed out, or on a
-        // device that was offline) gets pushed up now too — otherwise it'd
-        // only sync up on that project's *next* edit, and would be invisible
-        // to mergeFromCloud on another device until then.
-        const cloudIds = new Set(data.map((row) => row.project_id))
-        for (const p of get().projects) {
-          if (cloudIds.has(p.id)) continue
-          const pdata = readProjectData(p.id)
-          upsertProjectCloud(userId, { id: p.id, name: p.name, ...(pdata || {}), updatedAt: p.updatedAt })
+        // Push up anything that was newer locally or never synced yet.
+        const freshCloudIds = new Set(data.map((row) => row.project_id))
+        for (const p of kept) {
+          const row = data.find((r) => r.project_id === p.id)
+          const cloudTs = row?.updated_at ? new Date(row.updated_at).getTime() : 0
+          if (!freshCloudIds.has(p.id) || (p.updatedAt || 0) > cloudTs) {
+            const pdata = readProjectData(p.id)
+            const { error: pushErr } = await upsertProjectCloud(userId, { id: p.id, name: p.name, ...(pdata || {}), updatedAt: p.updatedAt })
+            if (!pushErr) get().markSynced(p.id)
+          }
         }
       },
     }),

@@ -154,6 +154,31 @@ export default function App() {
     return unsubscribe
   }, [user])
 
+  // Section — keep every device converged, not just recover from a wipe.
+  // The login sync above catches this browser up once; this keeps it in
+  // step with *other* open devices too — polling every 15s, plus instantly
+  // on regaining window focus or opening the "Your Mind Maps" dashboard —
+  // so a rename or edit made elsewhere shows up here without a full
+  // logout/login. See syncWithCloud in projectsStore.js for the merge
+  // rules (last-write-wins by timestamp; the currently open project's own
+  // canvas data is never overwritten mid-edit, only its name).
+  useEffect(() => {
+    if (!user) return
+    const sync = () => useProjectsStore.getState().syncWithCloud(user.id)
+    const interval = setInterval(sync, 15000)
+    window.addEventListener('focus', sync)
+    let wasOpen = useProjectsStore.getState().dashboardOpen
+    const unsubscribeDashboard = useProjectsStore.subscribe((s) => {
+      if (s.dashboardOpen && !wasOpen) sync()
+      wasOpen = s.dashboardOpen
+    })
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('focus', sync)
+      unsubscribeDashboard()
+    }
+  }, [user])
+
   // Section — live share sync. If the active project currently has a live
   // link out (see ShareModal), push every edit up to Supabase (debounced,
   // same pattern as the cloud/project autosaves) so a visitor refreshing
@@ -188,7 +213,7 @@ export default function App() {
 
     if (user && hasMergedProjectsForUser.current !== user.id) {
       hasMergedProjectsForUser.current = user.id
-      useProjectsStore.getState().mergeFromCloud(user.id)
+      useProjectsStore.getState().syncWithCloud(user.id)
     }
     if (!user) hasMergedProjectsForUser.current = null
 
