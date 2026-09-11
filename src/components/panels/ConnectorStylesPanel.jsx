@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { X, Spline, Waves } from 'lucide-react'
+import { X, Spline, Waves, Plus, Trash2, Wand2 } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
 import { CONNECTOR_STYLES, CONNECTOR_STYLE_CATEGORIES } from '../../utils/connectorDemoData'
 import { ICONS } from '../../theme/iconSet'
+import CustomConnectorBuilder from './CustomConnectorBuilder'
 
 // Small inline preview so people can see what a style looks like before
 // applying it, without leaving the panel or opening the demo map.
@@ -79,10 +80,13 @@ export default function ConnectorStylesPanel() {
   const setConnectorScale = useMapStore((s) => s.setConnectorScale)
   const edges = useMapStore((s) => s.edges)
   const selectedCount = edges.filter((e) => e.selected).length
+  const customConnectorStyles = useMapStore((s) => s.customConnectorStyles)
+  const deleteCustomConnectorStyle = useMapStore((s) => s.deleteCustomConnectorStyle)
 
   // Local slider value only — the store keeps each edge's own base width,
   // so this doesn't need to track any particular edge's current scale.
   const [scale, setScale] = useState(1)
+  const [builderOpen, setBuilderOpen] = useState(false)
 
   const handleApply = (style) => {
     const count = applyLineStyleToSelectedEdges(style)
@@ -161,6 +165,46 @@ export default function ConnectorStylesPanel() {
               </div>
 
               <div className="inspector-animate flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-0.5">
+                {/* Custom connector section — always shown first so a
+                    hand-built line style is one click away, same pattern
+                    as the Style Library's "Custom" tab for nodes. */}
+                <div>
+                  <h3 className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-slate)]">
+                    <Wand2 size={10} /> Custom
+                  </h3>
+                  <div className="flex flex-col gap-1">
+                    {customConnectorStyles.map((style) => (
+                      <motion.div key={style.id} layout initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="group relative">
+                        <button
+                          onClick={() => handleApply(style)}
+                          className="flex w-full items-center gap-2 rounded-md border border-[var(--color-sage)] px-2 py-1.5 pr-6 text-left transition-colors hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/20"
+                        >
+                          <StylePreview style={style} />
+                          <span className="truncate text-[10.5px] leading-tight text-[var(--color-ink)]">{style.label}</span>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            deleteCustomConnectorStyle(style.id)
+                          }}
+                          title="Delete custom connector"
+                          className="absolute top-1/2 right-1 -translate-y-1/2 rounded p-0.5 text-[var(--color-slate)] opacity-0 transition-opacity hover:text-[#c1443c] group-hover:opacity-100"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </motion.div>
+                    ))}
+                    <motion.button
+                      onClick={() => setBuilderOpen(true)}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex items-center justify-center gap-1.5 rounded-md border border-dashed border-[var(--color-sage)] px-2 py-2 text-[10.5px] font-medium text-[var(--color-slate)] transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-ink)]"
+                    >
+                      <Plus size={12} /> Custom connector line
+                    </motion.button>
+                  </div>
+                </div>
+
                 {groupedStyles.map((group) => (
                   <div key={group.key}>
                     <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-slate)]">
@@ -189,6 +233,7 @@ export default function ConnectorStylesPanel() {
           </motion.aside>
         </>
       )}
+      {builderOpen && <CustomConnectorBuilder onClose={() => setBuilderOpen(false)} />}
     </AnimatePresence>
   )
 }

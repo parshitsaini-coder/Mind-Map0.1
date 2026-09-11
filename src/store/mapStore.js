@@ -103,6 +103,7 @@ export const useMapStore = create(
       // alongside the built-in NODE_STYLE_PRESETS so they show up in the
       // same gallery / apply the same way via applyNodeStyle.
       customNodeStyles: [],
+      customConnectorStyles: [],
       // Section — Copy/Paste a node. Right-click "Copy" (NodeContextMenu)
       // snapshots a node's full data (label, size, colors, fonts, shape,
       // icon/emoji, motion — everything CustomNode.jsx renders) plus the
@@ -1195,7 +1196,20 @@ export const useMapStore = create(
       deleteCustomNodeStyle: (id) => {
         set({ customNodeStyles: get().customNodeStyles.filter((p) => p.id !== id) })
       },
+
+      // Section — Custom Connector Library. Saves a user-built line style
+      // (from CustomConnectorBuilder.jsx) into customConnectorStyles so it
+      // shows up under the Connector Styles panel's "Custom" section from
+      // then on, same shape as CONNECTOR_STYLES so applyLineStyleToSelectedEdges
+      // handles it identically either way.
+      addCustomConnectorStyle: (style) => {
+        set({ customConnectorStyles: [...get().customConnectorStyles, style] })
+      },
+
+      deleteCustomConnectorStyle: (id) => {
+        set({ customConnectorStyles: get().customConnectorStyles.filter((s) => s.id !== id) })
+      },
     }),
-    { name: 'mindmap-storage', partialize: (state) => ({ nodes: state.nodes, edges: state.edges, groups: state.groups, activityLog: state.activityLog, customNodeStyles: state.customNodeStyles }) }
+    { name: 'mindmap-storage', partialize: (state) => ({ nodes: state.nodes, edges: state.edges, groups: state.groups, activityLog: state.activityLog, customNodeStyles: state.customNodeStyles, customConnectorStyles: state.customConnectorStyles }) }
   )
 )

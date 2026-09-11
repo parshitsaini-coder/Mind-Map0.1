@@ -1,7 +1,7 @@
 import { memo, useState, useCallback } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Plus, Trash2, Star, FileText, CheckSquare, Square, ChevronRight, ChevronDown, Link2, Pin, TrendingUp, ListChecks, Lock, CalendarDays } from 'lucide-react'
+import { Plus, Trash2, Star, FileText, CheckSquare, Square, ChevronRight, ChevronDown, Link2, Pin, TrendingUp, ListChecks, Lock, CalendarDays, EyeOff } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
@@ -63,6 +63,7 @@ function CustomNode({ id, data, selected }) {
   const updateNodeData = useMapStore((s) => s.updateNodeData)
   const deleteNode = useMapStore((s) => s.deleteNodeAnimated)
   const toggleCollapse = useMapStore((s) => s.toggleCollapse)
+  const toggleHidden = useMapStore((s) => s.toggleHidden)
   const childCount = useMapStore(
     (s) => s.edges.filter((e) => e.source === id && e.type !== 'crossEdge').length
   )
@@ -143,6 +144,42 @@ function CustomNode({ id, data, selected }) {
   // is one of the node-anim-* CSS classes defined in index.css.
   const border = data.customBorder
   const glowShadow = data.glowColor ? `0 0 10px 2px ${data.glowColor}55` : null
+
+  // Section — Hide single node (Outline View's eye toggle / this node's
+  // own right-click "Hide node"). Rather than vanishing — which would
+  // break the connector lines to and from it — a hidden node collapses
+  // down to a small pill with just an eye icon. It keeps the exact same
+  // Handles a normal node has, so every connector still attaches right
+  // where it always did; only this one node's own content is hidden, its
+  // children stay exactly as visible as before. Clicking the eye reveals
+  // it again.
+  if (data.hidden) {
+    return (
+      <motion.button
+        type="button"
+        onClick={() => toggleHidden(id)}
+        title="Hidden node — click to reveal"
+        initial={{ opacity: 0, scale: 0.5 }}
+        animate={{ opacity: 1, scale: 1 }}
+        whileHover={{ scale: 1.18 }}
+        whileTap={{ scale: 0.88 }}
+        transition={{ type: 'spring', stiffness: 320, damping: 20 }}
+        className="group relative flex h-7 w-7 items-center justify-center rounded-full border-2 border-dashed shadow-sm"
+        style={{ borderColor: 'var(--color-slate)', backgroundColor: 'var(--color-cream)' }}
+      >
+        <Handle type="target" position={Position.Left} className="!bg-slate-600 !w-1.5 !h-1.5" />
+        <Handle type="target" position={Position.Top} id="top" className="!bg-slate-600 !w-1.5 !h-1.5" />
+        <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-slate-600 !w-1.5 !h-1.5" />
+        <EyeOff size={12} className="text-[var(--color-slate)]" />
+        <span
+          className="pointer-events-none absolute top-full left-1/2 z-10 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded px-1.5 py-0.5 text-[9px] opacity-0 shadow transition-opacity duration-150 group-hover:opacity-100"
+          style={{ backgroundColor: 'var(--color-ink)', color: 'var(--color-cream)' }}
+        >
+          Hidden — click to reveal
+        </span>
+      </motion.button>
+    )
+  }
 
   return (
     <motion.div

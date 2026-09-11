@@ -55,7 +55,15 @@ function FlowInner() {
   const edgeTypes = useMemo(() => ({ mindEdge: CustomEdge, crossEdge: CrossEdge, demoEdge: ConnectorDemoEdge }), [])
 
   // Section 4.6 — expand/collapse: hide descendants of collapsed nodes.
-  const { hiddenNodeIds, hiddenEdgeIds } = useMemo(() => computeHidden(nodes, edges), [nodes, edges])
+  // { revealManualHidden: true } — on the editable canvas a manually
+  // hidden node stays visible as a small eye placeholder (CustomNode.jsx)
+  // instead of disappearing, and its children aren't cascaded away with
+  // it. The read-only Shared Map View intentionally keeps the opposite
+  // (full hide) so a share link never leaks a node the owner hid.
+  const { hiddenNodeIds, hiddenEdgeIds } = useMemo(
+    () => computeHidden(nodes, edges, { revealManualHidden: true }),
+    [nodes, edges]
+  )
 
   // Section — collapse now fades a branch out instead of popping it away:
   // exitingNodeIds/exitingEdgeIds stay rendered at opacity 0 for one beat

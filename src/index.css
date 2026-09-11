@@ -396,3 +396,48 @@ body {
 .image-upload-ring {
   animation: imageUploadRing 0.9s ease-out both;
 }
+
+/* Compact styled range slider used by the Custom Style Builder — thin
+   track, a slightly larger round thumb that grows on hover, in the
+   accent color so it matches the rest of the builder's UI. */
+.styled-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-sage);
+  outline: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.styled-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease;
+}
+.styled-range::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+.styled-range::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease;
+}
+.styled-range::-moz-range-thumb:hover {
+  transform: scale(1.2);
+}
+.styled-range::-moz-range-track {
+  background: var(--color-sage);
+  height: 4px;
+  border-radius: 999px;
+}

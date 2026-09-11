@@ -1,4 +1,5 @@
-import { Plus, CornerDownRight, Copy, Files, ClipboardPaste, Trash2, ChevronsUpDown, Scissors, TrendingUp, ListChecks, Lock, LockOpen } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { Plus, CornerDownRight, Copy, Files, ClipboardPaste, Trash2, ChevronsUpDown, Scissors, TrendingUp, ListChecks, Lock, LockOpen, EyeOff } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
 
@@ -25,6 +26,7 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
   const deleteChildren = useMapStore((s) => s.deleteChildren)
   const toggleCollapse = useMapStore((s) => s.toggleCollapse)
   const toggleNodeLock = useMapStore((s) => s.toggleNodeLock)
+  const toggleHidden = useMapStore((s) => s.toggleHidden)
   const updateNodeData = useMapStore((s) => s.updateNodeData)
 
   if (!node) return null
@@ -58,29 +60,39 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
   ]
 
   const items = [
-    { icon: CornerDownRight, label: 'Add sibling node', onClick: () => run(() => addSiblingNode(id)) },
+    { icon: CornerDownRight, label: 'Add sibling node', color: '#3b82f6', onClick: () => run(() => addSiblingNode(id)) },
     // Section — Copy/Paste. "Copy" snapshots this node's full look (text,
     // size, colors, shape, motion) plus its incoming connector's style;
     // "Paste" (shown on ANY node once something's been copied) creates a
     // new node with that same look as a child of whichever node you
     // right-clicked, connected with a matching connector style too.
-    { icon: Copy, label: 'Copy', onClick: () => run(() => copyNode(id)) },
+    { icon: Copy, label: 'Copy', color: '#8b5cf6', onClick: () => run(() => copyNode(id)) },
     ...(hasClipboard
-      ? [{ icon: ClipboardPaste, label: 'Paste here', onClick: () => run(() => pasteNodeOnto(id)) }]
+      ? [{ icon: ClipboardPaste, label: 'Paste here', color: '#8b5cf6', onClick: () => run(() => pasteNodeOnto(id)) }]
       : []),
     // Section — "Copy all". Copies every node connected to this one
     // through any chain of connectors (parents, children, cross-linked
     // calc nodes — a whole self-contained cluster like a TP/SL row) with
     // full details, so it can be pasted as one unit elsewhere via
     // "Paste all here" on any node.
-    { icon: Files, label: 'Copy all (connected)', onClick: () => run(() => copyConnectedGroup(id)) },
+    { icon: Files, label: 'Copy all (connected)', color: '#6366f1', onClick: () => run(() => copyConnectedGroup(id)) },
     ...(hasGroupClipboard
-      ? [{ icon: ClipboardPaste, label: 'Paste all here', onClick: () => run(() => pasteConnectedGroupOnto(id)) }]
+      ? [{ icon: ClipboardPaste, label: 'Paste all here', color: '#6366f1', onClick: () => run(() => pasteConnectedGroupOnto(id)) }]
       : []),
     {
       icon: isLocked ? LockOpen : Lock,
       label: isLocked ? 'Unlock node' : 'Lock node',
+      color: '#d97706',
       onClick: () => run(() => toggleNodeLock(id)),
+    },
+    // Section — Hide single node. Collapses this node down to a small
+    // clickable eye placeholder (CustomNode.jsx) without touching its
+    // children — see the "Hide single node" note in graphUtils.js.
+    {
+      icon: EyeOff,
+      label: 'Hide node',
+      color: '#64748b',
+      onClick: () => run(() => toggleHidden(id)),
     },
     // Section — Link a Trade. Opens the trade-picker popup (see
     // TradeLinkPickerModal) scoped to this node; once a trade is picked,
@@ -92,6 +104,7 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
     {
       icon: TrendingUp,
       label: hasLinkedTrade ? 'Change linked trade' : 'Add trade',
+      color: '#10b981',
       onClick: () => run(() => useUiStore.getState().openTradeLinkPicker(id)),
     },
     ...(hasLinkedTrade
@@ -99,6 +112,7 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
           {
             icon: TrendingUp,
             label: 'Unlink trade',
+            color: '#10b981',
             onClick: () => run(() => updateNodeData(id, { linkedTradeId: null })),
           },
         ]
@@ -109,11 +123,13 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
     {
       icon: ListChecks,
       label: 'Checklist',
+      color: '#14b8a6',
       onClick: () => run(() => useUiStore.getState().openChecklistPanel(id)),
     },
     {
       icon: ChevronsUpDown,
       label: node.data?.collapsed ? 'Expand branch' : 'Collapse branch',
+      color: '#64748b',
       onClick: () => run(() => toggleCollapse(id)),
     },
   ]
@@ -121,6 +137,7 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
     items.push({
       icon: Scissors,
       label: 'Delete children',
+      color: '#c1443c',
       danger: true,
       onClick: () => run(() => deleteChildren(id)),
     })
@@ -137,54 +154,71 @@ export default function NodeContextMenu({ id, x, y, onClose }) {
           onClose()
         }}
       />
-      <div
-        className="fixed z-50 w-44 overflow-hidden rounded-md border shadow-lg"
+      <motion.div
+        className="fixed z-50 w-48 overflow-hidden rounded-xl border shadow-xl"
         style={{ top: y, left: x, backgroundColor: 'var(--color-cream)', borderColor: 'var(--color-sage)' }}
+        initial={{ opacity: 0, scale: 0.9, y: -6 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: 'spring', stiffness: 420, damping: 28, mass: 0.6 }}
       >
         {/* Quick-action row — icon-only, label shows on hover as a tooltip */}
         <div
-          className="flex items-center justify-around border-b py-1.5"
+          className="flex items-center justify-around border-b py-2"
           style={{ borderColor: 'var(--color-sage)' }}
         >
-          {quickActions.map((action) => (
-            <button
+          {quickActions.map((action, i) => (
+            <motion.button
               key={action.label}
               onClick={action.onClick}
               disabled={action.disabled}
               title={action.label}
-              className={`group relative flex items-center justify-center rounded p-1.5 transition-colors ${
-                action.disabled
-                  ? 'cursor-not-allowed opacity-40'
-                  : 'hover:bg-[var(--color-sage)]/60'
+              className={`group relative flex items-center justify-center rounded-lg p-2 transition-colors ${
+                action.disabled ? 'cursor-not-allowed opacity-40' : ''
               } ${action.danger ? 'text-[#c1443c]' : 'text-[var(--color-ink)]'}`}
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.03 }}
+              whileHover={action.disabled ? {} : { scale: 1.15, backgroundColor: action.danger ? 'rgba(193,68,60,0.12)' : 'var(--color-sage)' }}
+              whileTap={action.disabled ? {} : { scale: 0.9 }}
             >
               <action.icon size={16} />
               {/* Tooltip label, shown below the icon on hover */}
               <span
-                className="pointer-events-none absolute top-full left-1/2 z-10 mt-1 -translate-x-1/2 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] opacity-0 shadow transition-opacity group-hover:opacity-100"
+                className="pointer-events-none absolute top-full left-1/2 z-10 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] opacity-0 shadow transition-opacity duration-150 group-hover:opacity-100"
                 style={{ backgroundColor: 'var(--color-ink)', color: 'var(--color-cream)' }}
               >
                 {action.label}
               </span>
-            </button>
+            </motion.button>
           ))}
         </div>
 
-        <div className="py-1">
-        {items.map((item) => (
-          <button
+        <div className="py-1.5">
+        {items.map((item, i) => (
+          <motion.button
             key={item.label}
             onClick={item.onClick}
-            className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-[var(--color-sage)]/60 ${
-              item.danger ? 'text-[#c1443c]' : 'text-[var(--color-ink)]'
-            }`}
+            className="flex w-full items-center gap-2.5 px-2.5 py-1.5 text-left text-xs"
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.05 + i * 0.025 }}
+            whileHover={{ x: 3, backgroundColor: 'var(--color-sage)' }}
+            whileTap={{ scale: 0.98 }}
           >
-            <item.icon size={13} />
-            {item.label}
-          </button>
+            <motion.span
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+              style={{ backgroundColor: `${item.color}1f`, color: item.color }}
+              whileHover={{ rotate: item.danger ? 0 : -8, scale: 1.1 }}
+            >
+              <item.icon size={13} />
+            </motion.span>
+            <span className={item.danger ? 'text-[#c1443c]' : 'text-[var(--color-ink)]'}>
+              {item.label}
+            </span>
+          </motion.button>
         ))}
         </div>
-      </div>
+      </motion.div>
     </>
   )
 }
