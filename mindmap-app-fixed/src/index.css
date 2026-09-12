@@ -1,0 +1,443 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-main: #ecebe4;
+  --color-sage: #cfdbd5;
+  --color-cream: #e8eddf;
+  --color-accent: #f5cb5c;
+  --color-ink: #242423;
+  --color-slate: #333533;
+
+  /* Trade Analysis feature — its own scoped palette (coolors.co
+     fffcf2-ccc5b9-403d39-252422-eb5e28), kept separate from the mind-map's
+     --color-* tokens above so the feature reads as its own themed module.
+     Buy/Sell badges are the one exception — they stay green/red. */
+  --ta-bg: #ccc5b9;
+  --ta-surface: #fffcf2;
+  --ta-ink: #252422;
+  --ta-slate: #2b2925;
+  --ta-accent: #eb5e28;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background-color: var(--color-bg-main);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 13px; /* compact/dense baseline */
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* React Flow theming overrides to match compact palette */
+.react-flow__attribution {
+  display: none;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-sage);
+  border-radius: 4px;
+}
+
+/* Section 14 — responsive pass: the toolbar's icon cluster scrolls
+   horizontally on narrow viewports instead of wrapping/clipping. Hide the
+   scrollbar itself since it's a compact toolbar, not a content area. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes dashdraw {
+  to { stroke-dashoffset: -20; }
+}
+.connector-preview-animated {
+  animation: dashdraw 0.9s linear infinite;
+}
+
+/* Connector Styles panel — "Effects" category. Neon glow breathes in
+   intensity, width-pulse breathes the line's thickness; both read against
+   `--glow-color` set inline per-edge/per-swatch so one class works for
+   every color a connector might use. */
+@keyframes connectorGlowPulse {
+  0%, 100% { filter: drop-shadow(0 0 2px var(--glow-color, var(--color-accent))) drop-shadow(0 0 1px var(--glow-color, var(--color-accent))); }
+  50%      { filter: drop-shadow(0 0 7px var(--glow-color, var(--color-accent))) drop-shadow(0 0 3px var(--glow-color, var(--color-accent))); }
+}
+.connector-glow-pulse {
+  animation: connectorGlowPulse 1.7s ease-in-out infinite;
+}
+@keyframes connectorWidthPulse {
+  0%, 100% { stroke-width: var(--pulse-min, 2px); }
+  50%      { stroke-width: var(--pulse-max, 5px); }
+}
+.connector-width-pulse {
+  animation: connectorWidthPulse 1.3s ease-in-out infinite;
+}
+.clip-hex {
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+}
+
+/* Section 4.8 — smooth dimming for focus mode / presentation mode, plus a
+   baseline position transition for any programmatic move (new sibling
+   insertion shifting a branch, autolayout, group padding changes) so nodes
+   glide to their new spot instead of teleporting. Scoped to :not(.dragging)
+   — React Flow adds that class while a node is actively being dragged by
+   the user, and a transition there would make dragging feel laggy. */
+.react-flow__node {
+  transition: opacity 0.35s ease;
+}
+.react-flow__node:not(.dragging) {
+  transition: opacity 0.35s ease, transform 0.28s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.react-flow__edge-path {
+  transition: opacity 0.35s ease, stroke 0.2s ease, stroke-width 0.2s ease;
+}
+
+/* Section 4.8 — panel open/close, badge and control affordances get a quick
+   pop-in so nothing on the UI ever appears/disappears as an instant jump. */
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+.badge-pop {
+  animation: popIn 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Smooth repositioning when switching layouts (Section 4.2 / 4.8) */
+.layout-transition .react-flow__node {
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease;
+}
+.layout-transition .react-flow__edge-path {
+  transition: d 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease;
+}
+
+/* ── Style Library — live node animations ──────────────────────────────
+   Applied via `data.animationClass` (see nodeStyles.js / CustomNode.jsx).
+   Kept as plain CSS (not per-frame framer-motion loops) so having many
+   animated nodes on the canvas at once stays cheap and GPU-composited. */
+@keyframes nodeFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.node-anim-float {
+  animation: nodeFloat 2.6s ease-in-out infinite;
+}
+
+@keyframes nodeBreathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.045); }
+}
+.node-anim-breathe {
+  animation: nodeBreathe 2.2s ease-in-out infinite;
+}
+
+@keyframes nodeWiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-3deg); }
+  75% { transform: rotate(3deg); }
+}
+.node-anim-wiggle {
+  animation: nodeWiggle 0.5s ease-in-out infinite;
+}
+
+@keyframes nodeBounceSoft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.node-anim-bounce-soft {
+  animation: nodeBounceSoft 1s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
+
+@keyframes nodePulseGlow {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.35); }
+}
+.node-anim-pulse-glow {
+  animation: nodePulseGlow 1.6s ease-in-out infinite;
+}
+
+@keyframes nodeShimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+.node-anim-shimmer {
+  animation: nodeShimmer 2.4s linear infinite;
+}
+
+@keyframes nodeGradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.node-anim-gradient-shift {
+  animation: nodeGradientShift 4s ease infinite;
+}
+
+@keyframes nodeSonar {
+  0% { box-shadow: 0 0 0 0 var(--sonar-color, rgba(79, 176, 165, 0.55)); }
+  100% { box-shadow: 0 0 0 12px rgba(79, 176, 165, 0); }
+}
+.node-anim-sonar {
+  animation: nodeSonar 1.6s cubic-bezier(0.4, 0, 0.4, 1) infinite;
+}
+
+/* ── Trade Analysis — "New Trade" panel polish ─────────────────────────
+   Theme-aware glow/gradient helpers built on the --ta-* tokens so every
+   one of the six palettes in tradeAnalysisThemes.js gets a matching,
+   correctly-tinted effect for free (color-mix reads the live CSS var). */
+.ta-input {
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+.ta-input:focus {
+  border-color: var(--ta-accent) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ta-accent) 20%, transparent);
+  background-color: color-mix(in srgb, var(--ta-surface) 96%, var(--ta-accent) 4%);
+}
+
+.ta-card-glow {
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 8px 24px -12px color-mix(in srgb, var(--ta-accent) 35%, transparent);
+}
+.ta-card-glow:hover {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 12px 32px -10px color-mix(in srgb, var(--ta-accent) 50%, transparent);
+}
+
+/* Animated gradient fill for the primary "Add" button, plus a diagonal
+   shine sweep on hover — pure CSS so it stays cheap even while other
+   framer-motion gestures (whileTap, the success pulse) run alongside it. */
+@keyframes taGradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.ta-btn-primary {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    120deg,
+    var(--ta-accent),
+    color-mix(in srgb, var(--ta-accent) 65%, #ffffff 35%),
+    var(--ta-accent)
+  );
+  background-size: 220% 220%;
+  animation: taGradientShift 5s ease infinite;
+  box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--ta-accent) 60%, transparent);
+}
+.ta-btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.45) 40%,
+    transparent 60%
+  );
+  transform: translateX(-120%);
+  transition: transform 0.55s ease;
+}
+.ta-btn-primary:hover::after {
+  transform: translateX(120%);
+}
+
+/* ── Trade Analysis — "Liquid Glass" theme ─────────────────────────────
+   The theme's colors (tradeAnalysisThemes.js) already make every existing
+   var(--ta-bg)/var(--ta-surface) background translucent with zero component
+   changes. The two pieces that CAN'T be expressed as a plain color value —
+   the flowing colorful backdrop, and the frosted blur on every glass panel —
+   live here instead, scoped to [data-ta-theme="liquidglass"] so the other
+   five themes render exactly as before. */
+@keyframes taLiquidFlow {
+  0% { background-position: 0% 30%; }
+  50% { background-position: 100% 70%; }
+  100% { background-position: 0% 30%; }
+}
+.ta-liquid-bg {
+  background-image:
+    radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.55), transparent 45%),
+    radial-gradient(circle at 85% 15%, rgba(214, 231, 255, 0.55), transparent 55%),
+    radial-gradient(circle at 75% 85%, rgba(198, 214, 245, 0.5), transparent 55%),
+    radial-gradient(circle at 20% 85%, rgba(230, 240, 255, 0.5), transparent 55%),
+    linear-gradient(125deg, #eef3fb, #dbe6f7, #c9d7ee, #e3ecfa, #eef3fb);
+  background-size: 180% 180%, 180% 180%, 180% 180%, 180% 180%, 320% 320%;
+  background-color: #e6edf9;
+  animation: taLiquidFlow 22s ease-in-out infinite;
+}
+
+/* Frosted blur on every rounded "card"-shaped element inside the Liquid
+   Glass overlay — badges, panels, dropdowns, table cards, buttons — so the
+   flowing color behind actually reads as glass rather than plain
+   translucency. Broad on purpose: this theme is meant to feel glassy
+   everywhere, not just on a couple of hand-picked containers. */
+[data-ta-theme="liquidglass"] .rounded-2xl,
+[data-ta-theme="liquidglass"] .rounded-xl,
+[data-ta-theme="liquidglass"] .rounded-lg,
+[data-ta-theme="liquidglass"] .rounded-md,
+[data-ta-theme="liquidglass"] .rounded-full,
+[data-ta-theme="liquidglass"] .rounded {
+  backdrop-filter: blur(18px) saturate(130%);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+}
+
+/* A soft light edge along the top of every bordered glass panel, the way
+   real glass catches a highlight — layered under whatever box-shadow the
+   element already has (ta-card-glow etc.), never replacing it. */
+[data-ta-theme="liquidglass"] .border {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+[data-ta-theme="liquidglass"] .ta-card-glow {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 8px 32px -8px rgba(31, 30, 80, 0.35);
+}
+[data-ta-theme="liquidglass"] .ta-card-glow:hover {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 12px 40px -8px rgba(31, 30, 80, 0.45);
+}
+
+/* Liquid Glass — floating dropdowns/popovers (calendar, stock/time-frame
+   lists, status picker, theme picker, filters). These sit *inside* an
+   `overflow-hidden`/`overflow-y-auto` card, so relying on the generic
+   `.rounded-lg` backdrop-filter rule above made the frosted look
+   inconsistent — it was blurring whatever opaque card sat directly behind
+   the popover instead of the colorful animated backdrop, so it read as
+   "no blur" even though the property was technically applied.
+   IMPORTANT: the background here must stay near-opaque. An earlier pass
+   used a very light (0.42) alpha for a stronger "glass" look, but on top
+   of a scrollable form that let the fields *underneath* the dropdown
+   (Time frame, Price, Notes, ...) show straight through and visually
+   collide with the dropdown's own list text — unreadable double-exposed
+   text, not a blur effect. Backdrop-filter's blur alone gives the frosted
+   feel; the fill underneath it just needs to reliably hide whatever is
+   behind, with or without blur support in a given browser. */
+[data-ta-theme="liquidglass"] .ta-glass-popover {
+  background: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(22px) saturate(170%);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 12px 40px -8px rgba(31, 30, 80, 0.45);
+}
+
+@keyframes taUnderlineGrow {
+  from { width: 0; opacity: 0; }
+  to { width: 28px; opacity: 1; }
+}
+.ta-title-underline {
+  animation: taUnderlineGrow 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+}
+
+/* Node Inspector — panel-open motion. Every direct section (Shape, Size,
+   Fill Color, Text Style, Task, Image, ...) cascades in one after another
+   instead of popping in all at once. Re-triggers whenever the wrapping
+   element remounts (Sidebar/NodeInspector key it by the selected node id),
+   so switching between nodes replays the entrance. */
+@keyframes inspectorSectionIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.inspector-animate > * {
+  animation: inspectorSectionIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.inspector-animate > *:nth-child(1)  { animation-delay: 0.02s; }
+.inspector-animate > *:nth-child(2)  { animation-delay: 0.06s; }
+.inspector-animate > *:nth-child(3)  { animation-delay: 0.10s; }
+.inspector-animate > *:nth-child(4)  { animation-delay: 0.14s; }
+.inspector-animate > *:nth-child(5)  { animation-delay: 0.18s; }
+.inspector-animate > *:nth-child(6)  { animation-delay: 0.22s; }
+.inspector-animate > *:nth-child(7)  { animation-delay: 0.26s; }
+.inspector-animate > *:nth-child(8)  { animation-delay: 0.30s; }
+.inspector-animate > *:nth-child(9)  { animation-delay: 0.34s; }
+.inspector-animate > *:nth-child(10) { animation-delay: 0.38s; }
+.inspector-animate > *:nth-child(11) { animation-delay: 0.42s; }
+.inspector-animate > *:nth-child(12) { animation-delay: 0.46s; }
+.inspector-animate > *:nth-child(13) { animation-delay: 0.50s; }
+.inspector-animate > *:nth-child(14) { animation-delay: 0.54s; }
+.inspector-animate > *:nth-child(15) { animation-delay: 0.58s; }
+
+/* Panel title — animated gradient shimmer sweeping across the text, so
+   "Node Inspector" (and every other panel title) feels alive rather than
+   static, on top of the slide-in it already gets from Sidebar's motion.h2. */
+@keyframes panelTitleShimmer {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+.animated-panel-title {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-ink) 0%,
+    var(--color-accent) 25%,
+    var(--color-ink) 50%,
+    var(--color-accent) 75%,
+    var(--color-ink) 100%
+  );
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: panelTitleShimmer 3.2s linear infinite;
+}
+
+/* Image upload — the "tagda" success burst. Concentric rings expand and
+   fade out from the freshly-uploaded thumbnail, giving upload a moment of
+   payoff instead of the image just quietly appearing. */
+@keyframes imageUploadRing {
+  0%   { opacity: 0.7; transform: scale(0.6); }
+  100% { opacity: 0;   transform: scale(2.3); }
+}
+.image-upload-ring {
+  animation: imageUploadRing 0.9s ease-out both;
+}
+
+/* Compact styled range slider used by the Custom Style Builder — thin
+   track, a slightly larger round thumb that grows on hover, in the
+   accent color so it matches the rest of the builder's UI. */
+.styled-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-sage);
+  outline: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.styled-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease;
+}
+.styled-range::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+.styled-range::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease;
+}
+.styled-range::-moz-range-thumb:hover {
+  transform: scale(1.2);
+}
+.styled-range::-moz-range-track {
+  background: var(--color-sage);
+  height: 4px;
+  border-radius: 999px;
+}
