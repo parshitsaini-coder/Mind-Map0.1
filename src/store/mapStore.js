@@ -1211,6 +1211,24 @@ export const useMapStore = create(
         set({ customConnectorStyles: get().customConnectorStyles.filter((s) => s.id !== id) })
       },
     }),
-    { name: 'mindmap-storage', partialize: (state) => ({ nodes: state.nodes, edges: state.edges, groups: state.groups, activityLog: state.activityLog, customNodeStyles: state.customNodeStyles, customConnectorStyles: state.customConnectorStyles }) }
+    {
+      name: 'mindmap-storage',
+      // nodes/edges/groups/activityLog are intentionally NOT persisted here
+      // anymore. Each project now owns its own storage slot
+      // (`mindmap-project-data-<id>`, see projectsStore.js) and is loaded
+      // explicitly via loadProject()/saveProject(). Persisting the live
+      // canvas here too used to race that explicit load on every fresh page
+      // load — on reload, zustand's rehydration of this key could restore
+      // a stale/unrelated project's nodes right after (or before)
+      // loadProject() had just set the correct ones, so the canvas could
+      // end up showing whatever map was last globally cached here instead
+      // of the project you actually meant to load (most visible right
+      // after "Save a copy to my Mind Maps" on a live-shared map, where the
+      // freshly imported project could get clobbered by whatever was on
+      // your canvas before). customNodeStyles/customConnectorStyles are
+      // genuinely global (shared across all projects), so those still
+      // persist here.
+      partialize: (state) => ({ customNodeStyles: state.customNodeStyles, customConnectorStyles: state.customConnectorStyles }),
+    }
   )
 )
