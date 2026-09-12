@@ -32,8 +32,6 @@ export default function App() {
   const toastMessage = useUiStore((s) => s.toastMessage)
   const user = useAuthStore((s) => s.user)
   const authInitialized = useAuthStore((s) => s.initialized)
-  const saveTimeout = useRef(null)
-  const hasLoadedForUser = useRef(null)
   const tradeSaveTimeout = useRef(null)
   const hasLoadedTradesForUser = useRef(null)
   const projectSaveTimeout = useRef(null)
@@ -226,34 +224,29 @@ export default function App() {
     }
   }, [])
 
-  // Section — online account sync. As soon as someone is signed in, pull
-  // their last-saved cloud map down once; after that, every map change is
-  // auto-saved back up (debounced, so a burst of edits = one network call).
+  // Section — online account sync (projects list). As soon as someone is
+  // signed in, merge this browser's projects with their cloud projects once.
+  //
+  // This used to ALSO call mapStore's loadFromCloud/saveToCloud here — a
+  // leftover from before multi-project support, which kept a single
+  // `maps` row per user and, on every sign-in, unconditionally overwrote
+  // whatever was currently on the canvas with that one row (or fell back to
+  // the blank "Central Idea" starter if that row was empty). That's exactly
+  // why a freshly-created/loaded project (e.g. "Save a copy to my Mind
+  // Maps" on a live-shared map) would look fine signed OUT, then get
+  // silently replaced by stale/blank content signed IN: this effect ran
+  // right after the correct project loaded and stomped over it. The
+  // per-project cloud sync below (syncWithCloud + the project data/metadata
+  // backup effects) already fully replaces what this was for, so it's
+  // removed rather than guarded — there's no remaining case where the
+  // single-row `maps` table sync is still needed.
   useEffect(() => {
     if (!authInitialized) return
-    if (user && hasLoadedForUser.current !== user.id) {
-      hasLoadedForUser.current = user.id
-      useMapStore.getState().loadFromCloud(user.id)
-    }
-    if (!user) hasLoadedForUser.current = null
-
     if (user && hasMergedProjectsForUser.current !== user.id) {
       hasMergedProjectsForUser.current = user.id
       useProjectsStore.getState().syncWithCloud(user.id)
     }
     if (!user) hasMergedProjectsForUser.current = null
-
-    const unsubscribe = useMapStore.subscribe(() => {
-      if (!user) return
-      clearTimeout(saveTimeout.current)
-      saveTimeout.current = setTimeout(() => {
-        useMapStore.getState().saveToCloud(user.id)
-      }, 1200)
-    })
-    return () => {
-      clearTimeout(saveTimeout.current)
-      unsubscribe()
-    }
   }, [user, authInitialized])
 
   // Step 9 (stretch goal) — same online sync pattern as the mind map
