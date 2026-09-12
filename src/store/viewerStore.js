@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { computeCalcUpdates } from '../utils/calcEngine'
 
 // Section — shared-link viewer. Deliberately separate from `mapStore`
 // (no `persist` middleware) so opening someone else's shared link never
@@ -44,10 +45,25 @@ export const useViewerStore = create((set) => ({
   // ViewerNode.jsx), so the field itself works like a shared counter/input
   // rather than a static label. Local to this tab only — it does not write
   // back to the owner's saved map or the live-share row.
+  //
+  // Typing a number here used to only update that one node's own label —
+  // any "=" connector chain built on the editor side (see calcEngine.js /
+  // mapStore's recalcConnectors) never re-ran, so a visitor typing into the
+  // formula's input node saw no result even though the exact same edit on
+  // the owner's own canvas recalculates instantly. Mirrors mapStore's
+  // recalcConnectors here so the same chain updates for viewers too.
   updateNodeLabel: (id, label) =>
-    set((s) => ({
-      nodes: s.nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, label } } : n)),
-    })),
+    set((s) => {
+      const nodes = s.nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, label } } : n))
+      const updates = computeCalcUpdates(nodes, s.edges)
+      if (!updates.length) return { nodes }
+      const patchById = new Map(updates.map((u) => [u.id, u.label]))
+      return {
+        nodes: nodes.map((n) =>
+          patchById.has(n.id) ? { ...n, data: { ...n.data, label: patchById.get(n.id) } } : n
+        ),
+      }
+    }),
 
   openTradeDetail: (tradeId) => set({ tradeDetail: { tradeId } }),
   closeTradeDetail: () => set({ tradeDetail: null }),
