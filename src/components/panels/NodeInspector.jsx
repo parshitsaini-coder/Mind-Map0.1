@@ -852,9 +852,17 @@ export default function NodeInspector() {
                 className="max-w-full overflow-hidden rounded-md border border-[var(--color-sage)]"
               >
                 <Suspense fallback={<PanelLoading />}>
+                  {/* Small emoji tiles, no search bar, no bottom "what's your
+                      mood" preview strip — just a compact emoji grid, per
+                      request. --epr-emoji-size/--epr-emoji-gap are
+                      emoji-picker-react's own theming CSS variables. */}
                   <EmojiPicker
                     width="100%"
-                    height={260}
+                    height={280}
+                    searchDisabled
+                    previewConfig={{ showPreview: false }}
+                    skinTonesDisabled
+                    style={{ '--epr-emoji-size': '16px', '--epr-emoji-gap': '4px' }}
                     onEmojiClick={(e) => updateNodeData(selectedNode.id, { emoji: e.emoji, icon: null })}
                   />
                 </Suspense>
