@@ -270,7 +270,6 @@ function CustomNode({ id, data, selected }) {
             {data.emoji}
           </span>
         )}
-        {!data.image && !data.emoji && IconComp && <IconComp size={iconSize} className="shrink-0" />}
 
         {editing ? (
           <input
@@ -305,6 +304,10 @@ function CustomNode({ id, data, selected }) {
             {data.label}
           </span>
         )}
+        {/* Icon (from the ICON panel, as opposed to emoji above) renders
+            after the label/number now, not before — e.g. "80 [icon]"
+            instead of "[icon] 80" — per request. */}
+        {!data.image && !data.emoji && IconComp && <IconComp size={iconSize} className="shrink-0" />}
         {linkedTrade && (
           <button
             onClick={(e) => {

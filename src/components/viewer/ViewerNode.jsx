@@ -185,7 +185,6 @@ function ViewerNode({ id, data }) {
             {data.emoji}
           </span>
         )}
-        {!data.image && !data.emoji && IconComp && <IconComp size={iconSize} className="shrink-0" />}
 
         {data.numbersOnly ? (
           <input
@@ -217,6 +216,9 @@ function ViewerNode({ id, data }) {
             {data.label}
           </span>
         )}
+        {/* Icon renders after the label/number now, not before — matches
+            CustomNode.jsx's editor ordering. */}
+        {!data.image && !data.emoji && IconComp && <IconComp size={iconSize} className="shrink-0" />}
 
         {linkedTrade && (
           <button
