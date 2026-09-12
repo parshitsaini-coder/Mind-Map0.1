@@ -26,7 +26,18 @@ function ViewerInner() {
   const nodeTypes = useMemo(() => ({ mindNode: ViewerNode, boundaryGroup: ViewerBoundaryGroup }), [])
   const edgeTypes = useMemo(() => ({ mindEdge: CustomEdge, crossEdge: CrossEdge, demoEdge: ConnectorDemoEdge }), [])
 
-  const { hiddenNodeIds, hiddenEdgeIds } = useMemo(() => computeHidden(nodes, edges), [nodes, edges])
+  // revealManualHidden: true — match the editor canvas's own behavior
+  // (MindMapCanvas.jsx). A manually-hidden node's own content stays
+  // hidden, but its descendants are shown as normal. Previously this left
+  // the default `false`, which cascade-hides the entire downstream branch
+  // of any hidden node — fine for genuinely private content, but
+  // surprising for the common case of just tidying up one node, since it
+  // silently swallowed everything after it in the live/shared view even
+  // though the owner's own canvas kept showing it.
+  const { hiddenNodeIds, hiddenEdgeIds } = useMemo(
+    () => computeHidden(nodes, edges, { revealManualHidden: true }),
+    [nodes, edges]
+  )
   const visibleNodes = nodes.filter((n) => !hiddenNodeIds.has(n.id))
   const visibleEdges = edges.filter((e) => !hiddenEdgeIds.has(e.id))
 

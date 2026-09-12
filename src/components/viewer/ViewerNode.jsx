@@ -1,7 +1,7 @@
 import { memo, useState } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronRight, ChevronDown, CheckSquare, Square, Star, FileText, ListChecks, TrendingUp, CalendarDays } from 'lucide-react'
+import { ChevronRight, ChevronDown, CheckSquare, Square, Star, FileText, ListChecks, TrendingUp, CalendarDays, EyeOff } from 'lucide-react'
 import { useViewerStore } from '../../store/viewerStore'
 import { useUiStore } from '../../store/uiStore'
 import { ICONS } from '../../theme/iconSet'
@@ -87,6 +87,34 @@ function ViewerNode({ id, data }) {
   const headerPadX = 12 * sizeScale
   const headerGap = 6 * sizeScale
   const iconSize = Math.round(13 * sizeScale)
+
+  // Section — manually-hidden node placeholder, mirrors CustomNode.jsx's
+  // own hidden-node rendering. With computeHidden's revealManualHidden
+  // flag now on for this view (see SharedMapView.jsx), a manually-hidden
+  // node's descendants stay visible same as the owner's own canvas — but
+  // this one node's own content still needs to stay hidden from viewers,
+  // same as it does for the owner (that's the point of hiding it). Unlike
+  // CustomNode's version, this isn't clickable — a visitor has no way to
+  // "reveal" content the owner chose to keep private, so it's just a
+  // static placeholder, not a button.
+  if (data.hidden) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.7 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+        title="Hidden node"
+        className="relative flex h-7 w-7 items-center justify-center rounded-full border-2 border-dashed shadow-sm"
+        style={{ borderColor: 'var(--color-slate)', backgroundColor: 'var(--color-cream)' }}
+      >
+        <Handle type="target" position={Position.Left} className="!bg-slate-600 !w-1.5 !h-1.5" />
+        <Handle type="target" position={Position.Top} id="top" className="!bg-slate-600 !w-1.5 !h-1.5" />
+        <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-slate-600 !w-1.5 !h-1.5" />
+        <Handle type="source" position={Position.Right} className="!bg-slate-600 !w-1.5 !h-1.5" />
+        <EyeOff size={12} className="text-[var(--color-slate)]" />
+      </motion.div>
+    )
+  }
 
   return (
     <motion.div
