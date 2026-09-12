@@ -63,11 +63,37 @@ export default function App() {
   // Section — multi-project support. Sets up (or migrates) the projects
   // list once, then loads whichever project was last active straight onto
   // the canvas so returning users land back where they left off.
+  //
+  // This has to wait for the projects store's persisted state to actually
+  // finish rehydrating from localStorage first. zustand's persist middleware
+  // always restores saved state asynchronously (a microtask hop), even for
+  // plain localStorage — so on a fresh page load, `projects` briefly reads
+  // back as `[]` (its default) before the real saved list lands a moment
+  // later. init() below treats an empty list as "brand-new user" and creates
+  // a blank project — if it ran during that gap, it would create a fresh
+  // blank project and switch to it, stomping over whichever real project
+  // (and activeProjectId) was actually saved, right as it's about to load in
+  // underneath. Most visible right after any flow that does a hard page
+  // reload straight after creating/switching a project (e.g. "Save a copy to
+  // my Mind Maps" on a live-shared map) — the new project could lose the
+  // race and get replaced by an empty one showing just the default "Central
+  // Idea" starter node instead of the real imported map.
   useEffect(() => {
-    useProjectsStore.getState().init()
-    prevProjectsRef.current = useProjectsStore.getState().projects
-    const id = useProjectsStore.getState().activeProjectId
-    if (id) useMapStore.getState().loadProject(id)
+    const runInitAndLoad = () => {
+      useProjectsStore.getState().init()
+      prevProjectsRef.current = useProjectsStore.getState().projects
+      const id = useProjectsStore.getState().activeProjectId
+      if (id) useMapStore.getState().loadProject(id)
+    }
+    if (useProjectsStore.persist.hasHydrated()) {
+      runInitAndLoad()
+    } else {
+      const unsubscribe = useProjectsStore.persist.onFinishHydration(() => {
+        runInitAndLoad()
+        unsubscribe()
+      })
+      return unsubscribe
+    }
   }, [])
 
   // Autosave the live canvas into the *current* project's local storage
