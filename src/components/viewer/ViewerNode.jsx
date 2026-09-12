@@ -136,7 +136,17 @@ function ViewerNode({ id, data }) {
         textAlign: 'center',
       }}
     >
+      {/* Left/right handles are what every parent→child tree edge attaches
+          to; top/bottom are used by cross-branch relationship connectors
+          (CrossEdge.jsx) and any connector explicitly dragged onto those
+          sides. This node previously only had left/right, so any connector
+          attached to a node's top or bottom side had no handle to resolve
+          in the viewer and silently failed to render — same 4 handles as
+          the editable canvas's CustomNode.jsx now, so every connector
+          style shows up here too. */}
       <Handle type="target" position={Position.Left} className="!pointer-events-none !bg-slate-600 !w-1.5 !h-1.5" />
+      <Handle type="target" position={Position.Top} id="top" className="!pointer-events-none !bg-slate-600 !w-1.5 !h-1.5" />
+      <Handle type="source" position={Position.Bottom} id="bottom" className="!pointer-events-none !bg-slate-600 !w-1.5 !h-1.5" />
 
       {hasImage && (
         <img
