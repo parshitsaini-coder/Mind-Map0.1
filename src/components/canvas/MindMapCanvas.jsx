@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState, useCallback } from 'react'
+import { useMemo, useEffect, useState, useCallback, useRef } from 'react'
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -38,10 +38,12 @@ function FlowInner() {
   const presentationIndex = useUiStore((s) => s.presentationIndex)
   const showMockCursors = useUiStore((s) => s.showMockCursors)
   const jumpToken = useUiStore((s) => s.jumpToken)
+  const activeProjectId = useMapStore((s) => s.activeProjectId)
   const [transitioning, setTransitioning] = useState(false)
   const [contextMenu, setContextMenu] = useState(null)
   const [edgeContextMenu, setEdgeContextMenu] = useState(null)
-  const { fitView } = useReactFlow()
+  const { fitView, setViewport } = useReactFlow()
+  const viewportSaveTimeout = useRef(null)
 
   // Section 4.2 — smooth repositioning transition (not an instant jump)
   // whenever the active layout changes.
@@ -124,6 +126,32 @@ function FlowInner() {
     return () => clearTimeout(t)
   }, [jumpToken, fitView])
 
+  // Section — per-project zoom/pan. Switching tabs used to leave whatever
+  // zoom/pan the previous project's map was at, since a single ReactFlow
+  // instance is reused across all tabs and `fitView` (the boolean prop)
+  // only runs once on first mount. Now, every time the active project
+  // actually changes, jump straight to that project's own saved viewport
+  // — or fitView() if it's never been saved (e.g. brand-new project).
+  useEffect(() => {
+    if (!activeProjectId) return
+    const saved = useMapStore.getState().viewport
+    if (saved) {
+      setViewport(saved, { duration: 0 })
+    } else {
+      fitView({ duration: 0 })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProjectId])
+
+  // Persist the camera position (debounced) as the user pans/zooms, so
+  // it's there to restore next time this project's tab is opened.
+  const onMoveEnd = useCallback((_event, viewport) => {
+    clearTimeout(viewportSaveTimeout.current)
+    viewportSaveTimeout.current = setTimeout(() => {
+      useMapStore.getState().setViewport(viewport)
+    }, 300)
+  }, [])
+
   const visibleNodes = nodes
     .filter((n) => !removedNodeIds.has(n.id))
     .map((n) => {
@@ -192,6 +220,7 @@ function FlowInner() {
         onEdgeClick={() => useUiStore.getState().setActivePanel('inspector')}
         onNodeContextMenu={onNodeContextMenu}
         onEdgeContextMenu={onEdgeContextMenu}
+        onMoveEnd={onMoveEnd}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView

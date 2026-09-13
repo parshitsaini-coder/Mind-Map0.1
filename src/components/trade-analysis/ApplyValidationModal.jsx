@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ListChecks, X, Check, Flame, BarChart3 } from 'lucide-react'
+import { ListChecks, X, Check, Flame, BarChart3, PartyPopper } from 'lucide-react'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
@@ -14,11 +14,39 @@ import { useIsMobile } from '../../hooks/useIsMobile'
 // that tick from this trade's checklist — same effect as unchecking the
 // box, just a second affordance for it. It never deletes the rule itself;
 // that only happens from Validation Settings.
+//
+// Motion pass: staggered card/row entrance, spring-y hover lift on rows,
+// an animated (popLayout) progress badge per category, and a small
+// celebratory pulse around a category's border once every rule in it is
+// ticked — all driven by variants so the choreography lives in one place
+// instead of being scattered across inline props.
 
 const CATEGORY_ICONS = { Flame, BarChart3, ListChecks }
 const CategoryIcon = ({ name, ...props }) => {
   const Icon = CATEGORY_ICONS[name] || ListChecks
   return <Icon {...props} />
+}
+
+const gridVariants = {
+  hidden: {},
+  show: {
+    transition: { staggerChildren: 0.06, delayChildren: 0.05 },
+  },
+}
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 14, scale: 0.96 },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { type: 'spring', stiffness: 380, damping: 30 },
+  },
+}
+
+const rowVariants = {
+  hidden: { opacity: 0, x: -8 },
+  show: { opacity: 1, x: 0, transition: { type: 'spring', stiffness: 420, damping: 32 } },
 }
 
 export default function ApplyValidationModal({ open, onClose, checkedIds, onToggle }) {
@@ -38,6 +66,13 @@ export default function ApplyValidationModal({ open, onClose, checkedIds, onTogg
       .filter((g) => g.rules.length > 0)
   }, [categories, rules])
 
+  const totalActive = grouped.reduce((sum, g) => sum + g.rules.length, 0)
+  const totalChecked = grouped.reduce(
+    (sum, g) => sum + g.rules.filter((r) => checkedIds.includes(r.id)).length,
+    0
+  )
+  const allComplete = totalActive > 0 && totalChecked === totalActive
+
   // A rule ticked-but-then-globally-disabled/deleted shouldn't hide from
   // an already-logged trade's own checklist history — but for the *pick*
   // popup we only ever offer currently-active rules, same as the old
@@ -47,29 +82,58 @@ export default function ApplyValidationModal({ open, onClose, checkedIds, onTogg
     <AnimatePresence>
       {open && (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.15 }}
-          className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40 p-3 backdrop-blur-sm"
+          initial={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+          animate={{ opacity: 1, backdropFilter: 'blur(4px)' }}
+          exit={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40 p-3"
           onClick={onClose}
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.94 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.94 }}
-            transition={{ type: 'spring', stiffness: 360, damping: 30 }}
+            initial={{ opacity: 0, scale: 0.92, y: 18 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 10 }}
+            transition={{ type: 'spring', stiffness: 340, damping: 28 }}
             onClick={(e) => e.stopPropagation()}
             className="flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border shadow-2xl"
             style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)' }}
           >
             <div className="flex shrink-0 items-center justify-between border-b px-3 py-2" style={{ borderColor: 'var(--ta-slate)' }}>
               <p className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--ta-ink)' }}>
-                <ListChecks size={14} style={{ color: 'var(--ta-accent)' }} />
+                <motion.span
+                  animate={allComplete ? { rotate: [0, -12, 12, -8, 0] } : { rotate: 0 }}
+                  transition={{ duration: 0.6, ease: 'easeInOut' }}
+                >
+                  <ListChecks size={14} style={{ color: 'var(--ta-accent)' }} />
+                </motion.span>
                 Validation Checklist
+                <AnimatePresence mode="wait">
+                  {totalActive > 0 && (
+                    <motion.span
+                      key={`${totalChecked}-${totalActive}`}
+                      initial={{ scale: 0.6, opacity: 0, y: -4 }}
+                      animate={{ scale: 1, opacity: 1, y: 0 }}
+                      exit={{ scale: 0.6, opacity: 0, y: 4 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 24 }}
+                      className="ml-1 flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold"
+                      style={{
+                        backgroundColor: allComplete ? '#16a34a' : 'var(--ta-accent)',
+                        color: '#fffcf2',
+                        boxShadow: allComplete
+                          ? '0 0 0 3px color-mix(in srgb, #16a34a 25%, transparent)'
+                          : 'none',
+                      }}
+                    >
+                      {allComplete && <PartyPopper size={9} />}
+                      {totalChecked}/{totalActive}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
               </p>
               <motion.button
+                whileHover={{ scale: 1.08, rotate: 90 }}
                 whileTap={{ scale: 0.88 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
                 onClick={onClose}
                 className="flex h-5 w-5 items-center justify-center rounded-md hover:bg-black/5"
                 style={{ color: 'var(--ta-slate)' }}
@@ -81,54 +145,108 @@ export default function ApplyValidationModal({ open, onClose, checkedIds, onTogg
 
             <div className="min-h-0 flex-1 overflow-y-auto p-3">
               {grouped.length === 0 ? (
-                <p className="rounded-md border border-dashed px-2 py-4 text-center text-[11px]" style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-slate)' }}>
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="rounded-md border border-dashed px-2 py-4 text-center text-[11px]"
+                  style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-slate)' }}
+                >
                   No active validation rules yet — add some from Validation Settings up top.
-                </p>
+                </motion.p>
               ) : (
-                <div className={`grid gap-2 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                <motion.div
+                  variants={gridVariants}
+                  initial="hidden"
+                  animate="show"
+                  className={`grid gap-2 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}
+                >
                   {grouped.map(({ category, rules: catRules }) => {
                     const checkedInCat = catRules.filter((r) => checkedIds.includes(r.id)).length
+                    const catComplete = checkedInCat === catRules.length
                     return (
-                      <div
+                      <motion.div
                         key={category.id}
+                        variants={cardVariants}
+                        whileHover={{ y: -2 }}
+                        animate={
+                          catComplete
+                            ? {
+                                boxShadow: [
+                                  '0 0 0 0px color-mix(in srgb, #16a34a 0%, transparent)',
+                                  '0 0 0 3px color-mix(in srgb, #16a34a 22%, transparent)',
+                                  '0 0 0 0px color-mix(in srgb, #16a34a 0%, transparent)',
+                                ],
+                              }
+                            : { boxShadow: '0 0 0 0px transparent' }
+                        }
+                        transition={catComplete ? { duration: 1.1, ease: 'easeInOut' } : { duration: 0.2 }}
                         className="flex flex-col gap-1.5 rounded-xl border p-2"
-                        style={{ borderColor: 'var(--ta-slate)', backgroundColor: 'var(--ta-bg)' }}
+                        style={{
+                          borderColor: catComplete ? '#16a34a' : 'var(--ta-slate)',
+                          backgroundColor: 'var(--ta-bg)',
+                        }}
                       >
                         <div className="flex items-center justify-between">
                           <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--ta-ink)' }}>
                             <CategoryIcon name={category.icon} size={11} style={{ color: 'var(--ta-accent)' }} />
                             {category.name}
                           </p>
-                          <span
-                            className="shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-bold"
-                            style={{ backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }}
-                          >
-                            {checkedInCat}/{catRules.length}
-                          </span>
+                          <AnimatePresence mode="wait">
+                            <motion.span
+                              key={`${checkedInCat}-${catRules.length}`}
+                              initial={{ scale: 0.6, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0.6, opacity: 0 }}
+                              transition={{ type: 'spring', stiffness: 500, damping: 24 }}
+                              className="shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-bold"
+                              style={{
+                                backgroundColor: catComplete ? '#16a34a' : 'var(--ta-accent)',
+                                color: '#fffcf2',
+                              }}
+                            >
+                              {checkedInCat}/{catRules.length}
+                            </motion.span>
+                          </AnimatePresence>
                         </div>
 
-                        <div className="flex flex-col gap-1">
+                        <motion.div variants={gridVariants} initial="hidden" animate="show" className="flex flex-col gap-1">
                           {catRules.map((rule) => {
                             const checked = checkedIds.includes(rule.id)
                             return (
-                              <div
+                              <motion.div
                                 key={rule.id}
-                                className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[10px]"
+                                variants={rowVariants}
+                                whileHover={{ x: 2, backgroundColor: 'color-mix(in srgb, var(--ta-accent) 8%, var(--ta-surface))' }}
+                                className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[10px] transition-colors"
                                 style={{ backgroundColor: 'var(--ta-surface)', color: 'var(--ta-ink)' }}
                               >
-                                <button
+                                <motion.button
                                   type="button"
+                                  whileTap={{ scale: 0.9 }}
                                   onClick={() => onToggle(rule.id)}
                                   className="flex flex-1 items-center gap-1.5 text-left"
                                 >
-                                  <span
-                                    className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border transition-colors"
-                                    style={
+                                  <motion.span
+                                    className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border"
+                                    animate={
                                       checked
                                         ? { backgroundColor: 'var(--ta-accent)', borderColor: 'var(--ta-accent)' }
-                                        : { borderColor: 'var(--ta-slate)' }
+                                        : { backgroundColor: 'rgba(0,0,0,0)', borderColor: 'var(--ta-slate)' }
                                     }
+                                    transition={{ duration: 0.18 }}
                                   >
+                                    <AnimatePresence>
+                                      {checked && (
+                                        <motion.span
+                                          key="ripple"
+                                          initial={{ scale: 0.4, opacity: 0.55 }}
+                                          animate={{ scale: 2.4, opacity: 0 }}
+                                          transition={{ duration: 0.45, ease: 'easeOut' }}
+                                          className="absolute inset-0 rounded-sm"
+                                          style={{ backgroundColor: 'var(--ta-accent)' }}
+                                        />
+                                      )}
+                                    </AnimatePresence>
                                     <AnimatePresence>
                                       {checked && (
                                         <motion.span
@@ -141,11 +259,14 @@ export default function ApplyValidationModal({ open, onClose, checkedIds, onTogg
                                         </motion.span>
                                       )}
                                     </AnimatePresence>
-                                  </span>
+                                  </motion.span>
                                   <span className="leading-snug">{rule.label}</span>
-                                </button>
-                                <button
+                                </motion.button>
+                                <motion.button
                                   type="button"
+                                  whileHover={checked ? { scale: 1.15, rotate: 90 } : {}}
+                                  whileTap={checked ? { scale: 0.85 } : {}}
+                                  transition={{ type: 'spring', stiffness: 420, damping: 20 }}
                                   onClick={() => checked && onToggle(rule.id)}
                                   disabled={!checked}
                                   title="Remove from this trade's checklist"
@@ -153,23 +274,25 @@ export default function ApplyValidationModal({ open, onClose, checkedIds, onTogg
                                   style={{ color: 'var(--ta-slate)' }}
                                 >
                                   <X size={11} />
-                                </button>
-                              </div>
+                                </motion.button>
+                              </motion.div>
                             )
                           })}
-                        </div>
-                      </div>
+                        </motion.div>
+                      </motion.div>
                     )
                   })}
-                </div>
+                </motion.div>
               )}
             </div>
 
             <div className="flex shrink-0 justify-end border-t px-3 py-2" style={{ borderColor: 'var(--ta-slate)' }}>
               <motion.button
+                whileHover={{ scale: 1.03, boxShadow: '0 4px 18px color-mix(in srgb, var(--ta-accent) 45%, transparent)' }}
                 whileTap={{ scale: 0.96 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 22 }}
                 onClick={onClose}
-                className="rounded-md px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:brightness-110"
+                className="rounded-md px-3 py-1.5 text-xs font-semibold text-white"
                 style={{ backgroundColor: 'var(--ta-accent)' }}
               >
                 Done

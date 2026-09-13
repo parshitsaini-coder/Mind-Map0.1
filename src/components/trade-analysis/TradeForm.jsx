@@ -613,28 +613,6 @@ export default function TradeForm({ mode = 'sidebar' }) {
               <Plus size={11} />
               Add Validation
             </motion.button>
-
-            {checkedCount > 0 && (
-              <div className="flex max-h-[80px] flex-wrap gap-1 overflow-y-auto pr-0.5">
-                {form.validationRuleIds.map((id) => {
-                  const rule = activeRules.find((r) => r.id === id)
-                  if (!rule) return null
-                  return (
-                    <span
-                      key={id}
-                      className="flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px]"
-                      style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }}
-                    >
-                      <Check size={9} style={{ color: 'var(--ta-accent)' }} />
-                      {rule.label}
-                      <button type="button" onClick={() => toggleRule(id)} style={{ color: 'var(--ta-slate)' }} title="Untick">
-                        <X size={9} />
-                      </button>
-                    </span>
-                  )
-                })}
-              </div>
-            )}
           </>
         )}
 

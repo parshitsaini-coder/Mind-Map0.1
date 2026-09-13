@@ -102,18 +102,18 @@ export default function ValidationSettingsPanel({ open, onClose }) {
     <AnimatePresence>
       {open && (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.15 }}
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-3 backdrop-blur-sm"
+          initial={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+          animate={{ opacity: 1, backdropFilter: 'blur(4px)' }}
+          exit={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-3"
           onClick={onClose}
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.94 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.94 }}
-            transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+            initial={{ opacity: 0, scale: 0.93, y: 18 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 10 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 28 }}
             onClick={(e) => e.stopPropagation()}
             className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border shadow-2xl"
             style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)' }}
@@ -122,7 +122,13 @@ export default function ValidationSettingsPanel({ open, onClose }) {
             <div className="flex shrink-0 items-start justify-between border-b px-4 py-3" style={{ borderColor: 'var(--ta-slate)' }}>
               <div>
                 <p className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: 'var(--ta-ink)' }}>
-                  <Settings size={15} style={{ color: 'var(--ta-accent)' }} />
+                  <motion.span
+                    whileHover={{ rotate: 90 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 18 }}
+                    className="flex"
+                  >
+                    <Settings size={15} style={{ color: 'var(--ta-accent)' }} />
+                  </motion.span>
                   Validation Settings
                 </p>
                 <p className="mt-0.5 text-[11px]" style={{ color: 'var(--ta-slate)' }}>
@@ -130,7 +136,9 @@ export default function ValidationSettingsPanel({ open, onClose }) {
                 </p>
               </div>
               <motion.button
+                whileHover={{ scale: 1.08, rotate: 90 }}
                 whileTap={{ scale: 0.88 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
                 onClick={onClose}
                 className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md hover:bg-black/5"
                 style={{ color: 'var(--ta-slate)' }}
@@ -150,31 +158,50 @@ export default function ValidationSettingsPanel({ open, onClose }) {
                 <p className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ta-slate)' }}>
                   Categories
                 </p>
-                <div className="flex flex-col gap-1">
+                <motion.div
+                  initial="hidden"
+                  animate="show"
+                  variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05 } } }}
+                  className="flex flex-col gap-1"
+                >
                   {sortedCategories.map((cat, idx) => {
                     const dot = DOT_COLORS[idx % DOT_COLORS.length]
                     const active = cat.id === selectedId
                     return (
-                      <button
+                      <motion.button
                         key={cat.id}
+                        variants={{ hidden: { opacity: 0, x: -8 }, show: { opacity: 1, x: 0 } }}
+                        whileHover={{ x: 2 }}
                         onClick={() => setSelectedId(cat.id)}
-                        className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[11px] transition-colors"
-                        style={{
-                          backgroundColor: active ? 'color-mix(in srgb, var(--ta-accent) 14%, transparent)' : 'transparent',
-                          color: 'var(--ta-ink)',
-                        }}
+                        className="relative flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[11px]"
+                        style={{ color: 'var(--ta-ink)' }}
                       >
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: dot }} />
-                        <span className="flex items-center gap-1 truncate">
+                        {active && (
+                          <motion.span
+                            layoutId="category-active-pill"
+                            transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                            className="absolute inset-0 rounded-lg"
+                            style={{ backgroundColor: 'color-mix(in srgb, var(--ta-accent) 14%, transparent)' }}
+                          />
+                        )}
+                        <span className="relative h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: dot }} />
+                        <span className="relative flex items-center gap-1 truncate">
                           <CategoryIcon name={cat.icon} size={11} style={{ color: 'var(--ta-slate)' }} />
                           <span className="truncate font-medium">{cat.name}</span>
                         </span>
-                        <span
-                          className="ml-auto shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
-                          style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-slate)' }}
-                        >
-                          {activeCountFor(cat.id)}/{totalCountFor(cat.id)}
-                        </span>
+                        <AnimatePresence mode="wait">
+                          <motion.span
+                            key={`${activeCountFor(cat.id)}-${totalCountFor(cat.id)}`}
+                            initial={{ scale: 0.6, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.6, opacity: 0 }}
+                            transition={{ type: 'spring', stiffness: 500, damping: 24 }}
+                            className="relative ml-auto shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
+                            style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-slate)' }}
+                          >
+                            {activeCountFor(cat.id)}/{totalCountFor(cat.id)}
+                          </motion.span>
+                        </AnimatePresence>
                         <span className="flex shrink-0 flex-col">
                           <button
                             type="button"
@@ -203,7 +230,7 @@ export default function ValidationSettingsPanel({ open, onClose }) {
                             <ChevronDown size={10} />
                           </button>
                         </span>
-                      </button>
+                      </motion.button>
                     )
                   })}
                   {sortedCategories.length === 0 && (
@@ -211,7 +238,7 @@ export default function ValidationSettingsPanel({ open, onClose }) {
                       No categories yet.
                     </p>
                   )}
-                </div>
+                </motion.div>
 
                 <div className="mt-1 flex flex-col gap-1.5">
                   <input
@@ -224,9 +251,11 @@ export default function ValidationSettingsPanel({ open, onClose }) {
                     style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
                   />
                   <motion.button
+                    whileHover={{ scale: 1.02, backgroundColor: 'color-mix(in srgb, var(--ta-accent) 10%, var(--ta-bg))' }}
                     whileTap={{ scale: 0.96 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 24 }}
                     onClick={handleAddCategory}
-                    className="flex items-center justify-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold transition-colors hover:brightness-105"
+                    className="flex items-center justify-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold"
                     style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }}
                   >
                     <Plus size={11} />
@@ -244,37 +273,50 @@ export default function ValidationSettingsPanel({ open, onClose }) {
                     </p>
                   ) : (
                     <>
-                      <div className="flex shrink-0 items-start justify-between gap-2">
-                        <div>
-                          <p className="flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: 'var(--ta-ink)' }}>
-                            <CategoryIcon name={selectedCategory.icon} size={14} style={{ color: 'var(--ta-accent)' }} />
-                            {selectedCategory.name}
-                          </p>
-                          <p className="mt-0.5 text-[10px]" style={{ color: 'var(--ta-slate)' }}>
-                            {activeCountFor(selectedCategory.id)} of {totalCountFor(selectedCategory.id)} rules active
-                          </p>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-1.5">
-                          <motion.button
-                            whileTap={{ scale: 0.94 }}
-                            onClick={() => document.getElementById('ta-new-rule-input')?.focus()}
-                            className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold text-white transition-colors hover:brightness-110"
-                            style={{ backgroundColor: 'var(--ta-accent)' }}
-                          >
-                            <Plus size={11} />
-                            Add Rule
-                          </motion.button>
-                          <motion.button
-                            whileTap={{ scale: 0.94 }}
-                            onClick={() => setConfirmDeleteCategoryId(selectedCategory.id)}
-                            className="flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors hover:bg-red-50"
-                            style={{ borderColor: '#dc2626', color: '#dc2626' }}
-                          >
-                            <Trash2 size={11} />
-                            Delete
-                          </motion.button>
-                        </div>
-                      </div>
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={selectedCategory.id}
+                          initial={{ opacity: 0, y: -6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 6 }}
+                          transition={{ duration: 0.16 }}
+                          className="flex shrink-0 items-start justify-between gap-2"
+                        >
+                          <div>
+                            <p className="flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: 'var(--ta-ink)' }}>
+                              <CategoryIcon name={selectedCategory.icon} size={14} style={{ color: 'var(--ta-accent)' }} />
+                              {selectedCategory.name}
+                            </p>
+                            <p className="mt-0.5 text-[10px]" style={{ color: 'var(--ta-slate)' }}>
+                              {activeCountFor(selectedCategory.id)} of {totalCountFor(selectedCategory.id)} rules active
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            <motion.button
+                              whileHover={{ scale: 1.05, boxShadow: '0 3px 14px color-mix(in srgb, var(--ta-accent) 45%, transparent)' }}
+                              whileTap={{ scale: 0.94 }}
+                              transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+                              onClick={() => document.getElementById('ta-new-rule-input')?.focus()}
+                              className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold text-white"
+                              style={{ backgroundColor: 'var(--ta-accent)' }}
+                            >
+                              <Plus size={11} />
+                              Add Rule
+                            </motion.button>
+                            <motion.button
+                              whileHover={{ scale: 1.05, backgroundColor: 'rgba(220,38,38,0.08)' }}
+                              whileTap={{ scale: 0.94 }}
+                              transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+                              onClick={() => setConfirmDeleteCategoryId(selectedCategory.id)}
+                              className="flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold"
+                              style={{ borderColor: '#dc2626', color: '#dc2626' }}
+                            >
+                              <Trash2 size={11} />
+                              Delete
+                            </motion.button>
+                          </div>
+                        </motion.div>
+                      </AnimatePresence>
 
                       <div className="mt-2 flex flex-1 flex-col gap-1.5 overflow-y-auto">
                         {rulesForSelected.length === 0 ? (
@@ -290,6 +332,7 @@ export default function ValidationSettingsPanel({ open, onClose }) {
                                 initial={{ opacity: 0, y: -6 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, x: 12 }}
+                                whileHover={{ y: -1, boxShadow: '0 3px 12px rgba(0,0,0,0.08)' }}
                                 transition={{ duration: 0.16 }}
                                 className="flex items-center gap-2 rounded-lg border px-2 py-1.5"
                                 style={{ borderColor: 'var(--ta-slate)' }}
@@ -402,9 +445,11 @@ export default function ValidationSettingsPanel({ open, onClose }) {
                 ↺ Reset Defaults
               </motion.button>
               <motion.button
+                whileHover={{ scale: 1.04, boxShadow: '0 5px 20px color-mix(in srgb, var(--ta-accent) 50%, transparent)' }}
                 whileTap={{ scale: 0.96 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 22 }}
                 onClick={onClose}
-                className="rounded-md px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:brightness-110"
+                className="rounded-md px-3 py-1.5 text-[11px] font-semibold text-white"
                 style={{ backgroundColor: 'var(--ta-accent)' }}
               >
                 💾 Save Changes
@@ -506,9 +551,10 @@ function ConfirmDialog({ open, title, message, confirmLabel, onCancel, onConfirm
     <AnimatePresence>
       {open && (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          initial={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+          animate={{ opacity: 1, backdropFilter: 'blur(3px)' }}
+          exit={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+          transition={{ duration: 0.18 }}
           className="fixed inset-0 z-[85] flex items-center justify-center bg-black/50 p-4"
           onClick={onCancel}
         >
@@ -528,16 +574,25 @@ function ConfirmDialog({ open, title, message, confirmLabel, onCancel, onConfirm
               {message}
             </p>
             <div className="mt-1 flex justify-end gap-1.5">
-              <button onClick={onCancel} className="rounded-md px-2.5 py-1 text-[10px] font-medium" style={{ color: 'var(--ta-slate)' }}>
+              <motion.button
+                whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
+                whileTap={{ scale: 0.95 }}
+                onClick={onCancel}
+                className="rounded-md px-2.5 py-1 text-[10px] font-medium"
+                style={{ color: 'var(--ta-slate)' }}
+              >
                 Cancel
-              </button>
-              <button
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.04, boxShadow: '0 4px 16px rgba(220,38,38,0.4)' }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 22 }}
                 onClick={onConfirm}
                 className="rounded-md px-2.5 py-1 text-[10px] font-semibold text-white"
                 style={{ backgroundColor: '#dc2626' }}
               >
                 {confirmLabel}
-              </button>
+              </motion.button>
             </div>
           </motion.div>
         </motion.div>

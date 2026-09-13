@@ -122,6 +122,12 @@ export const useMapStore = create(
       nodeGroupClipboard: null,
       cloudStatus: 'idle', // 'idle' | 'saving' | 'saved' | 'error'
       activeProjectId: null,
+      // Section — per-project zoom/pan. Each project remembers its own
+      // camera position (x, y, zoom) so switching tabs doesn't carry over
+      // whatever zoom/pan the previous project's map was left at.
+      // null means "no saved viewport yet" — MindMapCanvas falls back to
+      // fitView() in that case (e.g. a brand-new project).
+      viewport: null,
 
       // Multi-project support — swap the whole canvas over to a different
       // project's saved data. Called by the Tabs bar / Projects dashboard
@@ -151,6 +157,7 @@ export const useMapStore = create(
           edges: data?.edges || [],
           groups: data?.groups || [],
           activityLog: data?.activityLog || [],
+          viewport: data?.viewport || null,
           history: { past: [], future: [] },
         })
       },
@@ -160,9 +167,14 @@ export const useMapStore = create(
       // right before switching away from a project.
       saveProject: (projectId) => {
         if (!projectId) return
-        const { nodes, edges, groups, activityLog } = get()
-        writeProjectData(projectId, { nodes, edges, groups, activityLog })
+        const { nodes, edges, groups, activityLog, viewport } = get()
+        writeProjectData(projectId, { nodes, edges, groups, activityLog, viewport })
       },
+
+      // Called (debounced) by MindMapCanvas whenever the user pans/zooms,
+      // so the current camera position can be persisted per-project instead
+      // of leaking into whichever project is opened next.
+      setViewport: (viewport) => set({ viewport }),
 
       // Section — online account sync (Supabase). Pulls the signed-in
       // user's last-saved map down from the cloud, replacing whatever is
