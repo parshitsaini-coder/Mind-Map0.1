@@ -25,7 +25,22 @@ export const countActiveFilters = (filters) => Object.values(filters).filter(Boo
 export default function FiltersPopover({ open, onClose }) {
   const filters = useTradeAnalysisStore((s) => s.filters)
   const validationRules = useTradeAnalysisStore((s) => s.validationRules)
+  const validationCategories = useTradeAnalysisStore((s) => s.validationCategories)
   const activeCount = countActiveFilters(filters)
+
+  // Step E of trade-analysis-validation-v3-master-prompt.md — group the
+  // rule options by category (in category order) instead of one flat,
+  // unordered list, and prefix each label with its category so the
+  // dropdown reads as sections even though AnimatedSelect only supports a
+  // flat option list.
+  const validationRuleOptions = [...validationCategories]
+    .sort((a, b) => a.order - b.order)
+    .flatMap((cat) =>
+      validationRules
+        .filter((r) => r.categoryId === cat.id)
+        .sort((a, b) => a.order - b.order)
+        .map((r) => ({ value: r.id, label: `${cat.name} · ${r.label}` }))
+    )
 
   const setFilter = (key, value) => useTradeAnalysisStore.getState().setFilter(key, value || null)
 
@@ -162,11 +177,11 @@ export default function FiltersPopover({ open, onClose }) {
                 value={filters.validationRuleId || ''}
                 onChange={(v) => setFilter('validationRuleId', v)}
                 inputCls={inputCls}
-                disabled={validationRules.length === 0}
-                placeholder={validationRules.length === 0 ? 'No rules yet' : 'Any rule'}
+                disabled={validationRuleOptions.length === 0}
+                placeholder={validationRuleOptions.length === 0 ? 'No rules yet' : 'Any rule'}
                 options={[
-                  { value: '', label: validationRules.length === 0 ? 'No rules yet' : 'Any rule' },
-                  ...validationRules.map((r) => ({ value: r.id, label: r.label })),
+                  { value: '', label: validationRuleOptions.length === 0 ? 'No rules yet' : 'Any rule' },
+                  ...validationRuleOptions,
                 ]}
               />
             </label>

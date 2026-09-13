@@ -22,6 +22,7 @@ import { useUiStore } from '../../store/uiStore'
 import { uploadTradeImage } from '../../lib/imageUpload'
 import { INDIAN_STOCKS, FOREX_PAIRS, COMMODITIES } from '../../data/instruments'
 import DatePicker from './DatePicker'
+import ApplyValidationModal from './ApplyValidationModal'
 
 const INSTRUMENT_TYPES = ['Equity', 'Forex', 'Commodity']
 const TIMEFRAMES = ['1m', '3m', '5m', '15m', '30m', '60m', '75m', '2h', '3h', '4h', '1D', '1W', '1M']
@@ -87,6 +88,9 @@ export default function TradeForm({ mode = 'sidebar' }) {
   const [dragActive, setDragActive] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  // Step D of trade-analysis-validation-v3-master-prompt.md — the
+  // categorized checklist now lives in a popup instead of inline.
+  const [validationModalOpen, setValidationModalOpen] = useState(false)
 
   // Prefill (or reset) whenever which trade is being edited changes.
   useEffect(() => {
@@ -559,78 +563,87 @@ export default function TradeForm({ mode = 'sidebar' }) {
         />
       </motion.label>
 
-      {/* 9. Validation checklist */}
+      {/* 9. Validation checklist — Step D of
+          trade-analysis-validation-v3-master-prompt.md. The full
+          categorized checklist now lives in ApplyValidationModal (opened
+          via "Add Validation" below); this section just shows the score
+          badge plus a compact read-only preview of what's ticked so far. */}
       <motion.div variants={itemVariants} className="flex flex-col gap-1">
         <div className="flex items-center justify-between">
           <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>
             <ListChecks size={10} style={{ color: 'var(--ta-accent)' }} />
             Validation
           </span>
-          {scorePct !== null && (
-            <AnimatePresence mode="popLayout">
-              <motion.span
-                key={`${checkedCount}-${activeRules.length}`}
-                initial={{ scale: 0.7, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.7, opacity: 0 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 24 }}
-                className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold"
-                style={{
-                  backgroundColor: 'var(--ta-accent)',
-                  color: '#fffcf2',
-                  boxShadow: '0 1px 6px color-mix(in srgb, var(--ta-accent) 55%, transparent)',
-                }}
-              >
-                {checkedCount}/{activeRules.length} ({scorePct}%)
-              </motion.span>
-            </AnimatePresence>
-          )}
+          <div className="flex items-center gap-1">
+            {scorePct !== null && (
+              <AnimatePresence mode="popLayout">
+                <motion.span
+                  key={`${checkedCount}-${activeRules.length}`}
+                  initial={{ scale: 0.7, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.7, opacity: 0 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 24 }}
+                  className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold"
+                  style={{
+                    backgroundColor: 'var(--ta-accent)',
+                    color: '#fffcf2',
+                    boxShadow: '0 1px 6px color-mix(in srgb, var(--ta-accent) 55%, transparent)',
+                  }}
+                >
+                  {checkedCount}/{activeRules.length} ({scorePct}%)
+                </motion.span>
+              </AnimatePresence>
+            )}
+          </div>
         </div>
+
         {activeRules.length === 0 ? (
           <p className="rounded-md border border-dashed px-1.5 py-1 text-[9px]" style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-slate)' }}>
-            No validation rules yet — add some from the ✚ button up top.
+            No validation rules yet — add some from Validation Settings up top.
           </p>
         ) : (
-          <div className="flex max-h-[100px] flex-col gap-1 overflow-y-auto pr-0.5">
-            {activeRules.map((rule) => {
-              const checked = form.validationRuleIds.includes(rule.id)
-              return (
-                <motion.button
-                  key={rule.id}
-                  type="button"
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => toggleRule(rule.id)}
-                  className="flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-left text-[9px] transition-colors"
-                  style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
-                >
-                  <span
-                    className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border transition-colors"
-                    style={
-                      checked
-                        ? { backgroundColor: 'var(--ta-accent)', borderColor: 'var(--ta-accent)' }
-                        : { borderColor: 'var(--ta-slate)' }
-                    }
-                  >
-                    <AnimatePresence>
-                      {checked && (
-                        <motion.span
-                          initial={{ scale: 0, rotate: -45, opacity: 0 }}
-                          animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                          exit={{ scale: 0, opacity: 0 }}
-                          transition={{ type: 'spring', stiffness: 500, damping: 22 }}
-                          className="flex items-center justify-center"
-                        >
-                          <Check size={10} color="#fffcf2" />
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
-                  </span>
-                  {rule.label}
-                </motion.button>
-              )
-            })}
-          </div>
+          <>
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.97 }}
+              onClick={() => setValidationModalOpen(true)}
+              className="flex items-center justify-center gap-1 rounded-md border border-dashed px-1.5 py-1 text-[10px] font-medium transition-colors hover:bg-black/5"
+              style={{ borderColor: 'var(--ta-accent)', color: 'var(--ta-accent)' }}
+            >
+              <Plus size={11} />
+              Add Validation
+            </motion.button>
+
+            {checkedCount > 0 && (
+              <div className="flex max-h-[80px] flex-wrap gap-1 overflow-y-auto pr-0.5">
+                {form.validationRuleIds.map((id) => {
+                  const rule = activeRules.find((r) => r.id === id)
+                  if (!rule) return null
+                  return (
+                    <span
+                      key={id}
+                      className="flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px]"
+                      style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }}
+                    >
+                      <Check size={9} style={{ color: 'var(--ta-accent)' }} />
+                      {rule.label}
+                      <button type="button" onClick={() => toggleRule(id)} style={{ color: 'var(--ta-slate)' }} title="Untick">
+                        <X size={9} />
+                      </button>
+                    </span>
+                  )
+                })}
+              </div>
+            )}
+          </>
         )}
+
+        <ApplyValidationModal
+          open={validationModalOpen}
+          onClose={() => setValidationModalOpen(false)}
+          checkedIds={form.validationRuleIds}
+          onToggle={toggleRule}
+        />
       </motion.div>
 
       {/* 10. Screenshot upload — while editing, an already-uploaded image

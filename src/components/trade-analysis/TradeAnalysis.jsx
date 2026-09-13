@@ -1,12 +1,12 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, SlidersHorizontal, ShieldPlus, ChevronLeft, ChevronRight, Table2, LineChart, Wallet, Target, List, LayoutGrid } from 'lucide-react'
+import { ArrowLeft, SlidersHorizontal, Settings, ChevronLeft, ChevronRight, Table2, LineChart, Wallet, Target, List, LayoutGrid } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import TradeForm from './TradeForm'
 import TradesTable from './TradesTable'
 import TradeCards from './TradeCards'
-import ValidationRulesModal from './ValidationRulesModal'
+import ValidationSettingsPanel from './ValidationSettingsPanel'
 import EditTradeModal from './EditTradeModal'
 import FiltersPopover, { countActiveFilters } from './FiltersPopover'
 import ThemePicker from './ThemePicker'
@@ -290,13 +290,13 @@ export default function TradeAnalysis() {
                 </div>
                 <motion.button
                   whileTap={{ scale: 0.94 }}
-                  title="Add / manage validation rules"
+                  title="Manage validation categories & rules"
                   onClick={() => setRulesModalOpen(true)}
                   className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium text-white transition-colors hover:brightness-110"
                   style={{ backgroundColor: 'var(--ta-accent)' }}
                 >
-                  <ShieldPlus size={11} />
-                  Add Validation Rule
+                  <Settings size={11} />
+                  Validation Settings
                 </motion.button>
               </div>
             )}
@@ -367,7 +367,7 @@ export default function TradeAnalysis() {
         </motion.div>
         )}
       </AnimatePresence>
-      <ValidationRulesModal open={rulesModalOpen} onClose={() => setRulesModalOpen(false)} />
+      <ValidationSettingsPanel open={rulesModalOpen} onClose={() => setRulesModalOpen(false)} />
       <EditTradeModal />
     </>
   )

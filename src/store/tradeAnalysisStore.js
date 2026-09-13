@@ -11,6 +11,52 @@ import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 // build spec and step-by-step progress tracker (this file only implements
 // Step 0's empty shell — later steps add the real fields/actions).
 
+// Step A of trade-analysis-validation-v3-master-prompt.md — rules now live
+// in named categories instead of one flat list. `validationCategories` is
+// the list of category "folders" (id, name, icon, order); each rule in
+// `validationRules` points back at one via `categoryId`. Seed data below
+// matches the two default categories shown in the Validation Settings
+// design reference exactly.
+const DEFAULT_VALIDATION_CATEGORIES_SEED = [
+  {
+    name: 'Candle Rules',
+    icon: 'Flame',
+    rules: [
+      'Strong bullish/bearish engulfing candle',
+      'No upper/lower wick at zone',
+      'Big body candle (body > 60% of range)',
+      'Candle closes above/below key level',
+      'Low volume on consolidation candles',
+      'Breakout candle on high volume',
+    ],
+  },
+  {
+    name: 'SMC Rules',
+    icon: 'BarChart3',
+    rules: [
+      'Order Block identified on HTF',
+      'Fair Value Gap (FVG) present',
+      'Break of Structure (BOS) confirmed',
+      'Change of Character (CHoCH) seen',
+      'Liquidity swept before entry',
+      'Premium / Discount zone aligned',
+    ],
+  },
+]
+
+function buildDefaultValidationData() {
+  const categories = []
+  const rules = []
+  DEFAULT_VALIDATION_CATEGORIES_SEED.forEach((cat, ci) => {
+    const categoryId = crypto.randomUUID()
+    categories.push({ id: categoryId, name: cat.name, icon: cat.icon, order: ci })
+    cat.rules.forEach((label, ri) => {
+      rules.push({ id: crypto.randomUUID(), categoryId, label, active: true, order: ri })
+    })
+  })
+  return { categories, rules }
+}
+
 const initialState = {
   isOpen: false,
   sidebarOpen: true,
@@ -37,7 +83,10 @@ const initialState = {
 
   trades: [], // { id, name, date, pair, instrumentType, timeframe, direction, price, pnl, notes, validationRuleIds, screenshotUrl, screenshotHosted, resultImageUrl, resultImageHosted, status, createdAt, updatedAt }
 
-  validationRules: [], // { id, label, active }
+  // { id, name, icon, order } — the categories shown in the Validation
+  // Settings panel's left sidebar (e.g. "Candle Rules", "SMC Rules").
+  validationCategories: [],
+  validationRules: [], // { id, categoryId, label, active, order }
 
   filters: {
     pair: null,
@@ -60,7 +109,10 @@ export const useTradeAnalysisStore = create(
     (set, get) => ({
       ...initialState,
 
-      open: () => set({ isOpen: true }),
+      open: () => {
+        set({ isOpen: true })
+        get().ensureValidationSeeded()
+      },
       close: () => set({ isOpen: false, editingTradeId: null }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       setTheme: (theme) => set({ theme }),
@@ -88,11 +140,98 @@ export const useTradeAnalysisStore = create(
       // Validation-rule / filter actions and edit/delete land in Steps 5,
       // 7 & 8.
 
-      // Step 5 — "Manage Validation Rules" popup actions.
-      addValidationRule: (label) =>
+      // Step A of trade-analysis-validation-v3-master-prompt.md — one-time
+      // seed/migration, called from TradeAnalysis.jsx's open(). Safe to
+      // call every time the overlay opens: it's a no-op once categories
+      // already exist and every rule has a categoryId.
+      ensureValidationSeeded: () =>
+        set((s) => {
+          if (s.validationCategories.length === 0 && s.validationRules.length === 0) {
+            const { categories, rules } = buildDefaultValidationData()
+            return { validationCategories: categories, validationRules: rules }
+          }
+          const orphanRules = s.validationRules.filter((r) => !r.categoryId)
+          if (orphanRules.length === 0) return {}
+          // Pre-v3 flat rules (or anything created before this migration
+          // ran) land in a catch-all "General" category instead of being
+          // dropped — never silently delete a user's own custom rules.
+          let general = s.validationCategories.find((c) => c.name === 'General')
+          let categories = s.validationCategories
+          if (!general) {
+            general = { id: crypto.randomUUID(), name: 'General', icon: 'ListChecks', order: categories.length }
+            categories = [...categories, general]
+          }
+          const rules = s.validationRules.map((r, i) =>
+            r.categoryId ? r : { ...r, categoryId: general.id, order: r.order ?? i }
+          )
+          return { validationCategories: categories, validationRules: rules }
+        }),
+
+      // Step B — Validation Settings panel: category actions.
+      addCategory: (name, icon = 'ListChecks') => {
+        const id = crypto.randomUUID()
         set((s) => ({
-          validationRules: [...s.validationRules, { id: crypto.randomUUID(), label, active: true }],
+          validationCategories: [
+            ...s.validationCategories,
+            { id, name: (name || '').trim() || 'Untitled category', icon, order: s.validationCategories.length },
+          ],
+        }))
+        return id
+      },
+      renameCategory: (id, name) =>
+        set((s) => ({
+          validationCategories: s.validationCategories.map((c) => (c.id === id ? { ...c, name } : c)),
         })),
+      // Deletes the category, its rules, and unticks those rules from any
+      // trade that had them checked (so the table's score % stays honest).
+      deleteCategory: (id) =>
+        set((s) => {
+          const removedRuleIds = new Set(s.validationRules.filter((r) => r.categoryId === id).map((r) => r.id))
+          return {
+            validationCategories: s.validationCategories.filter((c) => c.id !== id),
+            validationRules: s.validationRules.filter((r) => r.categoryId !== id),
+            trades: s.trades.map((t) =>
+              (t.validationRuleIds || []).some((rid) => removedRuleIds.has(rid))
+                ? { ...t, validationRuleIds: t.validationRuleIds.filter((rid) => !removedRuleIds.has(rid)) }
+                : t
+            ),
+          }
+        }),
+      reorderCategory: (id, direction) =>
+        set((s) => {
+          const sorted = [...s.validationCategories].sort((a, b) => a.order - b.order)
+          const idx = sorted.findIndex((c) => c.id === id)
+          const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+          if (idx === -1 || swapIdx < 0 || swapIdx >= sorted.length) return {}
+          const a = sorted[idx]
+          const b = sorted[swapIdx]
+          return {
+            validationCategories: s.validationCategories.map((c) => {
+              if (c.id === a.id) return { ...c, order: b.order }
+              if (c.id === b.id) return { ...c, order: a.order }
+              return c
+            }),
+          }
+        }),
+      resetValidationDefaults: () => {
+        const { categories, rules } = buildDefaultValidationData()
+        set({ validationCategories: categories, validationRules: rules })
+      },
+
+      // Step B/D — rule actions, now scoped to a category.
+      addValidationRule: (categoryId, label) => {
+        const trimmed = (label || '').trim()
+        if (!trimmed || !categoryId) return
+        set((s) => {
+          const siblingCount = s.validationRules.filter((r) => r.categoryId === categoryId).length
+          return {
+            validationRules: [
+              ...s.validationRules,
+              { id: crypto.randomUUID(), categoryId, label: trimmed, active: true, order: siblingCount },
+            ],
+          }
+        })
+      },
       updateValidationRuleLabel: (id, label) =>
         set((s) => ({
           validationRules: s.validationRules.map((r) => (r.id === id ? { ...r, label } : r)),
@@ -102,17 +241,35 @@ export const useTradeAnalysisStore = create(
           validationRules: s.validationRules.map((r) => (r.id === id ? { ...r, active: !r.active } : r)),
         })),
       deleteValidationRule: (id) =>
-        set((s) => ({ validationRules: s.validationRules.filter((r) => r.id !== id) })),
-      // Optional nice-to-have drag-to-reorder — implemented as simple
-      // up/down moves rather than a pointer-drag lib, same net effect.
+        set((s) => ({
+          validationRules: s.validationRules.filter((r) => r.id !== id),
+          trades: s.trades.map((t) =>
+            (t.validationRuleIds || []).includes(id)
+              ? { ...t, validationRuleIds: t.validationRuleIds.filter((rid) => rid !== id) }
+              : t
+          ),
+        })),
+      // Reorders a rule up/down within its own category — a rule in
+      // "SMC Rules" never swaps places with one in "Candle Rules".
       moveValidationRule: (id, direction) =>
         set((s) => {
-          const idx = s.validationRules.findIndex((r) => r.id === id)
+          const rule = s.validationRules.find((r) => r.id === id)
+          if (!rule) return {}
+          const siblings = s.validationRules
+            .filter((r) => r.categoryId === rule.categoryId)
+            .sort((a, b) => a.order - b.order)
+          const idx = siblings.findIndex((r) => r.id === id)
           const swapIdx = direction === 'up' ? idx - 1 : idx + 1
-          if (idx === -1 || swapIdx < 0 || swapIdx >= s.validationRules.length) return {}
-          const next = [...s.validationRules]
-          ;[next[idx], next[swapIdx]] = [next[swapIdx], next[idx]]
-          return { validationRules: next }
+          if (swapIdx < 0 || swapIdx >= siblings.length) return {}
+          const a = siblings[idx]
+          const b = siblings[swapIdx]
+          return {
+            validationRules: s.validationRules.map((r) => {
+              if (r.id === a.id) return { ...r, order: b.order }
+              if (r.id === b.id) return { ...r, order: a.order }
+              return r
+            }),
+          }
         }),
 
       // Step 6 — right-panel entries table actions (status edit, result
@@ -173,13 +330,14 @@ export const useTradeAnalysisStore = create(
         if (!isSupabaseConfigured || !userId) return
         const { data, error } = await supabase
           .from('trade_analysis')
-          .select('trades, validation_rules')
+          .select('trades, validation_rules, validation_categories')
           .eq('user_id', userId)
           .maybeSingle()
         if (error) return
 
         const cloudTrades = data?.trades || []
         const cloudRules = data?.validation_rules || []
+        const cloudCategories = data?.validation_categories || []
         const { trades: localTrades, validationRules: localRules } = get()
         const cloudIsEmpty = cloudTrades.length === 0 && cloudRules.length === 0
         const localHasData = localTrades.length > 0 || localRules.length > 0
@@ -196,15 +354,21 @@ export const useTradeAnalysisStore = create(
         set({
           trades: cloudTrades,
           validationRules: cloudRules,
+          validationCategories: cloudCategories,
         })
+        get().ensureValidationSeeded()
       },
       saveToCloud: async (userId) => {
         if (!isSupabaseConfigured || !userId) return
         set({ cloudStatus: 'saving' })
-        const { trades, validationRules } = get()
-        const { error } = await supabase
-          .from('trade_analysis')
-          .upsert({ user_id: userId, trades, validation_rules: validationRules, updated_at: new Date().toISOString() })
+        const { trades, validationRules, validationCategories } = get()
+        const { error } = await supabase.from('trade_analysis').upsert({
+          user_id: userId,
+          trades,
+          validation_rules: validationRules,
+          validation_categories: validationCategories,
+          updated_at: new Date().toISOString(),
+        })
         set({ cloudStatus: error ? 'error' : 'saved' })
       },
     }),
@@ -216,6 +380,7 @@ export const useTradeAnalysisStore = create(
       partialize: (state) => ({
         trades: state.trades,
         validationRules: state.validationRules,
+        validationCategories: state.validationCategories,
         sidebarOpen: state.sidebarOpen,
         theme: state.theme,
         activeView: state.activeView,

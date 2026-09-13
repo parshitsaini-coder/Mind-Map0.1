@@ -76,6 +76,7 @@ create table public.trade_analysis (
   user_id uuid primary key references auth.users(id) on delete cascade,
   trades jsonb not null default '[]',
   validation_rules jsonb not null default '[]',
+  validation_categories jsonb not null default '[]',
   updated_at timestamptz not null default now()
 );
 
@@ -92,6 +93,14 @@ create policy "Users can insert own trade data"
 create policy "Users can update own trade data"
   on public.trade_analysis for update
   using (auth.uid() = user_id);
+```
+
+Already created this table before the Validation Settings categories feature?
+Just add the new column instead of recreating the table:
+
+```sql
+alter table public.trade_analysis
+  add column if not exists validation_categories jsonb not null default '[]';
 ```
 
 ## 3c. Create the `live_shares` table (optional — Live share links)
