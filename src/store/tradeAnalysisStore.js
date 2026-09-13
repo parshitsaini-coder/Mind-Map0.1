@@ -88,13 +88,17 @@ const initialState = {
   validationCategories: [],
   validationRules: [], // { id, categoryId, label, active, order }
 
+  // Multi-select filters — pair/instrumentType/timeframe/direction/status/
+  // validationRuleId each hold an ARRAY of selected values (empty array =
+  // no restriction, matches everything). dateFrom/dateTo stay single
+  // values since a date range only ever has one start and one end.
   filters: {
-    pair: null,
-    instrumentType: null,
-    timeframe: null,
-    direction: null,
-    status: null,
-    validationRuleId: null,
+    pair: [],
+    instrumentType: [],
+    timeframe: [],
+    direction: [],
+    status: [],
+    validationRuleId: [],
     dateFrom: null,
     dateTo: null,
   },
@@ -314,10 +318,22 @@ export const useTradeAnalysisStore = create(
         })),
 
       // Step 7 — Filters popover actions. `filters` shape lives in
-      // initialState above; `setFilter` writes one key at a time (null
-      // clears that single filter), `clearFilters` resets the whole set.
+      // initialState above. `setFilter` writes one key at a time — used
+      // for the single-value date range (null clears that one filter).
+      // `toggleFilterValue` is for the multi-select fields: adds `value`
+      // to that key's array if absent, removes it if present, so each
+      // filter can hold several selections at once. `clearFilters` resets
+      // the whole set back to empty arrays / null dates.
       setFilter: (key, value) =>
         set((s) => ({ filters: { ...s.filters, [key]: value } })),
+      toggleFilterValue: (key, value) =>
+        set((s) => {
+          const current = s.filters[key] || []
+          const next = current.includes(value)
+            ? current.filter((v) => v !== value)
+            : [...current, value]
+          return { filters: { ...s.filters, [key]: next } }
+        }),
       clearFilters: () => set({ filters: { ...initialState.filters } }),
 
       // Step 9 — optional cloud sync (stretch goal). Same shape as

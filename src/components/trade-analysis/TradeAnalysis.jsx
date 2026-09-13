@@ -34,10 +34,13 @@ function ViewSwitch({ activeView, onChange }) {
       {tabs.map((tab) => {
         const active = activeView === tab.id
         return (
-          <button
+          <motion.button
             key={tab.id}
             onClick={() => onChange(tab.id)}
-            className="relative flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors"
+            whileHover={{ scale: 1.06 }}
+            whileTap={{ scale: 0.92 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 24 }}
+            className="relative flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
             style={{ color: active ? '#fffcf2' : 'var(--ta-ink)' }}
           >
             {active && (
@@ -48,9 +51,15 @@ function ViewSwitch({ activeView, onChange }) {
                 style={{ backgroundColor: 'var(--ta-accent)' }}
               />
             )}
-            <tab.icon size={10} className="relative" />
+            <motion.span
+              className="relative flex"
+              animate={active ? { rotate: [0, -12, 0] } : { rotate: 0 }}
+              transition={{ duration: 0.35, ease: 'easeOut' }}
+            >
+              <tab.icon size={10} />
+            </motion.span>
             <span className="relative">{tab.label}</span>
-          </button>
+          </motion.button>
         )
       })}
     </div>
@@ -74,11 +83,14 @@ function EntriesViewSwitch({ activeEntriesView, onChange }) {
       {options.map((opt) => {
         const active = activeEntriesView === opt.id
         return (
-          <button
+          <motion.button
             key={opt.id}
             onClick={() => onChange(opt.id)}
             title={opt.id === 'list' ? 'Row table view' : 'Card grid view'}
-            className="relative flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors"
+            whileHover={{ scale: 1.06 }}
+            whileTap={{ scale: 0.9 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 24 }}
+            className="relative flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
             style={{ color: active ? '#fffcf2' : 'var(--ta-ink)' }}
           >
             {active && (
@@ -89,9 +101,15 @@ function EntriesViewSwitch({ activeEntriesView, onChange }) {
                 style={{ backgroundColor: 'var(--ta-accent)' }}
               />
             )}
-            <opt.icon size={10} className="relative" />
+            <motion.span
+              className="relative flex"
+              animate={active ? { scale: [0.7, 1.15, 1] } : { scale: 1 }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+            >
+              <opt.icon size={10} />
+            </motion.span>
             <span className="relative hidden sm:inline">{opt.label}</span>
-          </button>
+          </motion.button>
         )
       })}
     </div>
@@ -114,9 +132,10 @@ function StatsPills({ trades }) {
         key={`pnl-${totalPnl}-${tradesWithPnl}`}
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
+        whileHover={{ scale: 1.06, y: -1 }}
         transition={{ type: 'spring', stiffness: 420, damping: 20 }}
         title={tradesWithPnl ? `Total P&L across ${tradesWithPnl} logged trade${tradesWithPnl === 1 ? '' : 's'}` : 'No P&L logged yet'}
-        className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
+        className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm"
         style={
           pnlPositive
             ? { backgroundColor: 'rgba(22,163,74,0.14)', color: '#16a34a' }
@@ -125,7 +144,13 @@ function StatsPills({ trades }) {
               : { backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }
         }
       >
-        <Wallet size={11} />
+        <motion.span
+          className="flex"
+          animate={pnlPositive ? { y: [0, -2, 0] } : pnlNegative ? { y: [0, 2, 0] } : {}}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
+        >
+          <Wallet size={11} />
+        </motion.span>
         Total P&L
         <span>{tradesWithPnl ? `${totalPnl > 0 ? '+' : ''}${totalPnl.toLocaleString('en-IN')}` : '—'}</span>
       </motion.div>
@@ -134,14 +159,16 @@ function StatsPills({ trades }) {
         key={`wr-${winRatePct}`}
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
+        whileHover={{ scale: 1.06, y: -1 }}
         transition={{ type: 'spring', stiffness: 420, damping: 20, delay: 0.03 }}
         title="Win rate across resolved trades (Target Hit vs SL Hit)"
-        className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
+        className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm"
         style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }}
       >
         <motion.span
           initial={{ rotate: -90, opacity: 0 }}
           animate={{ rotate: 0, opacity: 1 }}
+          whileHover={{ rotate: 20 }}
           transition={{ type: 'spring', stiffness: 260, damping: 16 }}
           className="flex"
           style={{ color: 'var(--ta-accent)' }}
@@ -230,7 +257,9 @@ export default function TradeAnalysis() {
             style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)' }}
           >
             <motion.button
+              whileHover={{ x: -2 }}
               whileTap={{ scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 24 }}
               onClick={() => useTradeAnalysisStore.getState().close()}
               title="Back to mind map (Esc)"
               className="flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium transition-colors hover:bg-black/5"
@@ -265,37 +294,56 @@ export default function TradeAnalysis() {
                 />
                 <div className="relative">
                   <motion.button
+                    whileHover={{ scale: 1.04, y: -1 }}
                     whileTap={{ scale: 0.94 }}
+                    transition={{ type: 'spring', stiffness: 480, damping: 22 }}
                     title="Filters"
                     onClick={() => setFiltersOpen((o) => !o)}
-                    className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium transition-colors hover:brightness-95"
+                    className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium shadow-sm"
                     style={
                       filtersOpen || activeFilterCount > 0
                         ? { backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }
                         : { backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }
                     }
                   >
-                    <SlidersHorizontal size={11} />
+                    <motion.span
+                      className="flex"
+                      animate={{ rotate: filtersOpen ? 90 : 0 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+                    >
+                      <SlidersHorizontal size={11} />
+                    </motion.span>
                     Filters
-                    {activeFilterCount > 0 && (
-                      <span
-                        className="flex h-3 min-w-[12px] items-center justify-center rounded-full px-1 text-[8px] font-bold"
-                        style={{ backgroundColor: '#fffcf2', color: 'var(--ta-accent)' }}
-                      >
-                        {activeFilterCount}
-                      </span>
-                    )}
+                    <AnimatePresence mode="popLayout">
+                      {activeFilterCount > 0 && (
+                        <motion.span
+                          key={activeFilterCount}
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0, opacity: 0 }}
+                          transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                          className="flex h-3 min-w-[12px] items-center justify-center rounded-full px-1 text-[8px] font-bold"
+                          style={{ backgroundColor: '#fffcf2', color: 'var(--ta-accent)' }}
+                        >
+                          {activeFilterCount}
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
                   </motion.button>
                   <FiltersPopover open={filtersOpen} onClose={() => setFiltersOpen(false)} />
                 </div>
                 <motion.button
+                  whileHover={{ scale: 1.04, y: -1, boxShadow: '0 4px 14px rgba(0,0,0,0.18)' }}
                   whileTap={{ scale: 0.94 }}
+                  transition={{ type: 'spring', stiffness: 480, damping: 22 }}
                   title="Manage validation categories & rules"
                   onClick={() => setRulesModalOpen(true)}
-                  className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium text-white transition-colors hover:brightness-110"
+                  className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium text-white"
                   style={{ backgroundColor: 'var(--ta-accent)' }}
                 >
-                  <Settings size={11} />
+                  <motion.span className="flex" whileHover={{ rotate: 90 }} transition={{ type: 'spring', stiffness: 300, damping: 18 }}>
+                    <Settings size={11} />
+                  </motion.span>
                   Validation Settings
                 </motion.button>
               </div>

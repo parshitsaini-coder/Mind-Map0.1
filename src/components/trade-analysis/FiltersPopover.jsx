@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { INDIAN_STOCKS, FOREX_PAIRS, COMMODITIES } from '../../data/instruments'
-import AnimatedSelect from './AnimatedSelect'
+import AnimatedMultiSelect from './AnimatedMultiSelect'
 
 const INSTRUMENT_TYPES = ['Equity', 'Forex', 'Commodity']
 const TIMEFRAMES = ['1m', '3m', '5m', '15m', '30m', '60m', '75m', '2h', '3h', '4h', '1D', '1W', '1M']
@@ -14,8 +14,11 @@ const STATUS_OPTIONS = ['Pending', 'Target Hit', 'SL Hit']
 const ALL_PAIRS = [...INDIAN_STOCKS, ...FOREX_PAIRS, ...COMMODITIES]
 
 // Number of filters currently set — drives the badge on the Filters
-// button in TradeAnalysis.jsx's top bar.
-export const countActiveFilters = (filters) => Object.values(filters).filter(Boolean).length
+// button in TradeAnalysis.jsx's top bar. Multi-select fields (arrays)
+// count as active when non-empty; the date fields count as active when
+// set, same as before.
+export const countActiveFilters = (filters) =>
+  Object.values(filters).filter((v) => (Array.isArray(v) ? v.length > 0 : Boolean(v))).length
 
 // Step 7 of trade-analysis-master-prompt.md — the Filters popover behind
 // the top bar's Filters button. Anchored dropdown (not a full modal),
@@ -43,6 +46,7 @@ export default function FiltersPopover({ open, onClose }) {
     )
 
   const setFilter = (key, value) => useTradeAnalysisStore.getState().setFilter(key, value || null)
+  const toggleFilterValue = (key, value) => useTradeAnalysisStore.getState().toggleFilterValue(key, value)
 
   const fieldLabelCls = 'text-[10px] font-medium uppercase tracking-wide'
   const inputCls =
@@ -56,10 +60,10 @@ export default function FiltersPopover({ open, onClose }) {
               but above everything else in the overlay. */}
           <div className="fixed inset-0 z-[65]" onClick={onClose} />
           <motion.div
-            initial={{ opacity: 0, y: -6, scale: 0.98 }}
+            initial={{ opacity: 0, y: -4, scale: 0.99 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.98 }}
-            transition={{ duration: 0.14, ease: 'easeOut' }}
+            exit={{ opacity: 0, y: -4, scale: 0.99 }}
+            transition={{ duration: 0.1, ease: 'easeOut' }}
             onClick={(e) => e.stopPropagation()}
             className="ta-glass-popover absolute right-0 top-full z-[66] mt-1.5 flex w-72 flex-col gap-3 rounded-lg border p-3 shadow-xl"
             style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)' }}
@@ -82,12 +86,12 @@ export default function FiltersPopover({ open, onClose }) {
             {/* Pair */}
             <label className="flex flex-col gap-1">
               <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Pair</span>
-              <AnimatedSelect
-                value={filters.pair || ''}
-                onChange={(v) => setFilter('pair', v)}
+              <AnimatedMultiSelect
+                values={filters.pair || []}
+                onToggle={(v) => toggleFilterValue('pair', v)}
                 inputCls={inputCls}
                 placeholder="All pairs"
-                options={[{ value: '', label: 'All pairs' }, ...ALL_PAIRS.map((i) => ({ value: i.symbol, label: i.symbol }))]}
+                options={ALL_PAIRS.map((i) => ({ value: i.symbol, label: i.symbol }))}
               />
             </label>
 
@@ -96,14 +100,14 @@ export default function FiltersPopover({ open, onClose }) {
               <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Type</span>
               <div className="grid grid-cols-4 gap-1">
                 {['All', ...INSTRUMENT_TYPES].map((t) => {
-                  const value = t === 'All' ? null : t
-                  const active = filters.instrumentType === value
+                  const isAll = t === 'All'
+                  const active = isAll ? (filters.instrumentType || []).length === 0 : (filters.instrumentType || []).includes(t)
                   return (
                     <motion.button
                       key={t}
                       type="button"
                       whileTap={{ scale: 0.94 }}
-                      onClick={() => setFilter('instrumentType', value)}
+                      onClick={() => (isAll ? setFilter('instrumentType', []) : toggleFilterValue('instrumentType', t))}
                       className="rounded-md border py-1 text-[9.5px] font-medium transition-colors"
                       style={
                         active
@@ -121,12 +125,12 @@ export default function FiltersPopover({ open, onClose }) {
             {/* Timeframe */}
             <label className="flex flex-col gap-1">
               <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Time frame</span>
-              <AnimatedSelect
-                value={filters.timeframe || ''}
-                onChange={(v) => setFilter('timeframe', v)}
+              <AnimatedMultiSelect
+                values={filters.timeframe || []}
+                onToggle={(v) => toggleFilterValue('timeframe', v)}
                 inputCls={inputCls}
                 placeholder="All time frames"
-                options={[{ value: '', label: 'All time frames' }, ...TIMEFRAMES.map((tf) => ({ value: tf, label: tf }))]}
+                options={TIMEFRAMES.map((tf) => ({ value: tf, label: tf }))}
               />
             </label>
 
@@ -135,15 +139,15 @@ export default function FiltersPopover({ open, onClose }) {
               <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Direction</span>
               <div className="grid grid-cols-3 gap-1">
                 {['All', 'Buy', 'Sell'].map((d) => {
-                  const value = d === 'All' ? null : d
-                  const active = filters.direction === value
+                  const isAll = d === 'All'
+                  const active = isAll ? (filters.direction || []).length === 0 : (filters.direction || []).includes(d)
                   const activeColor = d === 'Buy' ? '#16a34a' : d === 'Sell' ? '#dc2626' : 'var(--ta-accent)'
                   return (
                     <motion.button
                       key={d}
                       type="button"
                       whileTap={{ scale: 0.94 }}
-                      onClick={() => setFilter('direction', value)}
+                      onClick={() => (isAll ? setFilter('direction', []) : toggleFilterValue('direction', d))}
                       className="rounded-md border py-1 text-[9.5px] font-semibold transition-colors"
                       style={
                         active
@@ -161,28 +165,25 @@ export default function FiltersPopover({ open, onClose }) {
             {/* Status */}
             <label className="flex flex-col gap-1">
               <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Status</span>
-              <AnimatedSelect
-                value={filters.status || ''}
-                onChange={(v) => setFilter('status', v)}
+              <AnimatedMultiSelect
+                values={filters.status || []}
+                onToggle={(v) => toggleFilterValue('status', v)}
                 inputCls={inputCls}
                 placeholder="All statuses"
-                options={[{ value: '', label: 'All statuses' }, ...STATUS_OPTIONS.map((s) => ({ value: s, label: s }))]}
+                options={STATUS_OPTIONS.map((s) => ({ value: s, label: s }))}
               />
             </label>
 
             {/* Validation rule */}
             <label className="flex flex-col gap-1">
               <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Validation rule met</span>
-              <AnimatedSelect
-                value={filters.validationRuleId || ''}
-                onChange={(v) => setFilter('validationRuleId', v)}
+              <AnimatedMultiSelect
+                values={filters.validationRuleId || []}
+                onToggle={(v) => toggleFilterValue('validationRuleId', v)}
                 inputCls={inputCls}
                 disabled={validationRuleOptions.length === 0}
                 placeholder={validationRuleOptions.length === 0 ? 'No rules yet' : 'Any rule'}
-                options={[
-                  { value: '', label: validationRuleOptions.length === 0 ? 'No rules yet' : 'Any rule' },
-                  ...validationRuleOptions,
-                ]}
+                options={validationRuleOptions}
               />
             </label>
 

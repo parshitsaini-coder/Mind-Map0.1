@@ -87,12 +87,15 @@ export default function TradesTable() {
   // of the ones that are set.
   const filteredTrades = useMemo(() => {
     return trades.filter((t) => {
-      if (filters.pair && t.pair !== filters.pair) return false
-      if (filters.instrumentType && t.instrumentType !== filters.instrumentType) return false
-      if (filters.timeframe && t.timeframe !== filters.timeframe) return false
-      if (filters.direction && t.direction !== filters.direction) return false
-      if (filters.status && t.status !== filters.status) return false
-      if (filters.validationRuleId && !(t.validationRuleIds || []).includes(filters.validationRuleId)) return false
+      // Multi-select filters: an empty array means "no restriction"; a
+      // non-empty array matches if the trade's value is ANY of the
+      // selected values (OR within a field, AND across fields).
+      if (filters.pair?.length && !filters.pair.includes(t.pair)) return false
+      if (filters.instrumentType?.length && !filters.instrumentType.includes(t.instrumentType)) return false
+      if (filters.timeframe?.length && !filters.timeframe.includes(t.timeframe)) return false
+      if (filters.direction?.length && !filters.direction.includes(t.direction)) return false
+      if (filters.status?.length && !filters.status.includes(t.status)) return false
+      if (filters.validationRuleId?.length && !(t.validationRuleIds || []).some((id) => filters.validationRuleId.includes(id))) return false
       if (filters.dateFrom && t.date < filters.dateFrom) return false
       if (filters.dateTo && t.date > filters.dateTo) return false
       return true
