@@ -14,6 +14,7 @@ import ThemePicker from './ThemePicker'
 import AnalysisTab from './analysis/AnalysisTab'
 import { tradeThemeCssVars, isGlassTheme } from '../../theme/tradeAnalysisThemes'
 import { getKpis } from '../../utils/tradeAnalytics'
+import { splitTradesByCurrency } from '../../utils/currency'
 import { generateTradeReport } from '../../utils/generateTradeReport'
 import { useUiStore } from '../../store/uiStore'
 
@@ -119,44 +120,63 @@ function EntriesViewSwitch({ activeEntriesView, onChange }) {
   )
 }
 
-// "Pow" pass — Total P&L and Win Rate summary pills, sitting between the
-// Table/Analysis toggle and the Filters/Add Validation Rule group so
-// they're visible in both views. Purely derived from `trades` via
-// getKpis; re-pop with a little spring whenever the underlying number
-// changes (new trade, edited P&L, status flip).
-function StatsPills({ trades }) {
-  const { totalPnl, winRatePct, tradesWithPnl } = getKpis(trades)
+// One currency-scoped "Total P&L" pill — used twice below (Equity ₹,
+// Forex+Commodity $) instead of a single pill that summed both
+// currencies into one meaningless number. Hidden entirely when the
+// person hasn't logged any trade of that instrument group yet, so an
+// equity-only trader never sees an empty "$0" pill.
+function PnlPill({ label, symbol, groupTrades, delay = 0 }) {
+  const { totalPnl, tradesWithPnl } = getKpis(groupTrades)
   const pnlPositive = tradesWithPnl > 0 && totalPnl > 0
   const pnlNegative = tradesWithPnl > 0 && totalPnl < 0
 
+  if (groupTrades.length === 0) return null
+
+  return (
+    <motion.div
+      key={`pnl-${label}-${totalPnl}-${tradesWithPnl}`}
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      whileHover={{ scale: 1.06, y: -1 }}
+      transition={{ type: 'spring', stiffness: 420, damping: 20, delay }}
+      title={tradesWithPnl ? `${label} P&L across ${tradesWithPnl} logged trade${tradesWithPnl === 1 ? '' : 's'}` : `No ${label} P&L logged yet`}
+      className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm"
+      style={
+        pnlPositive
+          ? { backgroundColor: 'rgba(22,163,74,0.14)', color: '#16a34a' }
+          : pnlNegative
+            ? { backgroundColor: 'rgba(220,38,38,0.14)', color: '#dc2626' }
+            : { backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }
+      }
+    >
+      <motion.span
+        className="flex"
+        animate={pnlPositive ? { y: [0, -2, 0] } : pnlNegative ? { y: [0, 2, 0] } : {}}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+      >
+        <Wallet size={11} />
+      </motion.span>
+      {label} P&L
+      <span>{tradesWithPnl ? `${totalPnl > 0 ? '+' : ''}${symbol}${Math.abs(totalPnl).toLocaleString('en-IN')}` : '—'}</span>
+    </motion.div>
+  )
+}
+
+// "Pow" pass — Total P&L (now split by currency — Equity trades in ₹
+// can never be added to Forex/Commodity trades in $) and Win Rate
+// summary pills, sitting between the Table/Analysis toggle and the
+// Filters / Add Validation Rule group so they're visible in both views.
+// Purely derived from `trades` via getKpis; re-pop with a little spring
+// whenever the underlying number changes (new trade, edited P&L, status
+// flip).
+function StatsPills({ trades }) {
+  const { INR: equityTrades, USD: fxTrades } = splitTradesByCurrency(trades)
+  const { winRatePct } = getKpis(trades)
+
   return (
     <div className="ml-2 flex shrink-0 items-center gap-1.5">
-      <motion.div
-        key={`pnl-${totalPnl}-${tradesWithPnl}`}
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        whileHover={{ scale: 1.06, y: -1 }}
-        transition={{ type: 'spring', stiffness: 420, damping: 20 }}
-        title={tradesWithPnl ? `Total P&L across ${tradesWithPnl} logged trade${tradesWithPnl === 1 ? '' : 's'}` : 'No P&L logged yet'}
-        className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm"
-        style={
-          pnlPositive
-            ? { backgroundColor: 'rgba(22,163,74,0.14)', color: '#16a34a' }
-            : pnlNegative
-              ? { backgroundColor: 'rgba(220,38,38,0.14)', color: '#dc2626' }
-              : { backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }
-        }
-      >
-        <motion.span
-          className="flex"
-          animate={pnlPositive ? { y: [0, -2, 0] } : pnlNegative ? { y: [0, 2, 0] } : {}}
-          transition={{ duration: 0.5, ease: 'easeOut' }}
-        >
-          <Wallet size={11} />
-        </motion.span>
-        Total P&L
-        <span>{tradesWithPnl ? `${totalPnl > 0 ? '+' : ''}${totalPnl.toLocaleString('en-IN')}` : '—'}</span>
-      </motion.div>
+      <PnlPill label="Equity" symbol="₹" groupTrades={equityTrades} />
+      <PnlPill label="Forex/Comm." symbol="$" groupTrades={fxTrades} delay={0.03} />
 
       <motion.div
         key={`wr-${winRatePct}`}

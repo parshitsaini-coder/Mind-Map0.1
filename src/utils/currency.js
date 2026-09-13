@@ -24,6 +24,25 @@ export const currencyForType = (instrumentType) => CURRENCY_BY_TYPE[instrumentTy
 
 export const symbolForType = (instrumentType) => CURRENCY_SYMBOL[currencyForType(instrumentType)]
 
+// Splits a trade list into the two currency groups the app ever deals
+// with: Equity (₹) on one side, Forex + Commodity (both settle in $) on
+// the other. Every P&L total/average/best-trade/trend anywhere in the
+// app (top-bar pills, Analysis tab, PDF report) must be computed
+// separately per group — summing raw ₹ and $ numbers together produces a
+// meaningless figure, so nothing should ever call reduce() on a mixed
+// `trades` array to get a money total. This is the one place that split
+// happens; every P&L widget below calls this instead of re-deriving it.
+export const splitTradesByCurrency = (trades) => ({
+  INR: trades.filter((t) => currencyForType(t.instrumentType) === 'INR'),
+  USD: trades.filter((t) => currencyForType(t.instrumentType) === 'USD'),
+})
+
+// Display label for each currency group's P&L widgets.
+export const CURRENCY_GROUP_LABEL = {
+  INR: 'Equity',
+  USD: 'Forex & Commodity',
+}
+
 // Formats a raw number with the right symbol and a leading +/- sign for
 // P&L display (e.g. `formatSignedAmount(-450, 'Forex')` -> "-$450").
 // Plain (unsigned) price display should just do

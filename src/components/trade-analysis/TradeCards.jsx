@@ -364,27 +364,50 @@ export default function TradeCards() {
                     )}
                   </div>
 
-                  {/* Validation badges */}
-                  <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1 self-start">
-                    {checkedRules.slice(0, 3).map((label) => (
+                  {/* Validation score — the thumbnails row keeps only the
+                      compact N/Total pill; the individual rule badges now
+                      live in their own full-width row below, where up to
+                      10 of them have room to wrap cleanly across the
+                      card instead of being squeezed into this row's
+                      leftover space. */}
+                  {trade.validationScore && (
+                    <span
+                      className="ml-auto shrink-0 self-start rounded-full px-1.5 py-0.5 text-[7.5px] font-semibold"
+                      style={{ backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }}
+                    >
+                      {trade.validationScore.checked}/{trade.validationScore.total}
+                    </span>
+                  )}
+                </div>
+
+                {/* Validation badges — full-width wrap row, up to 10 rule
+                    labels. Sits on its own line (rather than squeezed
+                    beside the thumbnails) so a trade with many checked
+                    rules still reads cleanly instead of truncating after
+                    just 3. */}
+                {checkedRules.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1">
+                    {checkedRules.slice(0, 10).map((label) => (
                       <span
                         key={label}
                         className="truncate rounded-full px-1.5 py-0.5 text-[7.5px]"
-                        style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)', maxWidth: 64 }}
+                        style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)', maxWidth: 96 }}
+                        title={label}
                       >
                         {label}
                       </span>
                     ))}
-                    {trade.validationScore && (
+                    {checkedRules.length > 10 && (
                       <span
                         className="shrink-0 rounded-full px-1.5 py-0.5 text-[7.5px] font-semibold"
-                        style={{ backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }}
+                        style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-slate)' }}
+                        title={checkedRules.slice(10).join(', ')}
                       >
-                        {trade.validationScore.checked}/{trade.validationScore.total}
+                        +{checkedRules.length - 10} more
                       </span>
                     )}
                   </div>
-                </div>
+                )}
 
                 {/* Notes — collapsed to one line, expandable */}
                 {trade.notes && (

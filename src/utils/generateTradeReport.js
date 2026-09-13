@@ -9,6 +9,7 @@ import {
   getTimeframeUsage,
   getQuickStats,
 } from './tradeAnalytics'
+import { splitTradesByCurrency, CURRENCY_GROUP_LABEL, symbolForType } from './currency'
 
 // Trade Analysis → "Report" button. Builds a multi-page PDF entirely on
 // the client with jsPDF: page 1 is a dashboard of analytics widgets (the
@@ -29,7 +30,7 @@ const RED = [220, 38, 38]
 const AMBER = [217, 119, 6]
 const CARD_BG = [248, 250, 252]
 
-const fmtMoney = (n) => `${n < 0 ? '-' : ''}₹${Math.abs(Math.round(n)).toLocaleString('en-IN')}`
+const fmtMoney = (n, symbol = '₹') => `${n < 0 ? '-' : ''}${symbol}${Math.abs(Math.round(n)).toLocaleString('en-IN')}`
 const fmtPct = (n) => (n == null ? '—' : `${n.toFixed(0)}%`)
 
 // Turns any image source (data URL already, or a hosted http(s) URL) into
@@ -157,26 +158,51 @@ function buildDashboardPage(doc, trades, scopeLabel) {
 
   let y = 90
   const kpis = getKpis(trades)
-  const pnl = getPnlStats(trades)
+  const { INR: equityTrades, USD: fxTrades } = splitTradesByCurrency(trades)
+  const equityPnl = getPnlStats(equityTrades)
+  const fxPnl = getPnlStats(fxTrades)
 
+  // Overview intentionally excludes any money figure here — Equity (₹)
+  // and Forex/Commodity ($) trades can never be summed into one "Total
+  // P&L" without the number becoming meaningless, so every P&L figure
+  // lives in the currency-scoped "P&L breakdown" section below instead.
   y = sectionTitle(doc, 'Overview', y)
   y = statCards(doc, y, [
     { label: 'Total Trades', value: kpis.total },
     { label: 'Win Rate', value: fmtPct(kpis.winRatePct), color: ACCENT },
-    { label: 'Total P&L', value: kpis.tradesWithPnl ? fmtMoney(kpis.totalPnl) : '—', color: kpis.totalPnl >= 0 ? GREEN : RED },
     { label: 'Pending', value: kpis.pending, color: AMBER },
   ])
 
   y = statCards(doc, y - 8, [
     { label: 'Target Hit', value: kpis.targetHit, color: GREEN },
     { label: 'SL Hit', value: kpis.slHit, color: RED },
-    { label: 'Avg P&L / trade', value: pnl.avgPnl == null ? '—' : fmtMoney(pnl.avgPnl) },
-    { label: 'Best Trade', value: pnl.bestTrade ? fmtMoney(pnl.bestTrade.pnl) : '—', color: GREEN },
   ])
 
   const colW = (PAGE_W - MARGIN * 2 - 24) / 2
   const leftX = MARGIN
   const rightX = MARGIN + colW + 24
+
+  // P&L breakdown — Equity (₹) and Forex/Commodity ($) always shown
+  // side by side in their own currency, never summed together.
+  let pnlLeftY = sectionTitle(doc, `${CURRENCY_GROUP_LABEL.INR} P&L (₹)`, y, leftX, colW)
+  let pnlRightY = sectionTitle(doc, `${CURRENCY_GROUP_LABEL.USD} P&L ($)`, y, rightX, colW)
+
+  pnlLeftY = kvTable(doc, leftX, pnlLeftY, colW, [
+    ['Total P&L', equityPnl.tradesWithPnl ? fmtMoney(equityPnl.totalPnl, '₹') : '—', equityPnl.totalPnl >= 0 ? GREEN : RED],
+    ['Avg P&L / trade', equityPnl.avgPnl == null ? '—' : fmtMoney(equityPnl.avgPnl, '₹')],
+    ['Best trade', equityPnl.bestTrade ? fmtMoney(equityPnl.bestTrade.pnl, '₹') : '—', GREEN],
+    ['Worst trade', equityPnl.worstTrade ? fmtMoney(equityPnl.worstTrade.pnl, '₹') : '—', RED],
+  ])
+
+  pnlRightY = kvTable(doc, rightX, pnlRightY, colW, [
+    ['Total P&L', fxPnl.tradesWithPnl ? fmtMoney(fxPnl.totalPnl, '$') : '—', fxPnl.totalPnl >= 0 ? GREEN : RED],
+    ['Avg P&L / trade', fxPnl.avgPnl == null ? '—' : fmtMoney(fxPnl.avgPnl, '$')],
+    ['Best trade', fxPnl.bestTrade ? fmtMoney(fxPnl.bestTrade.pnl, '$') : '—', GREEN],
+    ['Worst trade', fxPnl.worstTrade ? fmtMoney(fxPnl.worstTrade.pnl, '$') : '—', RED],
+  ])
+
+  y = Math.max(pnlLeftY, pnlRightY) + 24
+
   let leftY = sectionTitle(doc, 'Status breakdown', y, leftX, colW)
   let rightY = sectionTitle(doc, 'Direction breakdown', y, rightX, colW)
 
@@ -265,7 +291,7 @@ async function buildTradePage(doc, trade, index, total, ruleLabels) {
   y += 34
   y = kvTable(doc, MARGIN, y, PAGE_W - MARGIN * 2, [
     ['Pair', trade.pair || '—'],
-    ['P&L', trade.pnl == null ? 'Not logged' : fmtMoney(trade.pnl), trade.pnl == null ? SLATE : trade.pnl >= 0 ? GREEN : RED],
+    ['P&L', trade.pnl == null ? 'Not logged' : fmtMoney(trade.pnl, symbolForType(trade.instrumentType)), trade.pnl == null ? SLATE : trade.pnl >= 0 ? GREEN : RED],
     [
       'Validation score',
       trade.validationScore ? `${trade.validationScore.checked}/${trade.validationScore.total} rules checked` : 'No rules applied',

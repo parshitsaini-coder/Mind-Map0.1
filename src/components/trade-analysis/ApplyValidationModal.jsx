@@ -95,7 +95,7 @@ export default function ApplyValidationModal({ open, onClose, checkedIds, onTogg
             exit={{ opacity: 0, scale: 0.94, y: 10 }}
             transition={{ type: 'spring', stiffness: 340, damping: 28 }}
             onClick={(e) => e.stopPropagation()}
-            className="flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border shadow-2xl"
+            className="flex max-h-[80vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border shadow-2xl"
             style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)' }}
           >
             <div className="flex shrink-0 items-center justify-between border-b px-3 py-2" style={{ borderColor: 'var(--ta-slate)' }}>
@@ -158,7 +158,16 @@ export default function ApplyValidationModal({ open, onClose, checkedIds, onTogg
                   variants={gridVariants}
                   initial="hidden"
                   animate="show"
-                  className={`grid gap-2 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}
+                  className={
+                    isMobile
+                      ? 'flex flex-col gap-2'
+                      // Desktop: every category sits side by side in one
+                      // horizontal row (not wrapped into a 2-column
+                      // grid). If there are more categories than fit the
+                      // modal's width, the row scrolls horizontally
+                      // instead of wrapping to a second line.
+                      : 'flex flex-nowrap items-start gap-2 overflow-x-auto pb-1'
+                  }
                 >
                   {grouped.map(({ category, rules: catRules }) => {
                     const checkedInCat = catRules.filter((r) => checkedIds.includes(r.id)).length
@@ -180,7 +189,7 @@ export default function ApplyValidationModal({ open, onClose, checkedIds, onTogg
                             : { boxShadow: '0 0 0 0px transparent' }
                         }
                         transition={catComplete ? { duration: 1.1, ease: 'easeInOut' } : { duration: 0.2 }}
-                        className="flex flex-col gap-1.5 rounded-xl border p-2"
+                        className={`flex flex-col gap-1.5 rounded-xl border p-2 ${isMobile ? '' : 'w-56 shrink-0'}`}
                         style={{
                           borderColor: catComplete ? '#16a34a' : 'var(--ta-slate)',
                           backgroundColor: 'var(--ta-bg)',
