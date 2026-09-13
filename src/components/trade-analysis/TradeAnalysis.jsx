@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, SlidersHorizontal, Settings, ChevronLeft, ChevronRight, Table2, LineChart, Wallet, Target, List, LayoutGrid } from 'lucide-react'
+import { ArrowLeft, SlidersHorizontal, Settings, ChevronLeft, ChevronRight, Table2, LineChart, Wallet, Target, List, LayoutGrid, FileDown, Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useIsMobile } from '../../hooks/useIsMobile'
@@ -13,6 +13,8 @@ import ThemePicker from './ThemePicker'
 import AnalysisTab from './analysis/AnalysisTab'
 import { tradeThemeCssVars, isGlassTheme } from '../../theme/tradeAnalysisThemes'
 import { getKpis } from '../../utils/tradeAnalytics'
+import { generateTradeReport } from '../../utils/generateTradeReport'
+import { useUiStore } from '../../store/uiStore'
 
 const SIDEBAR_WIDTH = 230
 const SIDEBAR_SPRING = { type: 'spring', stiffness: 340, damping: 32 }
@@ -200,12 +202,28 @@ export default function TradeAnalysis() {
   const activeView = useTradeAnalysisStore((s) => s.activeView)
   const entriesView = useTradeAnalysisStore((s) => s.entriesView)
   const trades = useTradeAnalysisStore((s) => s.trades)
+  const validationRules = useTradeAnalysisStore((s) => s.validationRules)
+  const validationCategories = useTradeAnalysisStore((s) => s.validationCategories)
   const [rulesModalOpen, setRulesModalOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [reportBusy, setReportBusy] = useState(false)
   const activeFilterCount = countActiveFilters(filters)
   const isGlass = isGlassTheme(theme)
   const isMobile = useIsMobile()
   const hasAutoCollapsed = useRef(false)
+
+  const handleDownloadReport = async () => {
+    if (reportBusy || trades.length === 0) return
+    setReportBusy(true)
+    try {
+      await generateTradeReport(trades, validationRules, validationCategories)
+    } catch (err) {
+      console.error('Report generation failed:', err)
+      useUiStore.getState().showToast('Could not build the report — please try again.')
+    } finally {
+      setReportBusy(false)
+    }
+  }
 
   // Step 10 (responsive pass) — auto-collapse the left form on narrow
   // viewports the first time we detect one, same "don't fight the user"
@@ -284,70 +302,95 @@ export default function TradeAnalysis() {
 
             <StatsPills trades={trades} />
 
-            {/* Filters / Add Validation Rule act on table rows, so they
-                only make sense (and only render) in Table view — Step 1. */}
-            {activeView === 'table' && (
-              <div className="ml-auto flex shrink-0 items-center gap-1">
-                <EntriesViewSwitch
-                  activeEntriesView={entriesView}
-                  onChange={(v) => useTradeAnalysisStore.getState().setEntriesView(v)}
-                />
-                <div className="relative">
+            {/* Report button lives outside the table-only group below so
+                it's reachable from both Table and Analysis view — it acts
+                on all logged trades, not just the ones currently visible
+                in the table. Filters / Add Validation Rule still only
+                make sense (and only render) in Table view — Step 1. */}
+            <div className="ml-auto flex shrink-0 items-center gap-1">
+              <motion.button
+                whileHover={{ scale: 1.04, y: -1, boxShadow: '0 4px 14px rgba(0,0,0,0.18)' }}
+                whileTap={{ scale: 0.94 }}
+                transition={{ type: 'spring', stiffness: 480, damping: 22 }}
+                disabled={reportBusy || trades.length === 0}
+                title={trades.length === 0 ? 'Log at least one trade first' : 'Download a PDF report of all trades'}
+                onClick={handleDownloadReport}
+                className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+                style={{ backgroundColor: '#0f172a' }}
+              >
+                <motion.span
+                  className="flex"
+                  animate={reportBusy ? { rotate: 360 } : { rotate: 0 }}
+                  transition={reportBusy ? { duration: 0.9, repeat: Infinity, ease: 'linear' } : { duration: 0.2 }}
+                >
+                  {reportBusy ? <Loader2 size={11} /> : <FileDown size={11} />}
+                </motion.span>
+                {reportBusy ? 'Building…' : 'Download Report'}
+              </motion.button>
+
+              {activeView === 'table' && (
+                <>
+                  <EntriesViewSwitch
+                    activeEntriesView={entriesView}
+                    onChange={(v) => useTradeAnalysisStore.getState().setEntriesView(v)}
+                  />
+                  <div className="relative">
+                    <motion.button
+                      whileHover={{ scale: 1.04, y: -1 }}
+                      whileTap={{ scale: 0.94 }}
+                      transition={{ type: 'spring', stiffness: 480, damping: 22 }}
+                      title="Filters"
+                      onClick={() => setFiltersOpen((o) => !o)}
+                      className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium shadow-sm"
+                      style={
+                        filtersOpen || activeFilterCount > 0
+                          ? { backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }
+                          : { backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }
+                      }
+                    >
+                      <motion.span
+                        className="flex"
+                        animate={{ rotate: filtersOpen ? 90 : 0 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+                      >
+                        <SlidersHorizontal size={11} />
+                      </motion.span>
+                      Filters
+                      <AnimatePresence mode="popLayout">
+                        {activeFilterCount > 0 && (
+                          <motion.span
+                            key={activeFilterCount}
+                            initial={{ scale: 0, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0, opacity: 0 }}
+                            transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                            className="flex h-3 min-w-[12px] items-center justify-center rounded-full px-1 text-[8px] font-bold"
+                            style={{ backgroundColor: '#fffcf2', color: 'var(--ta-accent)' }}
+                          >
+                            {activeFilterCount}
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </motion.button>
+                    <FiltersPopover open={filtersOpen} onClose={() => setFiltersOpen(false)} />
+                  </div>
                   <motion.button
-                    whileHover={{ scale: 1.04, y: -1 }}
+                    whileHover={{ scale: 1.04, y: -1, boxShadow: '0 4px 14px rgba(0,0,0,0.18)' }}
                     whileTap={{ scale: 0.94 }}
                     transition={{ type: 'spring', stiffness: 480, damping: 22 }}
-                    title="Filters"
-                    onClick={() => setFiltersOpen((o) => !o)}
-                    className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium shadow-sm"
-                    style={
-                      filtersOpen || activeFilterCount > 0
-                        ? { backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }
-                        : { backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }
-                    }
+                    title="Manage validation categories & rules"
+                    onClick={() => setRulesModalOpen(true)}
+                    className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium text-white"
+                    style={{ backgroundColor: 'var(--ta-accent)' }}
                   >
-                    <motion.span
-                      className="flex"
-                      animate={{ rotate: filtersOpen ? 90 : 0 }}
-                      transition={{ type: 'spring', stiffness: 400, damping: 22 }}
-                    >
-                      <SlidersHorizontal size={11} />
+                    <motion.span className="flex" whileHover={{ rotate: 90 }} transition={{ type: 'spring', stiffness: 300, damping: 18 }}>
+                      <Settings size={11} />
                     </motion.span>
-                    Filters
-                    <AnimatePresence mode="popLayout">
-                      {activeFilterCount > 0 && (
-                        <motion.span
-                          key={activeFilterCount}
-                          initial={{ scale: 0, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          exit={{ scale: 0, opacity: 0 }}
-                          transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-                          className="flex h-3 min-w-[12px] items-center justify-center rounded-full px-1 text-[8px] font-bold"
-                          style={{ backgroundColor: '#fffcf2', color: 'var(--ta-accent)' }}
-                        >
-                          {activeFilterCount}
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
+                    Validation Settings
                   </motion.button>
-                  <FiltersPopover open={filtersOpen} onClose={() => setFiltersOpen(false)} />
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.04, y: -1, boxShadow: '0 4px 14px rgba(0,0,0,0.18)' }}
-                  whileTap={{ scale: 0.94 }}
-                  transition={{ type: 'spring', stiffness: 480, damping: 22 }}
-                  title="Manage validation categories & rules"
-                  onClick={() => setRulesModalOpen(true)}
-                  className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium text-white"
-                  style={{ backgroundColor: 'var(--ta-accent)' }}
-                >
-                  <motion.span className="flex" whileHover={{ rotate: 90 }} transition={{ type: 'spring', stiffness: 300, damping: 18 }}>
-                    <Settings size={11} />
-                  </motion.span>
-                  Validation Settings
-                </motion.button>
-              </div>
-            )}
+                </>
+              )}
+            </div>
           </div>
 
           {/* Body — panels sit in a padded gap now so every border has
