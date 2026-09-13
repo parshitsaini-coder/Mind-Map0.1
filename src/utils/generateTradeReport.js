@@ -90,14 +90,14 @@ function header(doc, title, subtitle) {
   doc.setTextColor(...INK)
 }
 
-function sectionTitle(doc, text, y) {
+function sectionTitle(doc, text, y, x = MARGIN, width = PAGE_W - MARGIN * 2) {
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
   doc.setTextColor(...INK)
-  doc.text(text, MARGIN, y)
+  doc.text(text, x, y)
   doc.setDrawColor(...LINE)
   doc.setLineWidth(0.75)
-  doc.line(MARGIN, y + 4, PAGE_W - MARGIN, y + 4)
+  doc.line(x, y + 4, x + width, y + 4)
   return y + 20
 }
 
@@ -150,8 +150,10 @@ function footer(doc, pageLabel) {
 
 // ---- page 1: analytics dashboard ------------------------------------------
 
-function buildDashboardPage(doc, trades) {
-  header(doc, 'Trade Analysis Report', `Generated ${new Date().toLocaleString('en-IN')} · ${trades.length} trade${trades.length === 1 ? '' : 's'} logged`)
+function buildDashboardPage(doc, trades, scopeLabel) {
+  const countLine = `${trades.length} trade${trades.length === 1 ? '' : 's'}${scopeLabel ? '' : ' logged'}`
+  const subtitle = `Generated ${new Date().toLocaleString('en-IN')} · ${countLine}${scopeLabel ? ` · ${scopeLabel}` : ''}`
+  header(doc, 'Trade Analysis Report', subtitle)
 
   let y = 90
   const kpis = getKpis(trades)
@@ -175,8 +177,8 @@ function buildDashboardPage(doc, trades) {
   const colW = (PAGE_W - MARGIN * 2 - 24) / 2
   const leftX = MARGIN
   const rightX = MARGIN + colW + 24
-  let leftY = sectionTitle(doc, 'Status breakdown', y)
-  let rightY = sectionTitle(doc, 'Direction breakdown', y)
+  let leftY = sectionTitle(doc, 'Status breakdown', y, leftX, colW)
+  let rightY = sectionTitle(doc, 'Direction breakdown', y, rightX, colW)
 
   const status = getStatusCounts(trades)
   leftY = kvTable(doc, leftX, leftY, colW, [
@@ -194,7 +196,7 @@ function buildDashboardPage(doc, trades) {
 
   y = Math.max(leftY, rightY) + 24
 
-  leftY = sectionTitle(doc, 'Most traded instruments', y)
+  leftY = sectionTitle(doc, 'Most traded instruments', y, leftX, colW)
   const topStocks = getTopStocks(trades, 5)
   leftY = kvTable(
     doc,
@@ -204,7 +206,7 @@ function buildDashboardPage(doc, trades) {
     topStocks.length ? topStocks.map((s) => [s.name, `${s.count} trade${s.count === 1 ? '' : 's'}`]) : [['No trades yet', '']]
   )
 
-  rightY = sectionTitle(doc, 'Time frame usage', y)
+  rightY = sectionTitle(doc, 'Time frame usage', y, rightX, colW)
   const tfUsage = getTimeframeUsage(trades)
     .slice()
     .sort((a, b) => b.count - a.count)
@@ -343,13 +345,31 @@ async function buildTradePage(doc, trade, index, total, ruleLabels) {
   footer(doc, `Page ${index + 2} · ${trade.instrumentName || trade.pair || 'Trade'}`)
 }
 
+// Turns the scoping choices from ReportFiltersModal into the small
+// subtitle line shown under the header on page 1, e.g.
+// "Sep 1 – Sep 13, 2026 · Forex, Commodity" or "All trades logged".
+function describeReportScope({ dateFrom, dateTo, types } = {}) {
+  const parts = []
+  if (dateFrom || dateTo) {
+    const fmt = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+    if (dateFrom && dateTo) parts.push(`${fmt(dateFrom)} – ${fmt(dateTo)}`)
+    else if (dateFrom) parts.push(`From ${fmt(dateFrom)}`)
+    else parts.push(`Up to ${fmt(dateTo)}`)
+  }
+  if (types && types.length) parts.push(types.join(', '))
+  return parts.length ? parts.join(' · ') : null
+}
+
 // Public entry point — call from a click handler. Builds the whole PDF
 // in memory and triggers a browser download; does not touch the store.
-export async function generateTradeReport(trades, validationRules = [], validationCategories = []) {
+// `reportMeta` (optional) carries the date-range/type selection made in
+// ReportFiltersModal purely for display in the header subtitle — the
+// actual filtering already happened before `trades` got here.
+export async function generateTradeReport(trades, validationRules = [], validationCategories = [], reportMeta) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
   const ruleLabels = ruleLabelMap(validationRules, validationCategories)
 
-  buildDashboardPage(doc, trades)
+  buildDashboardPage(doc, trades, describeReportScope(reportMeta))
 
   // Newest first, matching the Table view's default order.
   const sorted = [...trades].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))

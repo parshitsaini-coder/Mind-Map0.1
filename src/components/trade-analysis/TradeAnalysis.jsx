@@ -9,6 +9,7 @@ import TradeCards from './TradeCards'
 import ValidationSettingsPanel from './ValidationSettingsPanel'
 import EditTradeModal from './EditTradeModal'
 import FiltersPopover, { countActiveFilters } from './FiltersPopover'
+import ReportFiltersModal from './ReportFiltersModal'
 import ThemePicker from './ThemePicker'
 import AnalysisTab from './analysis/AnalysisTab'
 import { tradeThemeCssVars, isGlassTheme } from '../../theme/tradeAnalysisThemes'
@@ -207,16 +208,22 @@ export default function TradeAnalysis() {
   const [rulesModalOpen, setRulesModalOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [reportBusy, setReportBusy] = useState(false)
+  const [reportModalOpen, setReportModalOpen] = useState(false)
   const activeFilterCount = countActiveFilters(filters)
   const isGlass = isGlassTheme(theme)
   const isMobile = useIsMobile()
   const hasAutoCollapsed = useRef(false)
 
-  const handleDownloadReport = async () => {
-    if (reportBusy || trades.length === 0) return
+  // "Download Report" no longer generates immediately — it opens
+  // ReportFiltersModal so the person can scope the PDF to a date range
+  // (quick preset or custom) and/or instrument type first. The modal
+  // hands back the already-filtered trade list.
+  const handleDownloadReport = async (filteredTrades, reportMeta) => {
+    if (reportBusy || filteredTrades.length === 0) return
     setReportBusy(true)
     try {
-      await generateTradeReport(trades, validationRules, validationCategories)
+      await generateTradeReport(filteredTrades, validationRules, validationCategories, reportMeta)
+      setReportModalOpen(false)
     } catch (err) {
       console.error('Report generation failed:', err)
       useUiStore.getState().showToast('Could not build the report — please try again.')
@@ -313,8 +320,8 @@ export default function TradeAnalysis() {
                 whileTap={{ scale: 0.94 }}
                 transition={{ type: 'spring', stiffness: 480, damping: 22 }}
                 disabled={reportBusy || trades.length === 0}
-                title={trades.length === 0 ? 'Log at least one trade first' : 'Download a PDF report of all trades'}
-                onClick={handleDownloadReport}
+                title={trades.length === 0 ? 'Log at least one trade first' : 'Choose a date range and type, then download a PDF report'}
+                onClick={() => setReportModalOpen(true)}
                 className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
                 style={{ backgroundColor: '#0f172a' }}
               >
@@ -460,6 +467,13 @@ export default function TradeAnalysis() {
       </AnimatePresence>
       <ValidationSettingsPanel open={rulesModalOpen} onClose={() => setRulesModalOpen(false)} />
       <EditTradeModal />
+      <ReportFiltersModal
+        open={reportModalOpen}
+        onClose={() => (reportBusy ? null : setReportModalOpen(false))}
+        trades={trades}
+        busy={reportBusy}
+        onGenerate={handleDownloadReport}
+      />
     </>
   )
 }

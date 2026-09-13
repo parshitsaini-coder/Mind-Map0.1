@@ -1,0 +1,266 @@
+import { AnimatePresence, motion } from 'framer-motion'
+import { X, FileDown, Loader2, CalendarRange } from 'lucide-react'
+import { useState } from 'react'
+
+const INSTRUMENT_TYPES = ['Equity', 'Forex', 'Commodity']
+
+// Quick date-range presets shown as pills above the custom from/to
+// inputs. `days: null` means "All time" (no date filtering at all).
+const PRESETS = [
+  { id: 'all', label: 'All time', days: null },
+  { id: '7d', label: 'Last 7 days', days: 7 },
+  { id: '15d', label: 'Last 15 days', days: 15 },
+  { id: '30d', label: 'Last 30 days', days: 30 },
+  { id: 'custom', label: 'Custom range', days: undefined },
+]
+
+// YYYY-MM-DD in local time (matches the `date` field trades already
+// store, which comes from a native <input type="date">).
+function isoDate(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function daysAgoIso(n) {
+  const d = new Date()
+  d.setDate(d.getDate() - (n - 1)) // inclusive of today
+  return isoDate(d)
+}
+
+// Step: report-scoping popup. Sits between clicking "Download Report"
+// and actually generating the PDF — lets the person narrow the report
+// to a date window (quick preset or custom from/to) and/or an
+// instrument type, instead of always dumping every logged trade into
+// the report. Filtering happens client-side against the same `date` /
+// `instrumentType` fields FiltersPopover already filters the table by,
+// so the semantics match what "Filters" means elsewhere in this screen.
+export default function ReportFiltersModal({ open, onClose, trades, busy, onGenerate }) {
+  const [presetId, setPresetId] = useState('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [types, setTypes] = useState([]) // empty = all types
+
+  const applyPreset = (preset) => {
+    setPresetId(preset.id)
+    if (preset.days == null) {
+      // "All time" — clear the range entirely.
+      if (preset.id === 'all') {
+        setDateFrom('')
+        setDateTo('')
+      }
+      // "Custom range" — leave whatever the person already typed.
+      return
+    }
+    setDateFrom(daysAgoIso(preset.days))
+    setDateTo(isoDate(new Date()))
+  }
+
+  const toggleType = (t) => {
+    setTypes((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]))
+  }
+
+  const filteredTrades = trades.filter((t) => {
+    if (dateFrom && t.date < dateFrom) return false
+    if (dateTo && t.date > dateTo) return false
+    if (types.length && !types.includes(t.instrumentType)) return false
+    return true
+  })
+
+  const fieldLabelCls = 'text-[10px] font-medium uppercase tracking-wide'
+  const inputCls =
+    'w-full rounded-md border bg-white/70 px-2 py-1.5 text-[11px] outline-none transition-colors focus:ring-1'
+
+  const handleGenerate = () => {
+    if (busy || filteredTrades.length === 0) return
+    onGenerate(filteredTrades, { dateFrom, dateTo, types })
+  }
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          onClick={busy ? undefined : onClose}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.94, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 8 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+            onClick={(e) => e.stopPropagation()}
+            className="flex w-full max-w-[340px] flex-col overflow-hidden rounded-xl border shadow-2xl"
+            style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)' }}
+          >
+            {/* Header */}
+            <div
+              className="flex shrink-0 items-center gap-2 border-b px-3.5 py-2.5"
+              style={{ borderColor: 'var(--ta-slate)', backgroundColor: 'var(--ta-bg)' }}
+            >
+              <span
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+                style={{ backgroundColor: 'var(--ta-accent)' }}
+              >
+                <CalendarRange size={12} color="#fffcf2" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-semibold leading-tight" style={{ color: 'var(--ta-ink)' }}>
+                  Download Report
+                </p>
+                <p className="truncate text-[9px] leading-tight" style={{ color: 'var(--ta-slate)' }}>
+                  Choose what to include
+                </p>
+              </div>
+              <motion.button
+                whileTap={{ scale: 0.88 }}
+                onClick={onClose}
+                disabled={busy}
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md hover:bg-black/5 disabled:opacity-40"
+                style={{ color: 'var(--ta-slate)' }}
+                title="Close"
+              >
+                <X size={13} />
+              </motion.button>
+            </div>
+
+            {/* Body */}
+            <div className="flex flex-col gap-3 px-3.5 py-3">
+              {/* Date range presets */}
+              <div className="flex flex-col gap-1">
+                <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Date range</span>
+                <div className="grid grid-cols-2 gap-1">
+                  {PRESETS.map((p) => {
+                    const active = presetId === p.id
+                    return (
+                      <motion.button
+                        key={p.id}
+                        type="button"
+                        whileTap={{ scale: 0.94 }}
+                        onClick={() => applyPreset(p)}
+                        className="rounded-md border py-1 text-[9.5px] font-medium transition-colors"
+                        style={
+                          active
+                            ? { backgroundColor: 'var(--ta-accent)', borderColor: 'var(--ta-accent)', color: '#fffcf2' }
+                            : { borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }
+                        }
+                      >
+                        {p.label}
+                      </motion.button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Custom from/to — always editable; picking dates here
+                  auto-switches the preset pill to "Custom range" so the
+                  UI never shows a stale preset next to a hand-typed
+                  range. */}
+              <div className="grid grid-cols-2 gap-1.5">
+                <label className="flex flex-col gap-1">
+                  <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>From</span>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => {
+                      setDateFrom(e.target.value)
+                      setPresetId('custom')
+                    }}
+                    className={inputCls}
+                    style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>To</span>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => {
+                      setDateTo(e.target.value)
+                      setPresetId('custom')
+                    }}
+                    className={inputCls}
+                    style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
+                  />
+                </label>
+              </div>
+
+              {/* Instrument type */}
+              <div className="flex flex-col gap-1">
+                <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Type</span>
+                <div className="grid grid-cols-4 gap-1">
+                  {['All', ...INSTRUMENT_TYPES].map((t) => {
+                    const isAll = t === 'All'
+                    const active = isAll ? types.length === 0 : types.includes(t)
+                    return (
+                      <motion.button
+                        key={t}
+                        type="button"
+                        whileTap={{ scale: 0.94 }}
+                        onClick={() => (isAll ? setTypes([]) : toggleType(t))}
+                        className="rounded-md border py-1 text-[9.5px] font-medium transition-colors"
+                        style={
+                          active
+                            ? { backgroundColor: 'var(--ta-accent)', borderColor: 'var(--ta-accent)', color: '#fffcf2' }
+                            : { borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }
+                        }
+                      >
+                        {t}
+                      </motion.button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Live count of what will actually go into the PDF, so
+                  picking an empty range/type is obvious before hitting
+                  Generate rather than after opening a blank-ish report. */}
+              <p className="text-[10px]" style={{ color: 'var(--ta-slate)' }}>
+                {filteredTrades.length} of {trades.length} trade{trades.length === 1 ? '' : 's'} match
+                {filteredTrades.length === trades.length ? '' : ' this selection'}.
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div
+              className="flex items-center justify-between border-t px-3.5 py-2.5"
+              style={{ borderColor: 'var(--ta-slate)', backgroundColor: 'var(--ta-bg)' }}
+            >
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={onClose}
+                disabled={busy}
+                className="text-[10.5px] font-medium underline-offset-2 hover:underline disabled:opacity-40"
+                style={{ color: 'var(--ta-slate)' }}
+              >
+                Cancel
+              </motion.button>
+              <motion.button
+                whileHover={filteredTrades.length ? { scale: 1.04 } : {}}
+                whileTap={filteredTrades.length ? { scale: 0.94 } : {}}
+                onClick={handleGenerate}
+                disabled={busy || filteredTrades.length === 0}
+                title={filteredTrades.length === 0 ? 'No trades match this selection' : undefined}
+                className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[10.5px] font-semibold text-white transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                style={{ backgroundColor: '#0f172a' }}
+              >
+                <motion.span
+                  className="flex"
+                  animate={busy ? { rotate: 360 } : { rotate: 0 }}
+                  transition={busy ? { duration: 0.9, repeat: Infinity, ease: 'linear' } : { duration: 0.2 }}
+                >
+                  {busy ? <Loader2 size={12} /> : <FileDown size={12} />}
+                </motion.span>
+                {busy ? 'Building…' : `Generate PDF (${filteredTrades.length})`}
+              </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
