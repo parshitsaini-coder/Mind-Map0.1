@@ -6,6 +6,7 @@ import { useUiStore } from '../../store/uiStore'
 import { uploadTradeImage } from '../../lib/imageUpload'
 import StatusDropdown from './StatusDropdown'
 import { TYPE_BADGE_STYLE, TIMEFRAME_BADGE_STYLE, TIMEFRAME_DEFAULT_STYLE } from './TradesTable'
+import { symbolForType } from '../../utils/currency'
 
 // Card-grid alternative to TradesTable's horizontal rows — same data, same
 // store actions, just laid out as a responsive grid of cards (3-up on a
@@ -240,7 +241,10 @@ export default function TradeCards() {
                   >
                     {trade.direction}
                   </span>
-                  <span className="ml-auto text-[10.5px] font-bold" style={{ color: 'var(--ta-ink)' }}>{trade.price}</span>
+                  <span className="ml-auto text-[10.5px] font-bold" style={{ color: 'var(--ta-ink)' }}>
+                    {symbolForType(trade.instrumentType)}
+                    {trade.price}
+                  </span>
                 </div>
 
                 {/* P&L + Status */}
@@ -280,7 +284,9 @@ export default function TradeCards() {
                               : { backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }
                       }
                     >
-                      {trade.pnl == null ? '+ Add P&L' : `${trade.pnl > 0 ? '+' : ''}${trade.pnl}`}
+                      {trade.pnl == null
+                        ? '+ Add P&L'
+                        : `${trade.pnl > 0 ? '+' : ''}${symbolForType(trade.instrumentType)}${trade.pnl}`}
                     </motion.button>
                   )}
 

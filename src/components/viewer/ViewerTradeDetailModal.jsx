@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { X, TrendingUp } from 'lucide-react'
 import { useViewerStore } from '../../store/viewerStore'
 import { useUiStore } from '../../store/uiStore'
+import { symbolForType } from '../../utils/currency'
 
 const TYPE_BADGE_STYLE = {
   Equity: { bg: 'rgba(235,94,40,0.18)', text: '#c1450f' },
@@ -108,7 +109,14 @@ export default function ViewerTradeDetailModal() {
               <div className="grid grid-cols-3 gap-2">
                 <Field label="Date">{trade.date}</Field>
                 <Field label="Timeframe">{trade.timeframe}</Field>
-                <Field label="Price">{trade.price || '—'}</Field>
+                <Field label="Price">
+                  {trade.price ? `${symbolForType(trade.instrumentType)}${trade.price}` : '—'}
+                </Field>
+                <Field label="P&L">
+                  {trade.pnl == null
+                    ? '—'
+                    : `${trade.pnl > 0 ? '+' : ''}${symbolForType(trade.instrumentType)}${trade.pnl}`}
+                </Field>
               </div>
 
               <Field label="Status">

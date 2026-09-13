@@ -5,6 +5,7 @@ import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useUiStore } from '../../store/uiStore'
 import { uploadTradeImage } from '../../lib/imageUpload'
 import StatusDropdown from './StatusDropdown'
+import { symbolForType } from '../../utils/currency'
 
 // Step 10 (polish pass) note: status pill colors now live in
 // StatusDropdown.jsx alongside the custom animated menu that replaced the
@@ -310,7 +311,10 @@ export default function TradesTable() {
                     </motion.span>
                   </td>
 
-                  <td className={td} style={{ color: 'var(--ta-ink)' }}>{trade.price}</td>
+                  <td className={td} style={{ color: 'var(--ta-ink)' }}>
+                    {symbolForType(trade.instrumentType)}
+                    {trade.price}
+                  </td>
 
                   {/* P&L — click the value (or the dash) to edit it inline;
                       Enter/blur saves, Escape cancels. Green/red by sign,
@@ -351,7 +355,9 @@ export default function TradesTable() {
                                 : { backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }
                         }
                       >
-                        {trade.pnl == null ? '+ Add' : `${trade.pnl > 0 ? '+' : ''}${trade.pnl}`}
+                        {trade.pnl == null
+                          ? '+ Add'
+                          : `${trade.pnl > 0 ? '+' : ''}${symbolForType(trade.instrumentType)}${trade.pnl}`}
                       </motion.button>
                     )}
                   </td>

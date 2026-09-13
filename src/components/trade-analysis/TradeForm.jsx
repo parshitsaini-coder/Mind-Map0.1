@@ -10,17 +10,18 @@ import {
   Search,
   Clock,
   IndianRupee,
+  DollarSign,
   ArrowLeftRight,
   StickyNote,
   ListChecks,
   Camera,
   Plus,
-  Wallet,
 } from 'lucide-react'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useUiStore } from '../../store/uiStore'
 import { uploadTradeImage } from '../../lib/imageUpload'
 import { INDIAN_STOCKS, FOREX_PAIRS, COMMODITIES } from '../../data/instruments'
+import { symbolForType } from '../../utils/currency'
 import DatePicker from './DatePicker'
 import ApplyValidationModal from './ApplyValidationModal'
 
@@ -462,22 +463,36 @@ export default function TradeForm({ mode = 'sidebar' }) {
         </AnimatePresence>
       </div>
 
-      {/* Price */}
+      {/* Price — icon and $ / ₹ prefix switch with instrument type, since
+          Equity (Indian stocks) trades in Rupees while Forex/Commodity
+          here all settle in US Dollars (see utils/currency.js). */}
       <label className="flex flex-col gap-1">
         <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>
-          <IndianRupee size={10} style={{ color: 'var(--ta-accent)' }} />
+          {form.instrumentType === 'Equity' ? (
+            <IndianRupee size={10} style={{ color: 'var(--ta-accent)' }} />
+          ) : (
+            <DollarSign size={10} style={{ color: 'var(--ta-accent)' }} />
+          )}
           Price
         </span>
-        <input
-          type="number"
-          step="any"
-          inputMode="decimal"
-          value={form.price}
-          onChange={(e) => patch({ price: e.target.value })}
-          placeholder="Entry price"
-          className={inputCls}
-          style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
-        />
+        <div className="relative">
+          <span
+            className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[11px] font-semibold"
+            style={{ color: 'var(--ta-slate)' }}
+          >
+            {symbolForType(form.instrumentType)}
+          </span>
+          <input
+            type="number"
+            step="any"
+            inputMode="decimal"
+            value={form.price}
+            onChange={(e) => patch({ price: e.target.value })}
+            placeholder="Entry price"
+            className={`${inputCls} pl-5`}
+            style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
+          />
+        </div>
       </label>
       </motion.div>
 
@@ -509,43 +524,23 @@ export default function TradeForm({ mode = 'sidebar' }) {
       </motion.div>
 
       {/* 6b. P&L — optional; fill in once the trade closes (or update it
-          later via Edit). Border/text tint flips green/red live so the
-          sign is obvious while typing, same convention as the Result
-          column's colors elsewhere in this feature. */}
-      <motion.label variants={itemVariants} className="flex flex-col gap-1">
-        <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>
-          <Wallet size={10} style={{ color: 'var(--ta-accent)' }} />
-          P&amp;L <span className="normal-case font-normal opacity-70">(optional)</span>
-        </span>
-        <motion.input
-          type="number"
-          step="any"
-          inputMode="decimal"
+          later via Edit). Two distinct widgets rather than one generic
+          field: Equity trades in Rupees, Forex/Commodity trades in
+          Dollars (see utils/currency.js), so each gets its own labeled,
+          currency-prefixed input rather than a shared unlabeled box.
+          Border/text tint still flips green/red live so the sign is
+          obvious while typing, same convention as the Result column's
+          colors elsewhere in this feature. */}
+      {form.instrumentType === 'Equity' ? (
+        <EquityPnlWidget key="equity-pnl" value={form.pnl} onChange={(v) => patch({ pnl: v })} />
+      ) : (
+        <ForexPnlWidget
+          key="forex-pnl"
           value={form.pnl}
-          onChange={(e) => patch({ pnl: e.target.value })}
-          placeholder="e.g. 1500 or -600"
-          className={inputCls}
-          animate={{
-            borderColor:
-              form.pnl === '' || Number.isNaN(Number(form.pnl))
-                ? 'var(--ta-slate)'
-                : Number(form.pnl) > 0
-                  ? '#16a34a'
-                  : Number(form.pnl) < 0
-                    ? '#dc2626'
-                    : 'var(--ta-slate)',
-            color:
-              form.pnl === '' || Number.isNaN(Number(form.pnl))
-                ? 'var(--ta-ink)'
-                : Number(form.pnl) > 0
-                  ? '#16a34a'
-                  : Number(form.pnl) < 0
-                    ? '#dc2626'
-                    : 'var(--ta-ink)',
-          }}
-          transition={{ duration: 0.15 }}
+          instrumentType={form.instrumentType}
+          onChange={(v) => patch({ pnl: v })}
         />
-      </motion.label>
+      )}
 
       {/* 7. Notes */}
       <motion.label variants={itemVariants} className="flex flex-col gap-1">
@@ -760,5 +755,103 @@ export default function TradeForm({ mode = 'sidebar' }) {
         </motion.button>
       </motion.div>
     </motion.div>
+  )
+}
+
+// Section — instrument-aware P&L widgets. Two separate components
+// (rather than one generic field branching internally) so Equity's
+// Rupee-based P&L management and Forex/Commodity's Dollar-based P&L
+// management are genuinely independent pieces of UI — each owns its own
+// label, icon, prefix symbol and empty-state copy, and either one can be
+// changed later without touching the other. Both share the same
+// green/red live-tint convention as the rest of this feature so a
+// profit/loss still reads at a glance regardless of currency.
+const pnlFieldLabelCls = 'flex items-center gap-1 text-[9px] font-medium uppercase tracking-wide'
+const pnlInputCls = 'ta-input w-full rounded-md border bg-white/70 py-1 pr-1.5 text-[10px] outline-none'
+const pnlItemVariants = {
+  hidden: { opacity: 0, y: 8 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.28, ease: 'easeOut' } },
+}
+
+function pnlTintColor(value) {
+  if (value === '' || Number.isNaN(Number(value))) return 'var(--ta-ink)'
+  const n = Number(value)
+  if (n > 0) return '#16a34a'
+  if (n < 0) return '#dc2626'
+  return 'var(--ta-ink)'
+}
+
+function pnlBorderColor(value) {
+  if (value === '' || Number.isNaN(Number(value))) return 'var(--ta-slate)'
+  const n = Number(value)
+  if (n > 0) return '#16a34a'
+  if (n < 0) return '#dc2626'
+  return 'var(--ta-slate)'
+}
+
+function EquityPnlWidget({ value, onChange }) {
+  return (
+    <motion.label
+      variants={pnlItemVariants}
+      initial="hidden"
+      animate="show"
+      className="flex flex-col gap-1 rounded-md border px-1.5 py-1"
+      style={{ borderColor: 'color-mix(in srgb, var(--ta-accent) 30%, transparent)', backgroundColor: 'color-mix(in srgb, var(--ta-accent) 5%, transparent)' }}
+    >
+      <span className={pnlFieldLabelCls} style={{ color: 'var(--ta-slate)' }}>
+        <IndianRupee size={10} style={{ color: 'var(--ta-accent)' }} />
+        Equity P&amp;L (₹) <span className="normal-case font-normal opacity-70">(optional)</span>
+      </span>
+      <div className="relative">
+        <span className="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-[11px] font-semibold" style={{ color: 'var(--ta-slate)' }}>
+          ₹
+        </span>
+        <motion.input
+          type="number"
+          step="any"
+          inputMode="decimal"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="e.g. 1500 or -600"
+          className={`${pnlInputCls} pl-4`}
+          animate={{ borderColor: pnlBorderColor(value), color: pnlTintColor(value) }}
+          transition={{ duration: 0.15 }}
+        />
+      </div>
+    </motion.label>
+  )
+}
+
+function ForexPnlWidget({ value, onChange, instrumentType }) {
+  const label = instrumentType === 'Commodity' ? 'Commodity P&L ($)' : 'Forex P&L ($)'
+  return (
+    <motion.label
+      variants={pnlItemVariants}
+      initial="hidden"
+      animate="show"
+      className="flex flex-col gap-1 rounded-md border px-1.5 py-1"
+      style={{ borderColor: 'color-mix(in srgb, #2563eb 30%, transparent)', backgroundColor: 'color-mix(in srgb, #2563eb 5%, transparent)' }}
+    >
+      <span className={pnlFieldLabelCls} style={{ color: 'var(--ta-slate)' }}>
+        <DollarSign size={10} style={{ color: '#2563eb' }} />
+        {label} <span className="normal-case font-normal opacity-70">(optional)</span>
+      </span>
+      <div className="relative">
+        <span className="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-[11px] font-semibold" style={{ color: 'var(--ta-slate)' }}>
+          $
+        </span>
+        <motion.input
+          type="number"
+          step="any"
+          inputMode="decimal"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="e.g. 150 or -60"
+          className={`${pnlInputCls} pl-4`}
+          animate={{ borderColor: pnlBorderColor(value), color: pnlTintColor(value) }}
+          transition={{ duration: 0.15 }}
+        />
+      </div>
+    </motion.label>
   )
 }

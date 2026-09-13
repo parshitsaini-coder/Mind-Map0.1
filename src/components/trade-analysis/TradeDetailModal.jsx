@@ -4,6 +4,7 @@ import { X, TrendingUp, Pencil, Link2Off, ArrowUpRight } from 'lucide-react'
 import { useUiStore } from '../../store/uiStore'
 import { useMapStore } from '../../store/mapStore'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
+import { symbolForType } from '../../utils/currency'
 
 const TYPE_BADGE_STYLE = {
   Equity: { bg: 'rgba(235,94,40,0.18)', text: '#c1450f' },
@@ -122,7 +123,14 @@ export default function TradeDetailModal() {
               <div className="grid grid-cols-3 gap-2">
                 <Field label="Date">{trade.date}</Field>
                 <Field label="Timeframe">{trade.timeframe}</Field>
-                <Field label="Price">{trade.price || '—'}</Field>
+                <Field label="Price">
+                  {trade.price ? `${symbolForType(trade.instrumentType)}${trade.price}` : '—'}
+                </Field>
+                <Field label="P&L">
+                  {trade.pnl == null
+                    ? '—'
+                    : `${trade.pnl > 0 ? '+' : ''}${symbolForType(trade.instrumentType)}${trade.pnl}`}
+                </Field>
               </div>
 
               <Field label="Status">
