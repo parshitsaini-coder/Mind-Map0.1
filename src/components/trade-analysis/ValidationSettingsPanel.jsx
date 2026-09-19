@@ -335,7 +335,10 @@ export default function ValidationSettingsPanel({ open, onClose }) {
                                 whileHover={{ y: -1, boxShadow: '0 3px 12px rgba(0,0,0,0.08)' }}
                                 transition={{ duration: 0.16 }}
                                 className="flex items-center gap-2 rounded-lg border px-2 py-1.5"
-                                style={{ borderColor: 'var(--ta-slate)' }}
+                                style={{
+                                  borderColor: 'var(--ta-slate)',
+                                  backgroundColor: rule.color || 'transparent',
+                                }}
                               >
                                 <span className="flex shrink-0 cursor-grab flex-col items-center gap-0.5" style={{ color: 'var(--ta-slate)' }}>
                                   <GripVertical size={12} />
@@ -391,6 +394,44 @@ export default function ValidationSettingsPanel({ open, onClose }) {
                                     style={{ left: rule.active ? 14 : 2 }}
                                   />
                                 </motion.button>
+
+                                <label
+                                  className="relative flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full"
+                                  style={{
+                                    background: rule.color
+                                      ? undefined
+                                      : 'conic-gradient(from 0deg, var(--ta-accent), #e57373, #ba68c8, #64b5f6, #81c784, var(--ta-accent))',
+                                    backgroundColor: rule.color || undefined,
+                                    border: rule.color ? '1px solid var(--ta-slate)' : 'none',
+                                  }}
+                                  title="Custom row color"
+                                >
+                                  {!rule.color && (
+                                    <span
+                                      className="pointer-events-none h-3 w-3 rounded-full border border-white/70"
+                                      style={{ backgroundColor: 'var(--ta-surface)' }}
+                                    />
+                                  )}
+                                  <input
+                                    type="color"
+                                    value={rule.color || '#ffffff'}
+                                    onChange={(e) =>
+                                      useTradeAnalysisStore.getState().updateValidationRuleColor(rule.id, e.target.value)
+                                    }
+                                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                                  />
+                                </label>
+
+                                {rule.color && (
+                                  <button
+                                    onClick={() => useTradeAnalysisStore.getState().updateValidationRuleColor(rule.id, null)}
+                                    className="shrink-0 rounded p-0.5 hover:bg-black/5"
+                                    style={{ color: 'var(--ta-slate)' }}
+                                    title="Reset row color"
+                                  >
+                                    <X size={11} />
+                                  </button>
+                                )}
 
                                 <motion.button
                                   whileTap={{ scale: 0.85 }}

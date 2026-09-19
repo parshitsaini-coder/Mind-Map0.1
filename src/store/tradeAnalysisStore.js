@@ -342,7 +342,7 @@ export const useTradeAnalysisStore = create(
           return {
             validationRules: [
               ...s.validationRules,
-              { id: crypto.randomUUID(), categoryId, label: trimmed, active: true, order: siblingCount },
+              { id: crypto.randomUUID(), categoryId, label: trimmed, active: true, order: siblingCount, color: null },
             ],
           }
         })
@@ -350,6 +350,13 @@ export const useTradeAnalysisStore = create(
       updateValidationRuleLabel: (id, label) =>
         set((s) => ({
           validationRules: s.validationRules.map((r) => (r.id === id ? { ...r, label } : r)),
+        })),
+      // `color` is a custom background for this rule's row (in both
+      // Validation Settings and the "Add Validation" checklist popup).
+      // `null` clears it back to the default row background.
+      updateValidationRuleColor: (id, color) =>
+        set((s) => ({
+          validationRules: s.validationRules.map((r) => (r.id === id ? { ...r, color } : r)),
         })),
       toggleValidationRuleActive: (id) =>
         set((s) => ({

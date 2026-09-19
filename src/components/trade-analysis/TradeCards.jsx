@@ -27,9 +27,9 @@ export default function TradeCards() {
   const [celebrateId, setCelebrateId] = useState(null)
   const prevStatusRef = useRef(new Map(trades.map((t) => [t.id, t.status])))
 
-  const ruleLabelById = useMemo(() => {
+  const ruleById = useMemo(() => {
     const map = new Map()
-    validationRules.forEach((r) => map.set(r.id, r.label))
+    validationRules.forEach((r) => map.set(r.id, { label: r.label, color: r.color }))
     return map
   }, [validationRules])
 
@@ -150,7 +150,12 @@ export default function TradeCards() {
         <AnimatePresence initial={false}>
           {filteredTrades.map((trade, idx) => {
             const notesExpanded = expandedNotes.has(trade.id)
-            const checkedRules = (trade.validationRuleIds || []).map((id) => ruleLabelById.get(id)).filter(Boolean)
+            const checkedRules = (trade.validationRuleIds || [])
+              .map((id) => {
+                const r = ruleById.get(id)
+                return r ? { id, ...r } : null
+              })
+              .filter(Boolean)
             const isEditing = trade.id === editingTradeId
             const isCelebrating = trade.id === celebrateId
 
@@ -387,21 +392,21 @@ export default function TradeCards() {
                     just 3. */}
                 {checkedRules.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1">
-                    {checkedRules.slice(0, 10).map((label) => (
+                    {checkedRules.slice(0, 10).map((rule) => (
                       <span
-                        key={label}
+                        key={rule.id}
                         className="truncate rounded-full px-1.5 py-0.5 text-[7.5px]"
-                        style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)', maxWidth: 96 }}
-                        title={label}
+                        style={{ backgroundColor: rule.color || 'var(--ta-bg)', color: 'var(--ta-ink)', maxWidth: 96 }}
+                        title={rule.label}
                       >
-                        {label}
+                        {rule.label}
                       </span>
                     ))}
                     {checkedRules.length > 10 && (
                       <span
                         className="shrink-0 rounded-full px-1.5 py-0.5 text-[7.5px] font-semibold"
                         style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-slate)' }}
-                        title={checkedRules.slice(10).join(', ')}
+                        title={checkedRules.slice(10).map((r) => r.label).join(', ')}
                       >
                         +{checkedRules.length - 10} more
                       </span>

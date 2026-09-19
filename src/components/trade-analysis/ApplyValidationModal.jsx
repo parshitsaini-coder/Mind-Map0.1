@@ -227,7 +227,7 @@ export default function ApplyValidationModal({ open, onClose, checkedIds, onTogg
                                 variants={rowVariants}
                                 whileHover={{ x: 2, backgroundColor: 'color-mix(in srgb, var(--ta-accent) 8%, var(--ta-surface))' }}
                                 className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[10px] transition-colors"
-                                style={{ backgroundColor: 'var(--ta-surface)', color: 'var(--ta-ink)' }}
+                                style={{ backgroundColor: rule.color || 'var(--ta-surface)', color: 'var(--ta-ink)' }}
                               >
                                 <motion.button
                                   type="button"

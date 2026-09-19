@@ -76,9 +76,9 @@ export default function TradesTable() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trades])
 
-  const ruleLabelById = useMemo(() => {
+  const ruleById = useMemo(() => {
     const map = new Map()
-    validationRules.forEach((r) => map.set(r.id, r.label))
+    validationRules.forEach((r) => map.set(r.id, { label: r.label, color: r.color }))
     return map
   }, [validationRules])
 
@@ -214,7 +214,12 @@ export default function TradesTable() {
           <AnimatePresence initial={false}>
             {filteredTrades.map((trade, idx) => {
               const notesExpanded = expandedNotes.has(trade.id)
-              const checkedRules = (trade.validationRuleIds || []).map((id) => ruleLabelById.get(id)).filter(Boolean)
+              const checkedRules = (trade.validationRuleIds || [])
+                .map((id) => {
+                  const r = ruleById.get(id)
+                  return r ? { id, ...r } : null
+                })
+                .filter(Boolean)
               const isFresh = trade.id === freshRowId
               const isCelebrating = trade.id === celebrateRowId
               return (
@@ -390,13 +395,13 @@ export default function TradesTable() {
                       {checkedRules.length === 0 ? (
                         <span className="text-[8px]" style={{ color: 'var(--ta-slate)' }}>—</span>
                       ) : (
-                        checkedRules.map((label) => (
+                        checkedRules.map((rule) => (
                           <span
-                            key={label}
+                            key={rule.id}
                             className="truncate rounded-full px-1.5 py-0.5 text-[7.5px]"
-                            style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }}
+                            style={{ backgroundColor: rule.color || 'var(--ta-bg)', color: 'var(--ta-ink)' }}
                           >
-                            {label}
+                            {rule.label}
                           </span>
                         ))
                       )}
