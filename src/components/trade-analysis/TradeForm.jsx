@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence, useAnimationControls } from 'framer-motion'
 import {
   ChevronDown,
@@ -148,12 +148,21 @@ export default function TradeForm({ mode = 'sidebar' }) {
   const checkedCount = form.validationRuleIds.length
   const scorePct = activeRules.length ? Math.round((checkedCount / activeRules.length) * 100) : null
 
-  const toggleRule = (id) =>
-    patch({
-      validationRuleIds: form.validationRuleIds.includes(id)
-        ? form.validationRuleIds.filter((r) => r !== id)
-        : [...form.validationRuleIds, id],
-    })
+  // useCallback + functional update so this function's identity never
+  // changes across renders — ApplyValidationModal's rows are memoized on
+  // this reference staying stable, which is what keeps a tap on one
+  // checkbox from re-rendering (and re-animating) the whole 20-30 row
+  // checklist.
+  const toggleRule = useCallback(
+    (id) =>
+      setForm((f) => ({
+        ...f,
+        validationRuleIds: f.validationRuleIds.includes(id)
+          ? f.validationRuleIds.filter((r) => r !== id)
+          : [...f.validationRuleIds, id],
+      })),
+    []
+  )
 
   // Ctrl+V / Cmd+V paste-to-attach — active only while this form is mounted.
   useEffect(() => {

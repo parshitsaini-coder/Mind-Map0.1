@@ -86,20 +86,29 @@ export default function TradesTable() {
   // optional (null = "don't filter on this"); a trade must satisfy all
   // of the ones that are set.
   const filteredTrades = useMemo(() => {
-    return trades.filter((t) => {
-      // Multi-select filters: an empty array means "no restriction"; a
-      // non-empty array matches if the trade's value is ANY of the
-      // selected values (OR within a field, AND across fields).
-      if (filters.pair?.length && !filters.pair.includes(t.pair)) return false
-      if (filters.instrumentType?.length && !filters.instrumentType.includes(t.instrumentType)) return false
-      if (filters.timeframe?.length && !filters.timeframe.includes(t.timeframe)) return false
-      if (filters.direction?.length && !filters.direction.includes(t.direction)) return false
-      if (filters.status?.length && !filters.status.includes(t.status)) return false
-      if (filters.validationRuleId?.length && !(t.validationRuleIds || []).some((id) => filters.validationRuleId.includes(id))) return false
-      if (filters.dateFrom && t.date < filters.dateFrom) return false
-      if (filters.dateTo && t.date > filters.dateTo) return false
-      return true
-    })
+    return trades
+      .filter((t) => {
+        // Multi-select filters: an empty array means "no restriction"; a
+        // non-empty array matches if the trade's value is ANY of the
+        // selected values (OR within a field, AND across fields).
+        if (filters.pair?.length && !filters.pair.includes(t.pair)) return false
+        if (filters.instrumentType?.length && !filters.instrumentType.includes(t.instrumentType)) return false
+        if (filters.timeframe?.length && !filters.timeframe.includes(t.timeframe)) return false
+        if (filters.direction?.length && !filters.direction.includes(t.direction)) return false
+        if (filters.status?.length && !filters.status.includes(t.status)) return false
+        if (filters.validationRuleId?.length && !(t.validationRuleIds || []).some((id) => filters.validationRuleId.includes(id))) return false
+        if (filters.dateFrom && t.date < filters.dateFrom) return false
+        if (filters.dateTo && t.date > filters.dateTo) return false
+        return true
+      })
+      // Newest trade date first. Changing a trade's date (or adding a
+      // new one) re-sorts it into place here rather than leaving it
+      // wherever it happened to sit in the underlying list. Same-day
+      // trades fall back to whichever was created/edited most recently.
+      .sort((a, b) => {
+        if (a.date !== b.date) return a.date < b.date ? 1 : -1
+        return (b.createdAt || 0) - (a.createdAt || 0)
+      })
   }, [trades, filters])
 
   const toggleNotes = (id) =>
