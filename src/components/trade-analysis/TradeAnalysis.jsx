@@ -23,8 +23,9 @@ const SIDEBAR_SPRING = { type: 'spring', stiffness: 340, damping: 32 }
 
 // Step 1 of trade-analysis-analytics-master-prompt.md — Table/Analysis
 // segmented toggle for the top bar. Sits between the title and the
-// Filters/Add Validation Rule buttons (which only make sense in Table
-// view, since they act on rows the Analysis tab doesn't show).
+// Filters button/Add Validation Rule group ("Add Validation Rule" still
+// only makes sense in Table view, since it edits rows the Analysis tab
+// doesn't show — Filters itself applies in both views now).
 function ViewSwitch({ activeView, onChange }) {
   const tabs = [
     { id: 'table', label: 'Table', icon: Table2 },
@@ -332,8 +333,8 @@ export default function TradeAnalysis() {
             {/* Report button lives outside the table-only group below so
                 it's reachable from both Table and Analysis view — it acts
                 on all logged trades, not just the ones currently visible
-                in the table. Filters / Add Validation Rule still only
-                make sense (and only render) in Table view — Step 1. */}
+                in the table. Filters now renders in both views too (right
+                below); only "Add Validation Rule" stays Table-only. */}
             <div className="ml-auto flex shrink-0 items-center gap-1">
               <motion.button
                 whileHover={{ scale: 1.04, y: -1, boxShadow: '0 4px 14px rgba(0,0,0,0.18)' }}
@@ -355,52 +356,57 @@ export default function TradeAnalysis() {
                 {reportBusy ? 'Building…' : 'Download Report'}
               </motion.button>
 
+              {/* Filters applies to every view — Table/Cards rows and every
+                  Analysis widget both read trades through the same
+                  filtered set, so it lives outside the Table-only group
+                  below and stays visible regardless of activeView. */}
+              <div className="relative">
+                <motion.button
+                  whileHover={{ scale: 1.04, y: -1 }}
+                  whileTap={{ scale: 0.94 }}
+                  transition={{ type: 'spring', stiffness: 480, damping: 22 }}
+                  title="Filters"
+                  onClick={() => setFiltersOpen((o) => !o)}
+                  className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium shadow-sm"
+                  style={
+                    filtersOpen || activeFilterCount > 0
+                      ? { backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }
+                      : { backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }
+                  }
+                >
+                  <motion.span
+                    className="flex"
+                    animate={{ rotate: filtersOpen ? 90 : 0 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+                  >
+                    <SlidersHorizontal size={11} />
+                  </motion.span>
+                  Filters
+                  <AnimatePresence mode="popLayout">
+                    {activeFilterCount > 0 && (
+                      <motion.span
+                        key={activeFilterCount}
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0, opacity: 0 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                        className="flex h-3 min-w-[12px] items-center justify-center rounded-full px-1 text-[8px] font-bold"
+                        style={{ backgroundColor: '#fffcf2', color: 'var(--ta-accent)' }}
+                      >
+                        {activeFilterCount}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </motion.button>
+                <FiltersPopover open={filtersOpen} onClose={() => setFiltersOpen(false)} />
+              </div>
+
               {activeView === 'table' && (
                 <>
                   <EntriesViewSwitch
                     activeEntriesView={entriesView}
                     onChange={(v) => useTradeAnalysisStore.getState().setEntriesView(v)}
                   />
-                  <div className="relative">
-                    <motion.button
-                      whileHover={{ scale: 1.04, y: -1 }}
-                      whileTap={{ scale: 0.94 }}
-                      transition={{ type: 'spring', stiffness: 480, damping: 22 }}
-                      title="Filters"
-                      onClick={() => setFiltersOpen((o) => !o)}
-                      className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium shadow-sm"
-                      style={
-                        filtersOpen || activeFilterCount > 0
-                          ? { backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }
-                          : { backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }
-                      }
-                    >
-                      <motion.span
-                        className="flex"
-                        animate={{ rotate: filtersOpen ? 90 : 0 }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 22 }}
-                      >
-                        <SlidersHorizontal size={11} />
-                      </motion.span>
-                      Filters
-                      <AnimatePresence mode="popLayout">
-                        {activeFilterCount > 0 && (
-                          <motion.span
-                            key={activeFilterCount}
-                            initial={{ scale: 0, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0, opacity: 0 }}
-                            transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-                            className="flex h-3 min-w-[12px] items-center justify-center rounded-full px-1 text-[8px] font-bold"
-                            style={{ backgroundColor: '#fffcf2', color: 'var(--ta-accent)' }}
-                          >
-                            {activeFilterCount}
-                          </motion.span>
-                        )}
-                      </AnimatePresence>
-                    </motion.button>
-                    <FiltersPopover open={filtersOpen} onClose={() => setFiltersOpen(false)} />
-                  </div>
                   <motion.button
                     whileHover={{ scale: 1.04, y: -1, boxShadow: '0 4px 14px rgba(0,0,0,0.18)' }}
                     whileTap={{ scale: 0.94 }}

@@ -700,6 +700,16 @@ body {
   white-space: nowrap;
   border-bottom: 1px solid var(--tad-border-strong);
 }
+/* Numeric columns pass a `text-right` class on both the <th> and its
+   <td>s so the header sits directly above its right-aligned values.
+   `.ta-table th`'s own `text-align: left` above has higher specificity
+   than the bare `.text-right` utility class, so it silently won and
+   left every numeric header stuck on the left while its values sat on
+   the right — the header and data drifting apart under wide columns.
+   This rule out-specifies the base one so the utility actually applies. */
+.ta-table th.text-right {
+  text-align: right;
+}
 .ta-table td {
   padding: 2px 6px;
   height: var(--tad-row-h);

@@ -38,7 +38,7 @@ const buildGrid = (viewYear, viewMonth) => {
 // open/close spring animation and card styling as the Stock/Time frame
 // dropdowns elsewhere in this form, plus a proper month-grid calendar
 // instead of the browser's inconsistent native picker.
-export default function DatePicker({ value, onChange, inputCls }) {
+export default function DatePicker({ value, onChange, inputCls, align = 'left', placeholder = 'Pick a date' }) {
   const [open, setOpen] = useState(false)
   const selected = useMemo(() => parseISO(value), [value])
   const today = useMemo(() => new Date(), [])
@@ -67,7 +67,7 @@ export default function DatePicker({ value, onChange, inputCls }) {
 
   const displayLabel = selected
     ? `${MONTH_NAMES[selected.getMonth()].slice(0, 3)} ${pad2(selected.getDate())}, ${selected.getFullYear()}`
-    : 'Pick a date'
+    : placeholder
 
   return (
     <div className="relative" ref={rootRef}>
@@ -92,8 +92,12 @@ export default function DatePicker({ value, onChange, inputCls }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.96 }}
             transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-            style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)', transformOrigin: 'top left' }}
-            className="ta-glass-popover absolute left-0 top-full z-30 mt-1 w-[210px] rounded-lg border p-2 shadow-lg"
+            style={{
+              backgroundColor: 'var(--ta-surface)',
+              borderColor: 'var(--ta-slate)',
+              transformOrigin: align === 'right' ? 'top right' : 'top left',
+            }}
+            className={`ta-glass-popover absolute ${align === 'right' ? 'right-0' : 'left-0'} top-full z-30 mt-1 w-[210px] rounded-lg border p-2 shadow-lg`}
           >
             {/* Month header */}
             <div className="mb-1.5 flex items-center justify-between">

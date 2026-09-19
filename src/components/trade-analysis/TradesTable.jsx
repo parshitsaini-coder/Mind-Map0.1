@@ -6,6 +6,7 @@ import { useUiStore } from '../../store/uiStore'
 import { uploadTradeImage } from '../../lib/imageUpload'
 import StatusDropdown from './StatusDropdown'
 import { symbolForType } from '../../utils/currency'
+import { applyFilters } from '../../utils/tradeFilters'
 
 // Step 10 (polish pass) note: status pill colors now live in
 // StatusDropdown.jsx alongside the custom animated menu that replaced the
@@ -86,21 +87,7 @@ export default function TradesTable() {
   // optional (null = "don't filter on this"); a trade must satisfy all
   // of the ones that are set.
   const filteredTrades = useMemo(() => {
-    return trades
-      .filter((t) => {
-        // Multi-select filters: an empty array means "no restriction"; a
-        // non-empty array matches if the trade's value is ANY of the
-        // selected values (OR within a field, AND across fields).
-        if (filters.pair?.length && !filters.pair.includes(t.pair)) return false
-        if (filters.instrumentType?.length && !filters.instrumentType.includes(t.instrumentType)) return false
-        if (filters.timeframe?.length && !filters.timeframe.includes(t.timeframe)) return false
-        if (filters.direction?.length && !filters.direction.includes(t.direction)) return false
-        if (filters.status?.length && !filters.status.includes(t.status)) return false
-        if (filters.validationRuleId?.length && !(t.validationRuleIds || []).some((id) => filters.validationRuleId.includes(id))) return false
-        if (filters.dateFrom && t.date < filters.dateFrom) return false
-        if (filters.dateTo && t.date > filters.dateTo) return false
-        return true
-      })
+    return applyFilters(trades, filters)
       // Newest trade date first. Changing a trade's date (or adding a
       // new one) re-sorts it into place here rather than leaving it
       // wherever it happened to sit in the underlying list. Same-day
@@ -382,7 +369,13 @@ export default function TradesTable() {
                   <td className={td}>
                     {trade.screenshotUrl ? (
                       <button
-                        onClick={() => useUiStore.getState().openImageLightbox(trade.screenshotUrl)}
+                        onClick={() =>
+                          useUiStore
+                            .getState()
+                            .openImageLightbox(trade.screenshotUrl, () =>
+                              useTradeAnalysisStore.getState().autosaveTrade(trade.id, { screenshotUrl: null, screenshotHosted: false })
+                            )
+                        }
                         title="View screenshot"
                       >
                         <img src={trade.screenshotUrl} alt="Screenshot" className="h-6 w-6 rounded object-cover" />
@@ -443,7 +436,13 @@ export default function TradesTable() {
                   <td className={td}>
                     {trade.resultImageUrl ? (
                       <button
-                        onClick={() => useUiStore.getState().openImageLightbox(trade.resultImageUrl)}
+                        onClick={() =>
+                          useUiStore
+                            .getState()
+                            .openImageLightbox(trade.resultImageUrl, () =>
+                              useTradeAnalysisStore.getState().updateTradeResultImage(trade.id, null, false)
+                            )
+                        }
                         title="View result image"
                       >
                         <img src={trade.resultImageUrl} alt="Result" className="h-7 w-7 rounded object-cover" />

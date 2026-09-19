@@ -22,6 +22,7 @@ export const useUiStore = create(
       styleLibraryOpen: false,
       nodeLibraryOpen: false,
       imageLightboxUrl: null, // set to an image URL to open it fullscreen; null when closed
+      imageLightboxOnRemove: null, // optional () => void, passed to openImageLightbox — when set, the lightbox shows a "Remove image" button that calls it
       jumpToken: null, // { id, ts } — set to ask the canvas to pan/zoom to and select a node (used by Linked Nodes / Backlinks jump buttons)
 
       // Section — Link a Trade to a node. `tradeLinkPickerNodeId` opens the
@@ -59,8 +60,8 @@ export const useUiStore = create(
       setPresentationIndex: (presentationIndex) => set({ presentationIndex }),
       toggleSearch: () => set((s) => ({ searchOpen: !s.searchOpen })),
       toggleMockCursors: () => set((s) => ({ showMockCursors: !s.showMockCursors })),
-      openImageLightbox: (url) => set({ imageLightboxUrl: url }),
-      closeImageLightbox: () => set({ imageLightboxUrl: null }),
+      openImageLightbox: (url, onRemove = null) => set({ imageLightboxUrl: url, imageLightboxOnRemove: onRemove }),
+      closeImageLightbox: () => set({ imageLightboxUrl: null, imageLightboxOnRemove: null }),
       openTradeLinkPicker: (nodeId) => set({ tradeLinkPickerNodeId: nodeId }),
       closeTradeLinkPicker: () => set({ tradeLinkPickerNodeId: null }),
       openTradeDetail: (nodeId, tradeId) => set({ tradeDetail: { nodeId, tradeId } }),

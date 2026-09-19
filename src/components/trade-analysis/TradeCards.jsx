@@ -1,12 +1,14 @@
 import { useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ImagePlus, Pencil, Trash2, Camera, PartyPopper, StickyNote } from 'lucide-react'
+import { ImagePlus, Pencil, Trash2, Camera, PartyPopper, StickyNote, ListChecks } from 'lucide-react'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useUiStore } from '../../store/uiStore'
 import { uploadTradeImage } from '../../lib/imageUpload'
 import StatusDropdown from './StatusDropdown'
+import ApplyValidationModal from './ApplyValidationModal'
 import { TYPE_BADGE_STYLE, TIMEFRAME_BADGE_STYLE, TIMEFRAME_DEFAULT_STYLE } from './TradesTable'
 import { symbolForType } from '../../utils/currency'
+import { applyFilters } from '../../utils/tradeFilters'
 
 // Card-grid alternative to TradesTable's horizontal rows — same data, same
 // store actions, just laid out as a responsive grid of cards (3-up on a
@@ -25,6 +27,15 @@ export default function TradeCards() {
   const [pnlDraft, setPnlDraft] = useState('')
   const [dragOverResultId, setDragOverResultId] = useState(null)
   const [celebrateId, setCelebrateId] = useState(null)
+  // Card whose validation checklist popup is open (ApplyValidationModal),
+  // opened via the small ListChecks button in the card header — lets a
+  // trade's ticks be edited right from the grid, no need to open the
+  // full Edit form.
+  const [validationCardId, setValidationCardId] = useState(null)
+  const validationCardTrade = useMemo(
+    () => trades.find((t) => t.id === validationCardId) || null,
+    [trades, validationCardId]
+  )
   const prevStatusRef = useRef(new Map(trades.map((t) => [t.id, t.status])))
 
   const ruleById = useMemo(() => {
@@ -34,21 +45,7 @@ export default function TradeCards() {
   }, [validationRules])
 
   const filteredTrades = useMemo(() => {
-    return trades
-      .filter((t) => {
-        // Multi-select filters: an empty array means "no restriction"; a
-        // non-empty array matches if the trade's value is ANY of the
-        // selected values (OR within a field, AND across fields).
-        if (filters.pair?.length && !filters.pair.includes(t.pair)) return false
-        if (filters.instrumentType?.length && !filters.instrumentType.includes(t.instrumentType)) return false
-        if (filters.timeframe?.length && !filters.timeframe.includes(t.timeframe)) return false
-        if (filters.direction?.length && !filters.direction.includes(t.direction)) return false
-        if (filters.status?.length && !filters.status.includes(t.status)) return false
-        if (filters.validationRuleId?.length && !(t.validationRuleIds || []).some((id) => filters.validationRuleId.includes(id))) return false
-        if (filters.dateFrom && t.date < filters.dateFrom) return false
-        if (filters.dateTo && t.date > filters.dateTo) return false
-        return true
-      })
+    return applyFilters(trades, filters)
       // Newest trade date first. Changing a trade's date (or adding a
       // new one) re-sorts it into place here rather than leaving it
       // wherever it happened to sit in the underlying list. Same-day
@@ -225,6 +222,15 @@ export default function TradeCards() {
                     </motion.span>
                     <motion.button
                       whileTap={{ scale: 0.88 }}
+                      onClick={() => setValidationCardId(trade.id)}
+                      title="Validation"
+                      className="rounded p-1 hover:bg-black/5"
+                      style={{ color: 'var(--ta-slate)' }}
+                    >
+                      <ListChecks size={11} />
+                    </motion.button>
+                    <motion.button
+                      whileTap={{ scale: 0.88 }}
                       onClick={() => useTradeAnalysisStore.getState().setEditingTrade(trade.id)}
                       title="Edit"
                       className="rounded p-1 hover:bg-black/5"
@@ -330,7 +336,16 @@ export default function TradeCards() {
                   <div className="flex flex-col items-center gap-0.5">
                     <span className="text-[7px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ta-slate)' }}>Setup</span>
                     {trade.screenshotUrl ? (
-                      <button onClick={() => useUiStore.getState().openImageLightbox(trade.screenshotUrl)} title="View screenshot">
+                      <button
+                        onClick={() =>
+                          useUiStore
+                            .getState()
+                            .openImageLightbox(trade.screenshotUrl, () =>
+                              useTradeAnalysisStore.getState().autosaveTrade(trade.id, { screenshotUrl: null, screenshotHosted: false })
+                            )
+                        }
+                        title="View screenshot"
+                      >
                         <img src={trade.screenshotUrl} alt="Screenshot" className="h-10 w-10 rounded object-cover" />
                       </button>
                     ) : (
@@ -346,7 +361,16 @@ export default function TradeCards() {
                   <div className="flex flex-col items-center gap-0.5">
                     <span className="text-[7px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ta-slate)' }}>Result</span>
                     {trade.resultImageUrl ? (
-                      <button onClick={() => useUiStore.getState().openImageLightbox(trade.resultImageUrl)} title="View result image">
+                      <button
+                        onClick={() =>
+                          useUiStore
+                            .getState()
+                            .openImageLightbox(trade.resultImageUrl, () =>
+                              useTradeAnalysisStore.getState().updateTradeResultImage(trade.id, null, false)
+                            )
+                        }
+                        title="View result image"
+                      >
                         <img src={trade.resultImageUrl} alt="Result" className="h-10 w-10 rounded object-cover" />
                       </button>
                     ) : (
@@ -455,6 +479,13 @@ export default function TradeCards() {
           })}
         </AnimatePresence>
       </div>
+
+      <ApplyValidationModal
+        open={!!validationCardId}
+        onClose={() => setValidationCardId(null)}
+        checkedIds={validationCardTrade?.validationRuleIds || []}
+        onToggle={(ruleId) => useTradeAnalysisStore.getState().toggleTradeValidationRule(validationCardId, ruleId)}
+      />
     </div>
   )
 }

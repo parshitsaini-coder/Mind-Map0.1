@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useTradeAnalysisStore } from '../../../../store/tradeAnalysisStore'
 import { parseDate } from '../../../../utils/tradeAnalyticsPro'
 import { splitTradesByCurrency } from '../../../../utils/currency'
+import { applyFilters } from '../../../../utils/tradeFilters'
 
 // One place where "which trades is the Analysis tab currently looking at"
 // is decided. Every widget reads through this instead of touching
@@ -62,9 +63,16 @@ export function applyScope(trades, scope) {
 export function useScopedTrades() {
   const allTrades = useTradeAnalysisStore((s) => s.trades)
   const scope = useTradeAnalysisStore((s) => s.analysisScope)
+  // The same Filters popover state that drives Table/Cards view (pair,
+  // instrument type, timeframe, direction, status, validation rule,
+  // date range) now applies here too, on top of the date-scope preset
+  // above — so picking a filter actually changes what every Analysis
+  // widget shows instead of only affecting the Table/Cards rows.
+  const filters = useTradeAnalysisStore((s) => s.filters)
 
   return useMemo(() => {
-    const trades = applyScope(allTrades, scope)
+    const filteredAll = applyFilters(allTrades, filters)
+    const trades = applyScope(filteredAll, scope)
     const { INR, USD } = splitTradesByCurrency(trades)
     const { from, to } = scopeBounds(scope)
 
@@ -73,7 +81,7 @@ export function useScopedTrades() {
       const span = to.getTime() - from.getTime()
       const prevTo = new Date(from.getTime() - 1)
       const prevFrom = new Date(from.getTime() - span - 1)
-      previous = allTrades.filter((t) => {
+      previous = filteredAll.filter((t) => {
         const d = parseDate(t)
         return d >= prevFrom && d <= prevTo
       })
@@ -90,7 +98,7 @@ export function useScopedTrades() {
       scoped: trades.length !== allTrades.length,
       excluded: allTrades.length - trades.length,
     }
-  }, [allTrades, scope])
+  }, [allTrades, scope, filters])
 }
 
 /**

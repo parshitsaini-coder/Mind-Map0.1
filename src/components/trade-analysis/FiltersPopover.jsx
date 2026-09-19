@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { INDIAN_STOCKS, FOREX_PAIRS, COMMODITIES } from '../../data/instruments'
 import AnimatedMultiSelect from './AnimatedMultiSelect'
+import DatePicker from './DatePicker'
 
 const INSTRUMENT_TYPES = ['Equity', 'Forex', 'Commodity']
 const TIMEFRAMES = ['1m', '3m', '5m', '15m', '30m', '60m', '75m', '2h', '3h', '4h', '1D', '1W', '1M']
@@ -191,21 +192,19 @@ export default function FiltersPopover({ open, onClose }) {
             <div className="flex flex-col gap-1">
               <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Date range</span>
               <div className="grid grid-cols-2 gap-1.5">
-                <input
-                  type="date"
+                <DatePicker
                   value={filters.dateFrom || ''}
-                  onChange={(e) => setFilter('dateFrom', e.target.value)}
-                  className={inputCls}
-                  style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
-                  title="From"
+                  onChange={(v) => setFilter('dateFrom', v)}
+                  inputCls={inputCls}
+                  align="left"
+                  placeholder="From"
                 />
-                <input
-                  type="date"
+                <DatePicker
                   value={filters.dateTo || ''}
-                  onChange={(e) => setFilter('dateTo', e.target.value)}
-                  className={inputCls}
-                  style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
-                  title="To"
+                  onChange={(v) => setFilter('dateTo', v)}
+                  inputCls={inputCls}
+                  align="right"
+                  placeholder="To"
                 />
               </div>
             </div>

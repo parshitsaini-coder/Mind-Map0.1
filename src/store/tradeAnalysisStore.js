@@ -415,6 +415,30 @@ export const useTradeAnalysisStore = create(
           trades: s.trades.map((t) => (t.id === id ? { ...t, pnl, updatedAt: Date.now() } : t)),
         })),
 
+      // Toggles a single validation rule on a trade directly from the
+      // Cards/Table view (opened via ApplyValidationModal without going
+      // through the full Edit form). Keeps `validationScore` — the
+      // {checked,total} snapshot other views/reports read from — in sync
+      // with the currently-active rule count, same as TradeForm's save
+      // path does.
+      toggleTradeValidationRule: (tradeId, ruleId) =>
+        set((s) => {
+          const activeTotal = s.validationRules.filter((r) => r.active).length
+          return {
+            trades: s.trades.map((t) => {
+              if (t.id !== tradeId) return t
+              const ids = t.validationRuleIds || []
+              const nextIds = ids.includes(ruleId) ? ids.filter((id) => id !== ruleId) : [...ids, ruleId]
+              return {
+                ...t,
+                validationRuleIds: nextIds,
+                validationScore: activeTotal ? { checked: nextIds.length, total: activeTotal } : null,
+                updatedAt: Date.now(),
+              }
+            }),
+          }
+        }),
+
       // Step 8 (revised) — edit / delete row flow. `setEditingTrade` just
       // records which trade is being edited; EditTradeModal.jsx renders
       // whenever `editingTradeId` is set and owns prefilling itself (via
