@@ -7,8 +7,9 @@ import { useIsMobile } from '../../hooks/useIsMobile'
 // Step D of trade-analysis-validation-v3-master-prompt.md — the "Add
 // Validation" popup opened from the trade form's Validation section
 // (replaces the old inline flat checkbox list). Shows the same categories
-// managed in ValidationSettingsPanel.jsx, side by side, so ticking which
-// rules applied to *this* trade only ever shows active, categorized rules.
+// managed in ValidationSettingsPanel.jsx, laid out 4 per row (wrapping to
+// further rows beyond that), so ticking which rules applied to *this*
+// trade only ever shows active, categorized rules.
 //
 // The small "x" on each row (matching the reference screenshot) removes
 // that tick from this trade's checklist — same effect as unchecking the
@@ -95,7 +96,7 @@ export default function ApplyValidationModal({ open, onClose, checkedIds, onTogg
             exit={{ opacity: 0, scale: 0.94, y: 10 }}
             transition={{ type: 'spring', stiffness: 340, damping: 28 }}
             onClick={(e) => e.stopPropagation()}
-            className="flex max-h-[80vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border shadow-2xl"
+            className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border shadow-2xl"
             style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)' }}
           >
             <div className="flex shrink-0 items-center justify-between border-b px-3 py-2" style={{ borderColor: 'var(--ta-slate)' }}>
@@ -161,12 +162,11 @@ export default function ApplyValidationModal({ open, onClose, checkedIds, onTogg
                   className={
                     isMobile
                       ? 'flex flex-col gap-2'
-                      // Desktop: every category sits side by side in one
-                      // horizontal row (not wrapped into a 2-column
-                      // grid). If there are more categories than fit the
-                      // modal's width, the row scrolls horizontally
-                      // instead of wrapping to a second line.
-                      : 'flex flex-nowrap items-start gap-2 overflow-x-auto pb-1'
+                      // Desktop: exactly 4 categories per row. Once there
+                      // are more than 4 active categories, the extra ones
+                      // wrap down to the next row instead of pushing the
+                      // row wider and scrolling horizontally.
+                      : 'grid grid-cols-4 items-start gap-2'
                   }
                 >
                   {grouped.map(({ category, rules: catRules }) => {
@@ -189,7 +189,7 @@ export default function ApplyValidationModal({ open, onClose, checkedIds, onTogg
                             : { boxShadow: '0 0 0 0px transparent' }
                         }
                         transition={catComplete ? { duration: 1.1, ease: 'easeInOut' } : { duration: 0.2 }}
-                        className={`flex flex-col gap-1.5 rounded-xl border p-2 ${isMobile ? '' : 'w-56 shrink-0'}`}
+                        className={`flex h-full flex-col gap-1.5 rounded-xl border p-2 ${isMobile ? '' : 'min-w-0'}`}
                         style={{
                           borderColor: catComplete ? '#16a34a' : 'var(--ta-slate)',
                           backgroundColor: 'var(--ta-bg)',
