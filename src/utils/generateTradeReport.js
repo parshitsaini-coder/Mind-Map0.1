@@ -16,19 +16,32 @@ import { splitTradesByCurrency, CURRENCY_GROUP_LABEL, symbolForType } from './cu
 // same numbers the Analysis tab shows, via tradeAnalytics.js), then one
 // page per logged trade with every field the entry form captures plus its
 // setup (screenshotUrl) and result (resultImageUrl) images side by side.
+//
+// Visual language: every widget (stat card / table / screenshot box) is a
+// bordered, tinted "card" — never a flat unbordered block — and the brand
+// accent (the app's default "Classic" theme orange, #eb5e28) is used as a
+// thread that ties the header, section markers, table dividers and image
+// chips together, while semantic colors (green/red/amber) stay reserved
+// for actual win/loss/pending meaning so they're never ambiguous.
 
 const PAGE_W = 595.28 // A4 pt
 const PAGE_H = 841.89
 const MARGIN = 36
 
-const INK = [30, 41, 59] // slate-800
+const INK = [15, 23, 42] // slate-900
 const SLATE = [100, 116, 139] // slate-500
-const LINE = [226, 232, 240] // slate-200
-const ACCENT = [37, 99, 235] // blue-600
+const LINE = [203, 213, 225] // slate-300 — card/table borders
+const DIVIDER = [230, 235, 241] // faint row dividers
+
+const ACCENT = [235, 94, 40] // brand orange (#eb5e28, matches the app's default theme)
+const ACCENT_LIGHT = [253, 232, 220] // pale orange tint for chips/card backgrounds
 const GREEN = [22, 163, 74]
+const GREEN_LIGHT = [220, 252, 231]
 const RED = [220, 38, 38]
+const RED_LIGHT = [254, 226, 226]
 const AMBER = [217, 119, 6]
-const CARD_BG = [248, 250, 252]
+const AMBER_LIGHT = [254, 243, 199]
+const CARD_BG = [248, 250, 252] // slate-50 — neutral card fill
 
 const fmtMoney = (n, symbol = '₹') => `${n < 0 ? '-' : ''}${symbol}${Math.abs(Math.round(n)).toLocaleString('en-IN')}`
 const fmtPct = (n) => (n == null ? '—' : `${n.toFixed(0)}%`)
@@ -75,11 +88,34 @@ function statusColor(status) {
   return AMBER
 }
 
+// Maps a semantic color constant to its {bg, border} widget tint. Card
+// callers pass one of GREEN/RED/AMBER/ACCENT/INK (or omit it) by reference,
+// so a straight identity check is all that's needed here.
+function widgetPalette(color) {
+  if (color === GREEN) return { bg: GREEN_LIGHT, border: GREEN }
+  if (color === RED) return { bg: RED_LIGHT, border: RED }
+  if (color === AMBER) return { bg: AMBER_LIGHT, border: AMBER }
+  if (color === ACCENT) return { bg: ACCENT_LIGHT, border: ACCENT }
+  return { bg: CARD_BG, border: LINE }
+}
+
 // ---- small drawing helpers ------------------------------------------------
 
 function header(doc, title, subtitle) {
   doc.setFillColor(...INK)
   doc.rect(0, 0, PAGE_W, 64, 'F')
+  // Brand accent bar — the thread that ties every page back to the app.
+  doc.setFillColor(...ACCENT)
+  doc.rect(0, 64, PAGE_W, 3, 'F')
+
+  // Small circular badge, top-right, echoing the app's own accent color.
+  doc.setFillColor(...ACCENT)
+  doc.circle(PAGE_W - MARGIN - 13, 28, 13, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  doc.setTextColor(255, 255, 255)
+  doc.text('TA', PAGE_W - MARGIN - 13, 31.5, { align: 'center' })
+
   doc.setTextColor(255, 255, 255)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(17)
@@ -92,57 +128,98 @@ function header(doc, title, subtitle) {
 }
 
 function sectionTitle(doc, text, y, x = MARGIN, width = PAGE_W - MARGIN * 2) {
+  // Small accent tick before the label, plus a two-tone underline (a short
+  // accent-colored run fading into a thin neutral line) instead of one
+  // flat gray rule — a cheap way to get a "highlighted" look without
+  // true gradients.
+  doc.setFillColor(...ACCENT)
+  doc.roundedRect(x, y - 8, 3, 10, 1, 1, 'F')
+
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
   doc.setTextColor(...INK)
-  doc.text(text, x, y)
+  doc.text(text, x + 9, y)
+
+  const accentW = Math.min(34, width)
+  doc.setDrawColor(...ACCENT)
+  doc.setLineWidth(1.25)
+  doc.line(x, y + 5, x + accentW, y + 5)
   doc.setDrawColor(...LINE)
   doc.setLineWidth(0.75)
-  doc.line(x, y + 4, x + width, y + 4)
+  doc.line(x + accentW, y + 5, x + width, y + 5)
   return y + 20
 }
 
-// A row of equal-width stat cards, each with a label and a big value.
+// A row of equal-width stat cards, each with a tinted background, a
+// border in its own semantic color, and a small color-matched accent
+// bar on the left edge — a proper "widget" look instead of a flat block.
 function statCards(doc, y, cards) {
   const gap = 10
   const w = (PAGE_W - MARGIN * 2 - gap * (cards.length - 1)) / cards.length
-  const h = 52
+  const h = 56
   cards.forEach((c, i) => {
     const x = MARGIN + i * (w + gap)
-    doc.setFillColor(...CARD_BG)
-    doc.roundedRect(x, y, w, h, 5, 5, 'F')
+    const { bg, border } = widgetPalette(c.color)
+    doc.setFillColor(...bg)
+    doc.setDrawColor(...border)
+    doc.setLineWidth(0.9)
+    doc.roundedRect(x, y, w, h, 6, 6, 'FD')
+
+    doc.setFillColor(...border)
+    doc.roundedRect(x, y + 8, 3.2, h - 16, 1.6, 1.6, 'F')
+
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
+    doc.setFontSize(7.5)
     doc.setTextColor(...SLATE)
-    doc.text(c.label.toUpperCase(), x + 8, y + 16)
+    doc.text(c.label.toUpperCase(), x + 13, y + 19)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(15)
+    doc.setFontSize(16)
     doc.setTextColor(...(c.color || INK))
-    doc.text(String(c.value), x + 8, y + 37)
+    doc.text(String(c.value), x + 13, y + 41)
   })
   return y + h + 18
 }
 
-// A simple two-column label/value table (for breakdown lists).
+// A two-column label/value table, now wrapped in its own bordered,
+// rounded card with faint row dividers instead of a flat, borderless
+// alternating-stripe block.
 function kvTable(doc, x, y, width, rows) {
-  const rowH = 16
+  const rowH = 17
+  const totalH = rows.length * rowH
+
+  doc.setFillColor(255, 255, 255)
+  doc.setDrawColor(...LINE)
+  doc.setLineWidth(0.9)
+  doc.roundedRect(x, y, width, totalH, 5, 5, 'FD')
+
   rows.forEach((r, i) => {
-    if (i % 2 === 0) {
+    if (i % 2 === 1) {
       doc.setFillColor(...CARD_BG)
-      doc.rect(x, y + i * rowH, width, rowH, 'F')
+      doc.rect(x + 1, y + i * rowH, width - 2, rowH, 'F')
     }
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
-    doc.setTextColor(...INK)
-    doc.text(String(r[0]), x + 6, y + i * rowH + 11)
+    doc.setTextColor(...SLATE)
+    doc.text(String(r[0]), x + 10, y + i * rowH + 11.5)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(...(r[2] || INK))
-    doc.text(String(r[1]), x + width - 6, y + i * rowH + 11, { align: 'right' })
+    doc.text(String(r[1]), x + width - 10, y + i * rowH + 11.5, { align: 'right' })
+
+    if (i < rows.length - 1) {
+      doc.setDrawColor(...DIVIDER)
+      doc.setLineWidth(0.5)
+      doc.line(x + 10, y + (i + 1) * rowH, x + width - 10, y + (i + 1) * rowH)
+    }
   })
-  return y + rows.length * rowH
+  return y + totalH
 }
 
 function footer(doc, pageLabel) {
+  doc.setDrawColor(...LINE)
+  doc.setLineWidth(0.6)
+  doc.line(MARGIN, PAGE_H - 28, PAGE_W - MARGIN, PAGE_H - 28)
+  doc.setFillColor(...ACCENT)
+  doc.circle(PAGE_W / 2 - doc.getTextWidth(pageLabel) / 2 - 8, PAGE_H - 17, 1.6, 'F')
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   doc.setTextColor(...SLATE)
@@ -156,7 +233,7 @@ function buildDashboardPage(doc, trades, scopeLabel) {
   const subtitle = `Generated ${new Date().toLocaleString('en-IN')} · ${countLine}${scopeLabel ? ` · ${scopeLabel}` : ''}`
   header(doc, 'Trade Analysis Report', subtitle)
 
-  let y = 90
+  let y = 92
   const kpis = getKpis(trades)
   const { INR: equityTrades, USD: fxTrades } = splitTradesByCurrency(trades)
   const equityPnl = getPnlStats(equityTrades)
@@ -315,17 +392,22 @@ async function buildTradePage(doc, trade, index, total, ruleLabels) {
     doc.setFontSize(9)
     trade.validationRuleIds.forEach((id) => {
       const label = ruleLabels.get(id) || id
+      doc.setFillColor(...GREEN_LIGHT)
+      doc.circle(MARGIN + 4, y - 3, 5, 'F')
       doc.setTextColor(...GREEN)
-      doc.text('✓', MARGIN, y)
+      doc.setFont('helvetica', 'bold')
+      doc.text('✓', MARGIN + 1.6, y)
+      doc.setFont('helvetica', 'normal')
       doc.setTextColor(...INK)
-      doc.text(label, MARGIN + 12, y)
-      y += 13
+      doc.text(label, MARGIN + 16, y)
+      y += 14
     })
     y += 8
   }
 
   // Images — setup (1st/entry screenshot) and result (final outcome),
-  // side by side so the whole trade story reads in one glance.
+  // side by side so the whole trade story reads in one glance. Each box
+  // is a bordered card with a tinted, accent-colored label chip.
   y = sectionTitle(doc, 'Screenshots', y)
   const boxW = (PAGE_W - MARGIN * 2 - 16) / 2
   const boxH = PAGE_H - y - 60
@@ -335,19 +417,23 @@ async function buildTradePage(doc, trade, index, total, ruleLabels) {
   ]
 
   for (const box of boxes) {
+    doc.setFillColor(...CARD_BG)
     doc.setDrawColor(...LINE)
     doc.setLineWidth(1)
-    doc.roundedRect(box.x, y, boxW, boxH, 6, 6)
+    doc.roundedRect(box.x, y, boxW, boxH, 8, 8, 'FD')
+
+    doc.setFillColor(...ACCENT_LIGHT)
+    doc.roundedRect(box.x + 8, y + 8, 48, 14, 4, 4, 'F')
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(8)
-    doc.setTextColor(...SLATE)
-    doc.text(box.label, box.x + 8, y + 14)
+    doc.setFontSize(7.5)
+    doc.setTextColor(...ACCENT)
+    doc.text(box.label, box.x + 32, y + 17, { align: 'center' })
 
     const img = await loadImage(box.url)
     const innerX = box.x + 8
-    const innerY = y + 20
+    const innerY = y + 30
     const innerW = boxW - 16
-    const innerH = boxH - 28
+    const innerH = boxH - 38
     if (img) {
       const scale = Math.min(innerW / img.width, innerH / img.height)
       const w = img.width * scale
@@ -356,6 +442,9 @@ async function buildTradePage(doc, trade, index, total, ruleLabels) {
       const dy = innerY + (innerH - h) / 2
       try {
         doc.addImage(img.dataUrl, img.format, dx, dy, w, h)
+        doc.setDrawColor(...LINE)
+        doc.setLineWidth(0.75)
+        doc.roundedRect(dx, dy, w, h, 3, 3)
       } catch {
         doc.setFontSize(9)
         doc.setTextColor(...SLATE)
