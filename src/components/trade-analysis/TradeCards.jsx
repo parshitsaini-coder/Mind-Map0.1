@@ -198,7 +198,22 @@ export default function TradeCards() {
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-0.5">
-                    <span className="text-[9px] font-semibold" style={{ color: 'var(--ta-slate)' }}>{trade.date}</span>
+                    <motion.span
+                      initial={{ opacity: 0, scale: 0.85 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      whileHover={{
+                        scale: 1.06,
+                        backgroundColor: 'color-mix(in srgb, var(--ta-accent) 26%, transparent)',
+                      }}
+                      transition={{ type: 'spring', stiffness: 420, damping: 26 }}
+                      className="rounded-full px-1.5 py-0.5 text-[9px] font-bold tracking-wide"
+                      style={{
+                        backgroundColor: 'color-mix(in srgb, var(--ta-accent) 16%, transparent)',
+                        color: 'var(--ta-accent)',
+                      }}
+                    >
+                      {trade.date}
+                    </motion.span>
                     <motion.button
                       whileTap={{ scale: 0.88 }}
                       onClick={() => useTradeAnalysisStore.getState().setEditingTrade(trade.id)}

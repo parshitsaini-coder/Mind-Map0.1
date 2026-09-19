@@ -89,6 +89,10 @@ export default function TradeForm({ mode = 'sidebar' }) {
   const [dragActive, setDragActive] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  // Autosave (edit mode only) — 'idle' | 'saving' | 'saved'. Drives the
+  // small inline indicator near the Save button so edits persist as the
+  // person types, without them ever having to press "Save changes".
+  const [autoSaveState, setAutoSaveState] = useState('idle')
   // Step D of trade-analysis-validation-v3-master-prompt.md — the
   // categorized checklist now lives in a popup instead of inline.
   const [validationModalOpen, setValidationModalOpen] = useState(false)
@@ -96,7 +100,8 @@ export default function TradeForm({ mode = 'sidebar' }) {
   // Prefill (or reset) whenever which trade is being edited changes.
   useEffect(() => {
     if (editingTrade) {
-      setForm(formFromTrade(editingTrade))
+      const prefilled = formFromTrade(editingTrade)
+      setForm(prefilled)
       setPairQuery('')
       setScreenshot((prev) => {
         if (prev?.previewUrl) URL.revokeObjectURL(prev.previewUrl)
@@ -106,10 +111,17 @@ export default function TradeForm({ mode = 'sidebar' }) {
         editingTrade.screenshotUrl ? { url: editingTrade.screenshotUrl, hosted: editingTrade.screenshotHosted } : null
       )
       setError('')
+      // Baseline for the autosave diff below — freshly loaded data is
+      // already "saved", so it shouldn't trigger an immediate autosave.
+      lastSavedSnapshotRef.current =
+        JSON.stringify(prefilled) + '|' + `existing:${editingTrade.screenshotUrl || ''}`
+      setAutoSaveState('idle')
     } else {
       setForm(blankForm())
       setPairQuery('')
       setExistingScreenshot(null)
+      lastSavedSnapshotRef.current = null
+      setAutoSaveState('idle')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingTradeId])
@@ -117,6 +129,8 @@ export default function TradeForm({ mode = 'sidebar' }) {
   const fileInputRef = useRef(null)
   const dropZoneRef = useRef(null)
   const pulseControls = useAnimationControls()
+  const lastSavedSnapshotRef = useRef(null)
+  const autoSavingRef = useRef(false)
 
   const patch = (fields) => setForm((f) => ({ ...f, ...fields }))
 
@@ -204,6 +218,39 @@ export default function TradeForm({ mode = 'sidebar' }) {
     useTradeAnalysisStore.getState().cancelEditingTrade()
   }
 
+  // Shared by the manual "Save changes"/"Add" button and the autosave
+  // effect below — resolves whatever screenshot state applies (newly
+  // picked file wins, else whatever's already attached) and builds the
+  // trade payload from the current form.
+  const resolvePayload = async () => {
+    let screenshotUrl = existingScreenshot?.url ?? null
+    let screenshotHosted = existingScreenshot?.hosted ?? false
+    if (screenshot?.file) {
+      const uploaded = await uploadTradeImage(screenshot.file)
+      screenshotUrl = uploaded.url
+      screenshotHosted = uploaded.hosted
+      if (!uploaded.hosted) {
+        useUiStore.getState().showToast('Screenshot saved locally — connect Cloudinary so it hosts properly.')
+      }
+    }
+    return {
+      name: form.name.trim(),
+      date: form.date,
+      pair: form.pair,
+      instrumentName: selectedInstrument?.name || form.pair,
+      instrumentType: form.instrumentType,
+      timeframe: form.timeframe,
+      direction: form.direction,
+      price: Number(form.price),
+      pnl: form.pnl === '' || Number.isNaN(Number(form.pnl)) ? null : Number(form.pnl),
+      notes: form.notes.trim(),
+      validationRuleIds: form.validationRuleIds,
+      validationScore: activeRules.length ? { checked: checkedCount, total: activeRules.length } : null,
+      screenshotUrl,
+      screenshotHosted,
+    }
+  }
+
   const handleAdd = async () => {
     setError('')
     if (!form.pair) return setError('Pick a stock, forex pair, or commodity first.')
@@ -212,41 +259,12 @@ export default function TradeForm({ mode = 'sidebar' }) {
 
     setSaving(true)
     try {
-      // Screenshot resolution: a newly-picked file always wins (upload it);
-      // otherwise fall back to whatever's already attached to the trade
-      // being edited (kept as-is, or null if the user removed it); a brand
-      // new trade with neither has no screenshot.
-      let screenshotUrl = existingScreenshot?.url ?? null
-      let screenshotHosted = existingScreenshot?.hosted ?? false
-      if (screenshot?.file) {
-        const uploaded = await uploadTradeImage(screenshot.file)
-        screenshotUrl = uploaded.url
-        screenshotHosted = uploaded.hosted
-        if (!uploaded.hosted) {
-          useUiStore.getState().showToast('Screenshot saved locally — connect Cloudinary so it hosts properly.')
-        }
-      }
-
-      const payload = {
-        name: form.name.trim(),
-        date: form.date,
-        pair: form.pair,
-        instrumentName: selectedInstrument?.name || form.pair,
-        instrumentType: form.instrumentType,
-        timeframe: form.timeframe,
-        direction: form.direction,
-        price: priceNum,
-        pnl: form.pnl === '' || Number.isNaN(Number(form.pnl)) ? null : Number(form.pnl),
-        notes: form.notes.trim(),
-        validationRuleIds: form.validationRuleIds,
-        validationScore: activeRules.length ? { checked: checkedCount, total: activeRules.length } : null,
-        screenshotUrl,
-        screenshotHosted,
-      }
+      const payload = await resolvePayload()
 
       if (editingTradeId) {
         useTradeAnalysisStore.getState().updateTrade(editingTradeId, payload)
         useUiStore.getState().showToast('Trade updated')
+        lastSavedSnapshotRef.current = JSON.stringify(form)
       } else {
         useTradeAnalysisStore.getState().addTrade({
           ...payload,
@@ -262,6 +280,50 @@ export default function TradeForm({ mode = 'sidebar' }) {
       setSaving(false)
     }
   }
+
+  // Autosave — while editing an existing trade (modal mode), every field
+  // change is written back a short beat after the person stops typing, so
+  // they never have to press "Save changes" for it to actually stick;
+  // that button stays around only as a quick way to close once done.
+  // Skipped entirely for the blank "New Trade" form, since creating a
+  // brand-new record on every keystroke would spam the trades list with
+  // half-filled entries.
+  useEffect(() => {
+    if (!editingTradeId || !editingTrade) return
+    if (!form.pair || form.price === '' || Number.isNaN(Number(form.price))) return
+
+    const screenshotSignature = screenshot?.file
+      ? `new:${screenshot.file.name}:${screenshot.file.size}:${screenshot.file.lastModified}`
+      : `existing:${existingScreenshot?.url || ''}`
+    const snapshot = JSON.stringify(form) + '|' + screenshotSignature
+    if (snapshot === lastSavedSnapshotRef.current) return
+
+    const timer = setTimeout(async () => {
+      if (autoSavingRef.current) return
+      autoSavingRef.current = true
+      setAutoSaveState('saving')
+      try {
+        const payload = await resolvePayload()
+        useTradeAnalysisStore.getState().autosaveTrade(editingTradeId, payload)
+        lastSavedSnapshotRef.current = snapshot
+        setAutoSaveState('saved')
+      } catch {
+        setAutoSaveState('idle')
+      } finally {
+        autoSavingRef.current = false
+      }
+    }, 700)
+
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, screenshot, existingScreenshot, editingTradeId])
+
+  // Fade the "Saved" indicator back to nothing a moment after it appears.
+  useEffect(() => {
+    if (autoSaveState !== 'saved') return
+    const t = setTimeout(() => setAutoSaveState('idle'), 1600)
+    return () => clearTimeout(t)
+  }, [autoSaveState])
 
   const fieldLabelCls = 'flex items-center gap-1 text-[9px] font-medium uppercase tracking-wide'
   const inputCls =
@@ -713,7 +775,39 @@ export default function TradeForm({ mode = 'sidebar' }) {
         )}
       </AnimatePresence>
 
-      {/* 11. Add / Update button — Cancel sits alongside it while editing. */}
+      <AnimatePresence>
+        {editingTradeId && autoSaveState !== 'idle' && (
+          <motion.p
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            className="flex items-center gap-1 text-[9px] font-medium"
+            style={{ color: autoSaveState === 'saving' ? 'var(--ta-slate)' : '#16a34a' }}
+          >
+            {autoSaveState === 'saving' ? (
+              <>
+                <motion.span
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}
+                  className="h-2 w-2 rounded-full border-[1.5px] border-current border-t-transparent"
+                />
+                Saving…
+              </>
+            ) : (
+              <>
+                <Check size={10} />
+                All changes saved automatically
+              </>
+            )}
+          </motion.p>
+        )}
+      </AnimatePresence>
+
+      {/* 11. Add / Update button — Cancel sits alongside it while editing.
+          While editing, saving already happens automatically in the
+          background (see the autosave effect above), so this button is
+          just a "Done" shortcut that force-saves whatever's pending and
+          closes the popup right away. */}
       <motion.div variants={itemVariants} className="mt-1 flex gap-1.5">
         {editingTradeId && (
           <motion.button
@@ -751,7 +845,7 @@ export default function TradeForm({ mode = 'sidebar' }) {
               {editingTradeId ? <Check size={11} /> : <Plus size={11} />}
             </motion.span>
           )}
-          {saving ? (editingTradeId ? 'Saving…' : 'Adding…') : editingTradeId ? 'Save changes' : 'Add'}
+          {saving ? (editingTradeId ? 'Saving…' : 'Adding…') : editingTradeId ? 'Done' : 'Add'}
         </motion.button>
       </motion.div>
     </motion.div>

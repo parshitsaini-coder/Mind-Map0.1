@@ -429,6 +429,13 @@ export const useTradeAnalysisStore = create(
           trades: s.trades.map((t) => (t.id === id ? { ...t, ...patch, updatedAt: Date.now() } : t)),
           editingTradeId: null,
         })),
+      // Same write as updateTrade, but leaves editingTradeId alone — used
+      // by the edit form's autosave so a silent background save doesn't
+      // boot the person out of the modal while they're still editing.
+      autosaveTrade: (id, patch) =>
+        set((s) => ({
+          trades: s.trades.map((t) => (t.id === id ? { ...t, ...patch, updatedAt: Date.now() } : t)),
+        })),
       deleteTrade: (id) =>
         set((s) => ({
           trades: s.trades.filter((t) => t.id !== id),
