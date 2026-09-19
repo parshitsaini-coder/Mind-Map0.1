@@ -441,3 +441,294 @@ body {
   height: 4px;
   border-radius: 999px;
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   Trade Analysis — Analysis tab (pro build)
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Density system ────────────────────────────────────────────────────
+   Three text/spacing scales driven by one attribute on the Analysis root.
+   Every widget sizes off these variables rather than hard-coded px, so
+   switching density genuinely re-flows the whole dashboard instead of
+   only shrinking a few headings. "Dense" fits roughly twice the content
+   of "Cozy" in the same viewport without anything dropping below the
+   ~8px floor where numbers stop being readable. */
+[data-ta-density] {
+  --tad-gap: 8px;
+  --tad-pad: 12px;
+  --tad-radius: 16px;
+  --tad-title: 9.5px;
+  --tad-label: 8.5px;
+  --tad-value: 15px;
+  --tad-hero: 20px;
+  --tad-body: 9.5px;
+  --tad-micro: 7.5px;
+  --tad-row-h: 26px;
+  --tad-chart-h: 132px;
+}
+[data-ta-density='compact'] {
+  --tad-gap: 6px;
+  --tad-pad: 9px;
+  --tad-radius: 13px;
+  --tad-title: 8.8px;
+  --tad-label: 8px;
+  --tad-value: 13px;
+  --tad-hero: 17px;
+  --tad-body: 8.8px;
+  --tad-micro: 7px;
+  --tad-row-h: 22px;
+  --tad-chart-h: 112px;
+}
+[data-ta-density='dense'] {
+  --tad-gap: 4px;
+  --tad-pad: 6.5px;
+  --tad-radius: 10px;
+  --tad-title: 8px;
+  --tad-label: 7.2px;
+  --tad-value: 11.5px;
+  --tad-hero: 14.5px;
+  --tad-body: 8px;
+  --tad-micro: 6.5px;
+  --tad-row-h: 18px;
+  --tad-chart-h: 92px;
+}
+
+/* ── Scroll containers ─────────────────────────────────────────────────
+   Any scrollable region inside Analysis gets a thin, theme-tinted bar
+   that only darkens on hover, plus scroll-padding so a sticky header
+   never covers the element an anchor jump lands on. */
+.ta-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ta-slate) 45%, transparent) transparent;
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+}
+.ta-scroll::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+.ta-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.ta-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--ta-slate) 35%, transparent);
+  border-radius: 999px;
+  transition: background 0.2s ease;
+}
+.ta-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--ta-accent) 70%, transparent);
+}
+.ta-scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Horizontal scroller for wide tables/matrices — the edge fades hint that
+   there is more content sideways, which a plain overflow box never does. */
+.ta-scroll-x {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+.ta-fade-edges {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 10px, #000 calc(100% - 10px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 10px, #000 calc(100% - 10px), transparent 100%);
+}
+
+/* ── Borders ───────────────────────────────────────────────────────────
+   One consistent hairline used by every panel, table cell and divider in
+   the Analysis tab. Kept as a variable so the Liquid Glass theme can make
+   it brighter without every component knowing about themes. */
+[data-ta-density] {
+  --tad-border: color-mix(in srgb, var(--ta-slate) 28%, transparent);
+  --tad-border-strong: color-mix(in srgb, var(--ta-slate) 48%, transparent);
+}
+[data-ta-theme='liquidglass'] [data-ta-density] {
+  --tad-border: rgba(255, 255, 255, 0.55);
+  --tad-border-strong: rgba(255, 255, 255, 0.8);
+}
+.ta-bordered {
+  border: 1px solid var(--tad-border);
+}
+.ta-divide-y > * + * {
+  border-top: 1px solid var(--tad-border);
+}
+.ta-divide-x > * + * {
+  border-left: 1px solid var(--tad-border);
+}
+
+/* ── Cards ─────────────────────────────────────────────────────────────
+   Hover lifts the card and warms its border towards the accent. The
+   transform is GPU-composited so a grid of 30 cards stays smooth. */
+.ta-pro-card {
+  background-color: var(--ta-surface);
+  border: 1px solid var(--tad-border);
+  border-radius: var(--tad-radius);
+  padding: var(--tad-pad);
+  transition: border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+.ta-pro-card:hover {
+  border-color: color-mix(in srgb, var(--ta-accent) 55%, transparent);
+  box-shadow: 0 6px 20px -10px color-mix(in srgb, var(--ta-accent) 55%, transparent);
+}
+
+/* ── Sticky sub-navigation ─────────────────────────────────────────────
+   Frosted so content scrolling underneath stays faintly visible rather
+   than vanishing behind an opaque slab. */
+.ta-sticky-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  background: color-mix(in srgb, var(--ta-surface) 82%, transparent);
+  border-bottom: 1px solid var(--tad-border);
+}
+
+/* ── Motion ────────────────────────────────────────────────────────────
+   Shared keyframes for effects framer-motion shouldn't own: infinite
+   ambient loops that would otherwise keep React re-rendering. */
+@keyframes taShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.ta-shimmer {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--ta-bg) 80%, transparent) 25%,
+    color-mix(in srgb, var(--ta-surface) 90%, transparent) 50%,
+    color-mix(in srgb, var(--ta-bg) 80%, transparent) 75%
+  );
+  background-size: 200% 100%;
+  animation: taShimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes taPulseRing {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ta-accent) 45%, transparent); }
+  70% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--ta-accent) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ta-accent) 0%, transparent); }
+}
+.ta-pulse {
+  animation: taPulseRing 2s cubic-bezier(0.4, 0, 0.4, 1) infinite;
+}
+
+/* Draws an SVG path on as it scrolls into view. Used by the equity curve
+   and every sparkline — cheaper and smoother than animating `d`. */
+@keyframes taDrawLine {
+  to { stroke-dashoffset: 0; }
+}
+.ta-draw-line {
+  stroke-dasharray: var(--dash, 2000);
+  stroke-dashoffset: var(--dash, 2000);
+  animation: taDrawLine 1.1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Slow accent sweep behind a value that is currently breaching an alert
+   threshold — draws the eye without the jitter of a flashing element. */
+@keyframes taAlertSweep {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.ta-alert-live {
+  background: linear-gradient(
+    110deg,
+    color-mix(in srgb, #dc2626 12%, transparent),
+    color-mix(in srgb, #dc2626 22%, transparent),
+    color-mix(in srgb, #dc2626 12%, transparent)
+  );
+  background-size: 220% 220%;
+  animation: taAlertSweep 3.2s ease infinite;
+}
+
+/* Numbers that update in place — tabular figures stop the width jittering
+   as a counter animates through different digits. */
+.ta-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* ── Inputs inside tool cards ──────────────────────────────────────────*/
+.ta-tool-input {
+  width: 100%;
+  border: 1px solid var(--tad-border);
+  border-radius: 7px;
+  background-color: var(--ta-bg);
+  color: var(--ta-ink);
+  padding: 3px 6px;
+  font-size: var(--tad-body);
+  font-variant-numeric: tabular-nums;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
+}
+.ta-tool-input:focus {
+  outline: none;
+  border-color: var(--ta-accent);
+  box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--ta-accent) 22%, transparent);
+  background-color: color-mix(in srgb, var(--ta-surface) 94%, var(--ta-accent) 6%);
+}
+.ta-tool-input::placeholder {
+  color: color-mix(in srgb, var(--ta-slate) 65%, transparent);
+}
+/* Number spinners add clutter at this size and are unusable on touch. */
+.ta-tool-input::-webkit-outer-spin-button,
+.ta-tool-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.ta-tool-input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* ── Data tables ───────────────────────────────────────────────────────*/
+.ta-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--tad-body);
+  font-variant-numeric: tabular-nums;
+}
+.ta-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--ta-bg);
+  color: var(--ta-slate);
+  font-size: var(--tad-label);
+  font-weight: 700;
+  text-align: left;
+  padding: 3px 6px;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--tad-border-strong);
+}
+.ta-table td {
+  padding: 2px 6px;
+  height: var(--tad-row-h);
+  color: var(--ta-ink);
+  border-bottom: 1px solid var(--tad-border);
+  white-space: nowrap;
+}
+.ta-table tbody tr {
+  transition: background-color 0.14s ease;
+}
+.ta-table tbody tr:hover {
+  background-color: color-mix(in srgb, var(--ta-accent) 8%, transparent);
+}
+.ta-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Respect the OS "reduce motion" setting across every effect above. */
+@media (prefers-reduced-motion: reduce) {
+  .ta-shimmer,
+  .ta-pulse,
+  .ta-draw-line,
+  .ta-alert-live {
+    animation: none !important;
+  }
+  .ta-scroll {
+    scroll-behavior: auto;
+  }
+  .ta-draw-line {
+    stroke-dashoffset: 0;
+  }
+}

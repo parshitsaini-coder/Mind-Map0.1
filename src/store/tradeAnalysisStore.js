@@ -72,6 +72,46 @@ const initialState = {
   // Persisted the same way as activeView/theme.
   entriesView: 'list', // 'list' | 'cards'
 
+  // ── Analysis tab (pro build) ───────────────────────────────────────
+  // Which section of the Analysis dashboard is showing. Split into
+  // sections rather than one endless scroll so each area can be dense
+  // without becoming a 30-screen page.
+  analysisSection: 'overview',
+
+  // Text/spacing scale for the whole Analysis tab — see the
+  // [data-ta-density] block in index.css. Persisted because it's a
+  // display preference, not per-session state.
+  density: 'compact', // 'cozy' | 'compact' | 'dense'
+
+  // Date window every Analysis widget reads through. `preset` is one of
+  // 'all' | '7d' | '30d' | '90d' | '6m' | '1y' | 'custom'; from/to are
+  // ISO date strings used only when preset is 'custom'.
+  analysisScope: { preset: 'all', from: null, to: null },
+
+  // Persisted inputs for the calculators in the Tools section. These are
+  // the person's own numbers (account size, risk %, broker leverage) —
+  // retyping them on every visit would make the tools useless in
+  // practice, so they're remembered exactly like any other preference.
+  toolInputs: {
+    accountSize: '',
+    riskPercent: '1',
+    leverage: '20',
+    usdInrRate: '',
+    costPerTrade: '',
+    taxPct: '',
+  },
+
+  // User-defined alert rules — { id, metric, comparator, threshold,
+  // scope, enabled }. Evaluated live against real stats in the Tools
+  // section; nothing is scheduled or sent anywhere.
+  alertRules: [],
+
+  // User-set targets — { id, label, metric, target, period }.
+  goals: [],
+
+  // Widget ids the person pinned to the top of the Overview section.
+  pinnedWidgets: [],
+
   // Selected color theme id for the whole feature — see
   // src/theme/tradeAnalysisThemes.js for the palette list. Applied as CSS
   // var overrides on the overlay root in TradeAnalysis.jsx.
@@ -122,6 +162,77 @@ export const useTradeAnalysisStore = create(
       setTheme: (theme) => set({ theme }),
       setActiveView: (activeView) => set({ activeView }),
       setEntriesView: (entriesView) => set({ entriesView }),
+
+      // ── Analysis tab actions ─────────────────────────────────────
+      setAnalysisSection: (analysisSection) => set({ analysisSection }),
+      setDensity: (density) => set({ density }),
+      setAnalysisScope: (patch) =>
+        set((s) => ({ analysisScope: { ...s.analysisScope, ...patch } })),
+      resetAnalysisScope: () => set({ analysisScope: { preset: 'all', from: null, to: null } }),
+
+      setToolInput: (key, value) =>
+        set((s) => ({ toolInputs: { ...s.toolInputs, [key]: value } })),
+      setToolInputs: (patch) =>
+        set((s) => ({ toolInputs: { ...s.toolInputs, ...patch } })),
+
+      addAlertRule: (rule) =>
+        set((s) => ({
+          alertRules: [
+            ...s.alertRules,
+            {
+              id: crypto.randomUUID(),
+              metric: 'winRate',
+              comparator: 'below',
+              threshold: 50,
+              scope: 'all',
+              enabled: true,
+              ...rule,
+            },
+          ],
+        })),
+      updateAlertRule: (id, patch) =>
+        set((s) => ({ alertRules: s.alertRules.map((r) => (r.id === id ? { ...r, ...patch } : r)) })),
+      deleteAlertRule: (id) => set((s) => ({ alertRules: s.alertRules.filter((r) => r.id !== id) })),
+
+      addGoal: (goal) =>
+        set((s) => ({
+          goals: [
+            ...s.goals,
+            { id: crypto.randomUUID(), label: 'New goal', metric: 'netPnl', target: 0, period: 'month', currency: 'USD', ...goal },
+          ],
+        })),
+      updateGoal: (id, patch) =>
+        set((s) => ({ goals: s.goals.map((g) => (g.id === id ? { ...g, ...patch } : g)) })),
+      deleteGoal: (id) => set((s) => ({ goals: s.goals.filter((g) => g.id !== id) })),
+
+      togglePinnedWidget: (id) =>
+        set((s) => ({
+          pinnedWidgets: s.pinnedWidgets.includes(id)
+            ? s.pinnedWidgets.filter((w) => w !== id)
+            : [...s.pinnedWidgets, id],
+        })),
+
+      // Bulk import from the CSV tool. Stamps ids/timestamps the same way
+      // addTrade does so imported rows are indistinguishable from typed
+      // ones everywhere downstream, and returns how many landed.
+      importTrades: (rows) => {
+        if (!Array.isArray(rows) || !rows.length) return 0
+        const now = Date.now()
+        set((s) => ({
+          trades: [
+            ...s.trades,
+            ...rows.map((t, i) => ({
+              id: crypto.randomUUID(),
+              status: 'Pending',
+              createdAt: t.date ? new Date(`${t.date}T10:00:00`).getTime() : now + i,
+              updatedAt: now + i,
+              validationRuleIds: [],
+              ...t,
+            })),
+          ],
+        }))
+        return rows.length
+      },
 
       // Step 3 — "Add" button on the New Trade form. `trade` is the field
       // payload assembled by TradeForm.jsx; this just stamps an id/status/
@@ -401,6 +512,27 @@ export const useTradeAnalysisStore = create(
         theme: state.theme,
         activeView: state.activeView,
         entriesView: state.entriesView,
+        analysisSection: state.analysisSection,
+        density: state.density,
+        analysisScope: state.analysisScope,
+        toolInputs: state.toolInputs,
+        alertRules: state.alertRules,
+        goals: state.goals,
+        pinnedWidgets: state.pinnedWidgets,
+      }),
+      // Older persisted payloads predate every key added in the pro
+      // Analysis build, so merge defaults in rather than letting
+      // `undefined` reach a component that expects an object or array.
+      merge: (persisted, current) => ({
+        ...current,
+        ...persisted,
+        analysisScope: { ...current.analysisScope, ...(persisted?.analysisScope || {}) },
+        toolInputs: { ...current.toolInputs, ...(persisted?.toolInputs || {}) },
+        alertRules: persisted?.alertRules ?? current.alertRules,
+        goals: persisted?.goals ?? current.goals,
+        pinnedWidgets: persisted?.pinnedWidgets ?? current.pinnedWidgets,
+        density: persisted?.density ?? current.density,
+        analysisSection: persisted?.analysisSection ?? current.analysisSection,
       }),
     }
   )
