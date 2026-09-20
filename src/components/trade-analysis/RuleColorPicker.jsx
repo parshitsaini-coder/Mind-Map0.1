@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, Palette, RotateCcw } from 'lucide-react'
+import { Check, Palette, Plus, RotateCcw, X } from 'lucide-react'
 
 // Curated preset palette — a full spectrum sweep at a consistent
 // saturation/lightness (Tailwind's -400 step) so every swatch reads as
@@ -14,7 +14,33 @@ const PRESETS = [
   '#f472b6', '#fb7185', '#94a3b8', '#78716c', '#eb5e28',
 ]
 
+// User-added custom colors — kept in localStorage (not the cloud-synced
+// trade store) since this is a lightweight, per-browser UI preference,
+// shared by every rule's color picker so a color added once shows up
+// everywhere. Capped at 10 so the "Your colors" row never wraps past two
+// lines.
+const CUSTOM_COLORS_KEY = 'ta-rule-custom-colors'
+const MAX_CUSTOM_COLORS = 10
+
+const loadCustomColors = () => {
+  try {
+    const raw = JSON.parse(localStorage.getItem(CUSTOM_COLORS_KEY) || '[]')
+    return Array.isArray(raw) ? raw.filter((h) => typeof h === 'string') : []
+  } catch {
+    return []
+  }
+}
+const saveCustomColors = (colors) => {
+  try {
+    localStorage.setItem(CUSTOM_COLORS_KEY, JSON.stringify(colors))
+  } catch {
+    // localStorage unavailable (private mode, quota, etc.) — custom colors
+    // just won't persist across sessions; the picker still works.
+  }
+}
+
 const isValidHex = (v) => /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v)
+const normalizeHex = (v) => (v.length === 4 ? `#${v[1]}${v[1]}${v[2]}${v[2]}${v[3]}${v[3]}` : v.toLowerCase())
 const PANEL_W = 214
 const GAP = 8
 const EDGE = 8
@@ -40,10 +66,16 @@ export default function RuleColorPicker({ value, onChange, title = 'Custom row c
   const [open, setOpen] = useState(false)
   const [coords, setCoords] = useState(null) // { top, left, anchorTop, anchorBottom } in viewport px
   const [hexDraft, setHexDraft] = useState(value || '')
+  const [customColors, setCustomColors] = useState([])
   const triggerRef = useRef(null)
   const panelRef = useRef(null)
 
   useEffect(() => setHexDraft(value || ''), [value, open])
+  // Re-read from localStorage each time the panel opens, so a color added
+  // via one rule's picker shows up immediately in another's.
+  useEffect(() => {
+    if (open) setCustomColors(loadCustomColors())
+  }, [open])
 
   // Pass 1 (runs the instant `open` flips true): place the panel below
   // the button, right-aligned to it, clamped so it never starts off the
@@ -68,10 +100,12 @@ export default function RuleColorPicker({ value, onChange, title = 'Custom row c
       const flippedTop = coords.anchorTop - panelH - GAP
       if (flippedTop !== coords.top) setCoords((c) => ({ ...c, top: flippedTop }))
     }
-    // Only re-run when the panel's horizontal slot is set, not on every
-    // coords write, to avoid looping between the two possible positions.
+    // Re-run whenever the panel's horizontal slot changes, or its content
+    // (and therefore height) changes — e.g. the "Your colors" row
+    // appearing after adding a custom swatch — but not on every coords
+    // write, to avoid looping between the two possible positions.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, coords?.left])
+  }, [open, coords?.left, customColors.length])
 
   useEffect(() => {
     if (!open) return
@@ -94,7 +128,27 @@ export default function RuleColorPicker({ value, onChange, title = 'Custom row c
   }, [open])
 
   const commitHex = (v) => {
-    if (isValidHex(v)) onChange(v.length === 4 ? `#${v[1]}${v[1]}${v[2]}${v[2]}${v[3]}${v[3]}` : v)
+    if (isValidHex(v)) onChange(normalizeHex(v))
+  }
+
+  // Saves the current hex draft as a reusable swatch (skips exact dupes
+  // already in the preset row or the custom row), applies it immediately,
+  // and persists it so it survives closing/reopening the picker.
+  const addCustomColor = () => {
+    const hex = hexDraft.trim()
+    if (!isValidHex(hex)) return
+    const norm = normalizeHex(hex)
+    onChange(norm)
+    if (PRESETS.includes(norm) || customColors.includes(norm)) return
+    const next = [norm, ...customColors].slice(0, MAX_CUSTOM_COLORS)
+    setCustomColors(next)
+    saveCustomColors(next)
+  }
+
+  const removeCustomColor = (hex) => {
+    const next = customColors.filter((c) => c !== hex)
+    setCustomColors(next)
+    saveCustomColors(next)
   }
 
   const openUpward = coords ? coords.top < coords.anchorTop : false
@@ -193,8 +247,9 @@ export default function RuleColorPicker({ value, onChange, title = 'Custom row c
               </div>
 
               {/* Custom hex — live swatch preview + free-form input, for
-                  anything the presets don't cover. */}
-              <div className="mt-3 flex items-center gap-2 border-t pt-2.5" style={{ borderColor: 'var(--ta-slate)' }}>
+                  anything the presets don't cover. The + button saves it
+                  as a reusable swatch in "Your colors" below. */}
+              <div className="mt-3 flex items-center gap-1.5 border-t pt-2.5" style={{ borderColor: 'var(--ta-slate)' }}>
                 <span
                   className="h-6 w-6 shrink-0 rounded-full border"
                   style={{ backgroundColor: isValidHex(hexDraft) ? hexDraft : 'transparent', borderColor: 'var(--ta-slate)' }}
@@ -210,7 +265,66 @@ export default function RuleColorPicker({ value, onChange, title = 'Custom row c
                   className="min-w-0 flex-1 rounded-md border bg-transparent px-2 py-1 text-[10.5px] outline-none focus:ring-1"
                   style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
                 />
+                <motion.button
+                  type="button"
+                  whileHover={{ scale: isValidHex(hexDraft) ? 1.08 : 1 }}
+                  whileTap={{ scale: isValidHex(hexDraft) ? 0.9 : 1 }}
+                  onClick={addCustomColor}
+                  disabled={!isValidHex(hexDraft)}
+                  title="Add to your colors"
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-white disabled:cursor-not-allowed disabled:opacity-30"
+                  style={{ backgroundColor: 'var(--ta-accent)' }}
+                >
+                  <Plus size={13} />
+                </motion.button>
               </div>
+
+              {/* Your colors — custom swatches the user has saved, kept
+                  across sessions (localStorage) and shared by every rule's
+                  picker. Hover a swatch to reveal its remove button. */}
+              {customColors.length > 0 && (
+                <div className="mt-2.5 border-t pt-2.5" style={{ borderColor: 'var(--ta-slate)' }}>
+                  <p className="mb-1.5 text-[8.5px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ta-slate)' }}>
+                    Your colors
+                  </p>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {customColors.map((hex) => {
+                      const active = value?.toLowerCase() === hex
+                      return (
+                        <div key={hex} className="group relative">
+                          <motion.button
+                            type="button"
+                            whileHover={{ scale: 1.16 }}
+                            whileTap={{ scale: 0.88 }}
+                            onClick={() => onChange(hex)}
+                            className="relative flex h-6 w-6 items-center justify-center rounded-full"
+                            style={{
+                              backgroundColor: hex,
+                              boxShadow: active
+                                ? `0 0 0 2px var(--ta-surface), 0 0 0 3.5px ${hex}`
+                                : '0 1px 2px rgba(0,0,0,0.18)',
+                            }}
+                            title={hex}
+                          >
+                            {active && <Check size={11} color="#fff" strokeWidth={3} />}
+                          </motion.button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              removeCustomColor(hex)
+                            }}
+                            title="Remove"
+                            className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full border border-white bg-slate-700 text-white opacity-0 shadow transition-opacity group-hover:opacity-100"
+                          >
+                            <X size={8} />
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>,
