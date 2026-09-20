@@ -92,6 +92,8 @@ export default function FiltersPopover({ open, onClose }) {
                 onToggle={(v) => toggleFilterValue('pair', v)}
                 inputCls={inputCls}
                 placeholder="All pairs"
+                searchable
+                searchPlaceholder="Search pair..."
                 options={ALL_PAIRS.map((i) => ({ value: i.symbol, label: i.symbol }))}
               />
             </label>

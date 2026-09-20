@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import RuleColorPicker from './RuleColorPicker'
 
 // Step B of trade-analysis-validation-v3-master-prompt.md — the popup
 // behind the top bar's "Validation Settings" button (previously "Add
@@ -395,32 +396,10 @@ export default function ValidationSettingsPanel({ open, onClose }) {
                                   />
                                 </motion.button>
 
-                                <label
-                                  className="relative flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full"
-                                  style={{
-                                    background: rule.color
-                                      ? undefined
-                                      : 'conic-gradient(from 0deg, var(--ta-accent), #e57373, #ba68c8, #64b5f6, #81c784, var(--ta-accent))',
-                                    backgroundColor: rule.color || undefined,
-                                    border: rule.color ? '1px solid var(--ta-slate)' : 'none',
-                                  }}
-                                  title="Custom row color"
-                                >
-                                  {!rule.color && (
-                                    <span
-                                      className="pointer-events-none h-3 w-3 rounded-full border border-white/70"
-                                      style={{ backgroundColor: 'var(--ta-surface)' }}
-                                    />
-                                  )}
-                                  <input
-                                    type="color"
-                                    value={rule.color || '#ffffff'}
-                                    onChange={(e) =>
-                                      useTradeAnalysisStore.getState().updateValidationRuleColor(rule.id, e.target.value)
-                                    }
-                                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                                  />
-                                </label>
+                                <RuleColorPicker
+                                  value={rule.color}
+                                  onChange={(hex) => useTradeAnalysisStore.getState().updateValidationRuleColor(rule.id, hex)}
+                                />
 
                                 {rule.color && (
                                   <button

@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, ChevronDown } from 'lucide-react'
+import { Check, ChevronDown, Search } from 'lucide-react'
 
 // Multi-select sibling of AnimatedSelect — same look and feel, but keeps
 // the menu open across picks and lets several options be active at once.
@@ -18,9 +18,13 @@ export default function AnimatedMultiSelect({
   placeholder = 'All',
   disabled = false,
   inputCls = '',
+  searchable = false, // show a search box above the list — for long option sets (e.g. Pair)
+  searchPlaceholder = 'Search...',
 }) {
   const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
   const rootRef = useRef(null)
+  const searchRef = useRef(null)
 
   useEffect(() => {
     if (!open) return
@@ -37,6 +41,22 @@ export default function AnimatedMultiSelect({
       window.removeEventListener('keydown', onKeyDown)
     }
   }, [open])
+
+  // Clear the search text each time the menu closes, and focus it the
+  // instant the menu opens so typing works immediately with no extra click.
+  useEffect(() => {
+    if (open && searchable) {
+      const t = setTimeout(() => searchRef.current?.focus(), 10)
+      return () => clearTimeout(t)
+    }
+    if (!open) setQuery('')
+  }, [open, searchable])
+
+  const visibleOptions = useMemo(() => {
+    if (!searchable || !query.trim()) return options
+    const q = query.trim().toLowerCase()
+    return options.filter((o) => o.label.toLowerCase().includes(q))
+  }, [options, query, searchable])
 
   const label =
     values.length === 0
@@ -64,47 +84,67 @@ export default function AnimatedMultiSelect({
 
       <AnimatePresence>
         {open && (
-          <motion.ul
+          <motion.div
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.1, ease: 'easeOut' }}
-            className="ta-glass-popover absolute left-0 right-0 top-full z-30 mt-1 flex max-h-44 flex-col gap-0.5 overflow-y-auto rounded-lg border p-1.5 shadow-xl"
+            className="ta-glass-popover absolute left-0 right-0 top-full z-30 mt-1 flex flex-col rounded-lg border shadow-xl"
             style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)', transformOrigin: 'top' }}
           >
-            {options.length === 0 ? (
-              <li className="px-2 py-1 text-[9px]" style={{ color: 'var(--ta-slate)' }}>No options</li>
-            ) : (
-              options.map((opt) => {
-                const active = values.includes(opt.value)
-                return (
-                  <li key={opt.value}>
-                    <motion.button
-                      type="button"
-                      whileHover={{ x: 2, backgroundColor: 'rgba(0,0,0,0.05)' }}
-                      whileTap={{ scale: 0.98 }}
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => onToggle(opt.value)}
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[10px] font-medium transition-colors"
-                      style={{ color: active ? 'var(--ta-accent)' : 'var(--ta-ink)' }}
-                    >
-                      <span
-                        className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border"
-                        style={
-                          active
-                            ? { backgroundColor: 'var(--ta-accent)', borderColor: 'var(--ta-accent)' }
-                            : { borderColor: 'var(--ta-slate)' }
-                        }
-                      >
-                        {active && <Check size={10} color="#fffcf2" />}
-                      </span>
-                      <span className="truncate">{opt.label}</span>
-                    </motion.button>
-                  </li>
-                )
-              })
+            {searchable && (
+              <div className="flex items-center gap-1.5 border-b px-2 py-1.5" style={{ borderColor: 'var(--ta-slate)' }}>
+                <Search size={12} style={{ color: 'var(--ta-slate)' }} className="shrink-0" />
+                <input
+                  ref={searchRef}
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  placeholder={searchPlaceholder}
+                  className="w-full bg-transparent text-[10.5px] outline-none"
+                  style={{ color: 'var(--ta-ink)' }}
+                />
+              </div>
             )}
-          </motion.ul>
+            <ul className="flex max-h-44 flex-col gap-0.5 overflow-y-auto p-1.5">
+              {visibleOptions.length === 0 ? (
+                <li className="px-2 py-1 text-[9px]" style={{ color: 'var(--ta-slate)' }}>
+                  {query.trim() ? 'No matches' : 'No options'}
+                </li>
+              ) : (
+                visibleOptions.map((opt) => {
+                  const active = values.includes(opt.value)
+                  return (
+                    <li key={opt.value}>
+                      <motion.button
+                        type="button"
+                        whileHover={{ x: 2, backgroundColor: 'rgba(0,0,0,0.05)' }}
+                        whileTap={{ scale: 0.98 }}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => onToggle(opt.value)}
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[10px] font-medium transition-colors"
+                        style={{ color: active ? 'var(--ta-accent)' : 'var(--ta-ink)' }}
+                      >
+                        <span
+                          className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border"
+                          style={
+                            active
+                              ? { backgroundColor: 'var(--ta-accent)', borderColor: 'var(--ta-accent)' }
+                              : { borderColor: 'var(--ta-slate)' }
+                          }
+                        >
+                          {active && <Check size={10} color="#fffcf2" />}
+                        </span>
+                        <span className="truncate">{opt.label}</span>
+                      </motion.button>
+                    </li>
+                  )
+                })
+              )}
+            </ul>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

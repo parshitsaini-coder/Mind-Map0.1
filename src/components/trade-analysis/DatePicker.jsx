@@ -38,12 +38,36 @@ const buildGrid = (viewYear, viewMonth) => {
 // open/close spring animation and card styling as the Stock/Time frame
 // dropdowns elsewhere in this form, plus a proper month-grid calendar
 // instead of the browser's inconsistent native picker.
+// Roughly how tall the calendar panel gets (month header + weekday row +
+// 6-week grid + Today button + padding) — used to decide whether it has
+// room to open downward before flipping it above the field instead.
+const PANEL_HEIGHT_ESTIMATE = 260
+
 export default function DatePicker({ value, onChange, inputCls, align = 'left', placeholder = 'Pick a date' }) {
   const [open, setOpen] = useState(false)
+  const [dropUp, setDropUp] = useState(false)
   const selected = useMemo(() => parseISO(value), [value])
   const today = useMemo(() => new Date(), [])
   const [viewDate, setViewDate] = useState(() => selected || today)
   const rootRef = useRef(null)
+  const buttonRef = useRef(null)
+
+  // Decide open direction fresh every time the panel opens, so a filter
+  // popover near the bottom of the screen (or the window being resized)
+  // never gets its calendar clipped or pushed off-screen — it flips
+  // upward instead whenever there isn't enough room below.
+  const toggleOpen = () => {
+    setOpen((wasOpen) => {
+      const willOpen = !wasOpen
+      if (willOpen && buttonRef.current) {
+        const rect = buttonRef.current.getBoundingClientRect()
+        const spaceBelow = window.innerHeight - rect.bottom
+        const spaceAbove = rect.top
+        setDropUp(spaceBelow < PANEL_HEIGHT_ESTIMATE && spaceAbove > spaceBelow)
+      }
+      return willOpen
+    })
+  }
 
   // Keep the visible month in sync if the value changes from outside
   // (e.g. switching which trade is being edited) while the panel is closed.
@@ -72,10 +96,11 @@ export default function DatePicker({ value, onChange, inputCls, align = 'left', 
   return (
     <div className="relative" ref={rootRef}>
       <motion.button
+        ref={buttonRef}
         type="button"
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.98 }}
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggleOpen}
         className={`${inputCls} flex items-center justify-between text-left`}
         style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
       >
@@ -88,16 +113,18 @@ export default function DatePicker({ value, onChange, inputCls, align = 'left', 
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: -6, scale: 0.96 }}
+            initial={{ opacity: 0, y: dropUp ? 6 : -6, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.96 }}
+            exit={{ opacity: 0, y: dropUp ? 6 : -6, scale: 0.96 }}
             transition={{ type: 'spring', stiffness: 420, damping: 32 }}
             style={{
               backgroundColor: 'var(--ta-surface)',
               borderColor: 'var(--ta-slate)',
-              transformOrigin: align === 'right' ? 'top right' : 'top left',
+              transformOrigin: `${dropUp ? 'bottom' : 'top'} ${align === 'right' ? 'right' : 'left'}`,
             }}
-            className={`ta-glass-popover absolute ${align === 'right' ? 'right-0' : 'left-0'} top-full z-30 mt-1 w-[210px] rounded-lg border p-2 shadow-lg`}
+            className={`ta-glass-popover absolute ${align === 'right' ? 'right-0' : 'left-0'} ${
+              dropUp ? 'bottom-full mb-1' : 'top-full mt-1'
+            } z-30 w-[210px] rounded-lg border p-2 shadow-lg`}
           >
             {/* Month header */}
             <div className="mb-1.5 flex items-center justify-between">
