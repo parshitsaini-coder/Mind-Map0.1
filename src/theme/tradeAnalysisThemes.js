@@ -46,6 +46,56 @@ export const TRADE_THEMES = [
     colors: { bg: '#b7b7a4', surface: '#ffe8d6', ink: '#6b705c', slate: '#a5a58d', accent: '#cb997e' },
   },
   {
+    id: 'nordicfrost',
+    name: 'Nordic Frost',
+    colors: { bg: '#a9c5d9', surface: '#f4f9fc', ink: '#1b2a41', slate: '#5c7a94', accent: '#2f80ed' },
+  },
+  {
+    id: 'rosequartz',
+    name: 'Rose Quartz',
+    colors: { bg: '#f2b8c6', surface: '#fff6f7', ink: '#4a2338', slate: '#a4788a', accent: '#e63971' },
+  },
+  {
+    id: 'forestcanopy',
+    name: 'Forest Canopy',
+    colors: { bg: '#9dbf94', surface: '#f4f8f1', ink: '#1f2e1a', slate: '#5c7a53', accent: '#2f9e44' },
+  },
+  {
+    id: 'sunsetbloom',
+    name: 'Sunset Bloom',
+    colors: { bg: '#ffbfa0', surface: '#fff3ec', ink: '#4a1f3d', slate: '#a9738d', accent: '#f4478f' },
+  },
+  {
+    id: 'goldenhour',
+    name: 'Golden Hour',
+    colors: { bg: '#f1c27d', surface: '#fff8ec', ink: '#4a2e04', slate: '#8a6a3d', accent: '#e8871e' },
+  },
+  {
+    id: 'royalplum',
+    name: 'Royal Plum',
+    colors: { bg: '#c9a7e0', surface: '#f8f2fc', ink: '#2e1a4a', slate: '#6d5a8a', accent: '#8e44ad' },
+  },
+  {
+    id: 'arcticmint',
+    name: 'Arctic Mint',
+    colors: { bg: '#a0e8cf', surface: '#f0fdf8', ink: '#0f3b2e', slate: '#4a7a6a', accent: '#0f9d70' },
+  },
+  {
+    id: 'oceanblue',
+    name: 'Ocean Blue',
+    colors: { bg: '#dbeafe', surface: '#ffffff', ink: '#000000', slate: '#1e3a8a', accent: '#2563eb' },
+  },
+  {
+    id: 'indigonight',
+    name: 'Indigo Night',
+    colors: { bg: '#e0e7ff', surface: '#ffffff', ink: '#000000', slate: '#312e81', accent: '#4f46e5' },
+  },
+  {
+    id: 'violetstorm',
+    name: 'Violet Storm',
+    colors: { bg: '#ede9fe', surface: '#ffffff', ink: '#000000', slate: '#4c1d95', accent: '#7c3aed' },
+  },
+  {
     id: 'liquidglass',
     name: 'Liquid Glass',
     // Not a coolors.co palette like the others — this one is translucent
