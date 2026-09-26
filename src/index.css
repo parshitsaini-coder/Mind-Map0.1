@@ -345,11 +345,11 @@ body {
 }
 .ta-clay-bg {
   background-image:
-    radial-gradient(circle at 12% 18%, color-mix(in srgb, var(--ta-accent) 22%, transparent), transparent 42%),
-    radial-gradient(circle at 88% 82%, color-mix(in srgb, var(--ta-accent) 16%, transparent), transparent 46%),
-    linear-gradient(150deg, #eef0fb, #dfe4f7 45%, #ece6f9 100%);
+    radial-gradient(circle at 12% 18%, color-mix(in srgb, var(--ta-accent) 16%, transparent), transparent 42%),
+    radial-gradient(circle at 88% 82%, color-mix(in srgb, var(--ta-accent) 10%, transparent), transparent 46%),
+    linear-gradient(150deg, color-mix(in srgb, var(--ta-bg) 92%, #ffffff 8%), var(--ta-bg) 45%, color-mix(in srgb, var(--ta-bg) 88%, var(--ta-accent) 12%) 100%);
   background-size: 160% 160%, 160% 160%, 100% 100%;
-  background-color: #dfe4f7;
+  background-color: var(--ta-bg);
   animation: taClayDrift 26s ease-in-out infinite;
 }
 
