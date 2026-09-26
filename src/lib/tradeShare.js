@@ -68,3 +68,28 @@ export async function fetchTradeShare(id) {
   if (row.expires_at && new Date(row.expires_at) < new Date()) return { error: 'expired' }
   return { data: row }
 }
+
+// Counts one visit. Called once per page-load by TradeShareView (not on
+// every manual "Refresh" click, so re-checking the same link doesn't
+// inflate the count) via the increment_trade_share_view RPC (SECURITY
+// DEFINER) — same not-a-direct-table-write reasoning as get_trade_share,
+// so the anon key can only ever bump the one row whose id it already has,
+// never anyone else's. Best-effort: a failure here should never block the
+// visitor from seeing the trades, so callers just ignore a null return.
+export async function incrementTradeShareView(id) {
+  if (!isSupabaseConfigured || !id) return null
+  const { data, error } = await supabase.rpc('increment_trade_share_view', { share_id: id })
+  if (error) return null
+  return typeof data === 'number' ? data : null
+}
+
+// Owner-side read for the Share popup's "Your active links" list — a plain
+// SELECT (not the RPC above) because the caller IS the owner here, and RLS's
+// "Owner manages own trade shares" policy already scopes this to rows where
+// user_id = auth.uid(), so Supabase itself refuses to return anyone else's.
+export async function fetchTradeShareViewCounts(userId) {
+  if (!isSupabaseConfigured || !userId) return {}
+  const { data, error } = await supabase.from('trade_shares').select('id, view_count').eq('user_id', userId)
+  if (error || !data) return {}
+  return Object.fromEntries(data.map((r) => [r.id, r.view_count || 0]))
+}

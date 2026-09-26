@@ -336,7 +336,11 @@ export default function TradeCards() {
                   <div className="flex flex-col items-center gap-0.5">
                     <span className="text-[7px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ta-slate)' }}>Setup</span>
                     {trade.screenshotUrl ? (
-                      <button
+                      <motion.button
+                        whileHover={{ scale: 1.12 }}
+                        whileTap={{ scale: 0.95 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                        className="overflow-hidden rounded"
                         onClick={() =>
                           useUiStore
                             .getState()
@@ -346,8 +350,8 @@ export default function TradeCards() {
                         }
                         title="View screenshot"
                       >
-                        <img src={trade.screenshotUrl} alt="Screenshot" className="h-10 w-10 rounded object-cover" />
-                      </button>
+                        <img src={trade.screenshotUrl} alt="Screenshot" className="h-10 w-10 object-cover" />
+                      </motion.button>
                     ) : (
                       <div
                         className="flex h-10 w-10 items-center justify-center rounded border border-dashed text-[7px]"
@@ -361,7 +365,11 @@ export default function TradeCards() {
                   <div className="flex flex-col items-center gap-0.5">
                     <span className="text-[7px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ta-slate)' }}>Result</span>
                     {trade.resultImageUrl ? (
-                      <button
+                      <motion.button
+                        whileHover={{ scale: 1.12 }}
+                        whileTap={{ scale: 0.95 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                        className="overflow-hidden rounded"
                         onClick={() =>
                           useUiStore
                             .getState()
@@ -371,8 +379,8 @@ export default function TradeCards() {
                         }
                         title="View result image"
                       >
-                        <img src={trade.resultImageUrl} alt="Result" className="h-10 w-10 rounded object-cover" />
-                      </button>
+                        <img src={trade.resultImageUrl} alt="Result" className="h-10 w-10 object-cover" />
+                      </motion.button>
                     ) : (
                       <>
                         <motion.button

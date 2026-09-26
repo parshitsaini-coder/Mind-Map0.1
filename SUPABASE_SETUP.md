@@ -212,6 +212,7 @@ create table public.trade_shares (
   theme_name text,
   expires_at timestamptz,
   ended_at timestamptz,
+  view_count integer not null default 0,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
@@ -242,11 +243,57 @@ as $$
 $$;
 
 grant execute on function public.get_trade_share(text) to anon, authenticated;
+
+-- Powers the "N views" counter a visitor sees on the shared page, and the
+-- per-link view count the owner sees in the Share popup. SECURITY DEFINER
+-- + its own function (rather than folding this into get_trade_share) so
+-- the anon key can only ever increment the one row it already has the id
+-- for, atomically, without needing any UPDATE policy on the table.
+create or replace function public.increment_trade_share_view(share_id text)
+returns integer
+language sql
+security definer
+set search_path = public
+as $$
+  update public.trade_shares
+  set view_count = view_count + 1
+  where id = share_id
+  returning view_count;
+$$;
+
+grant execute on function public.increment_trade_share_view(text) to anon, authenticated;
 ```
+
+> **Already created this table before?** (i.e. you ran this section
+> previously and are only just adding view tracking.) Just run this instead
+> of the full block — it adds the new column and the counting function
+> without touching your existing rows or links:
+>
+> ```sql
+> alter table public.trade_shares add column if not exists view_count integer not null default 0;
+>
+> create or replace function public.increment_trade_share_view(share_id text)
+> returns integer
+> language sql
+> security definer
+> set search_path = public
+> as $$
+>   update public.trade_shares
+>   set view_count = view_count + 1
+>   where id = share_id
+>   returning view_count;
+> $$;
+>
+> grant execute on function public.increment_trade_share_view(text) to anon, authenticated;
+> ```
 
 Creating a trade-share link requires being signed in (same as a live mind-
 map link), so the Share popup inside Trade Analysis prompts sign-in if
-needed.
+needed. Every time someone opens the link (once per page-load — refreshing
+or reopening the same tab doesn't count again), it's counted server-side:
+the visitor sees a small "N views" badge next to the trade count at the top
+of the page, and the owner sees the same number next to each link under
+"Your active links" in the Share popup.
 
 ## 3c-2. Create the `project_maps` table (recommended — backs up every project, not just one)
 

@@ -1,9 +1,10 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { X, Share2, Link2, Copy, Square, SlidersHorizontal, Layers, Clock3, ArrowLeftRight, CheckCircle2, ShieldCheck, Eraser, ChevronDown, Check, Loader2, Eye, EyeOff } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { INDIAN_STOCKS, FOREX_PAIRS, COMMODITIES } from '../../data/instruments'
 import { applyFilters } from '../../utils/tradeFilters'
 import { isoDate, daysAgoIso, DATE_RANGE_PRESETS } from '../../utils/dateRangePresets'
+import AnimatedSelect from './AnimatedSelect'
 import AnimatedMultiSelect from './AnimatedMultiSelect'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useAuthStore } from '../../store/authStore'
@@ -64,6 +65,14 @@ export default function TradeShareModal({ open, onClose }) {
   const showToast = useUiStore((s) => s.showToast)
   const createLink = useTradeShareStore((s) => s.create)
   const endLink = useTradeShareStore((s) => s.end)
+  const refreshViewCounts = useTradeShareStore((s) => s.refreshViewCounts)
+  // Pull the latest "who's viewed this" counts as soon as the popup opens —
+  // view_count only ever lives server-side, so this browser's copy is
+  // whatever it was at creation time until this refreshes it.
+  useEffect(() => {
+    if (authUser?.id) refreshViewCounts(authUser.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser?.id])
   // Subscribed only so this modal re-renders after create/end (activeLinks
   // itself isn't reactive state, same convention as the mind map's
   // ShareModal.jsx LiveTab) — the value itself is unused.
@@ -542,16 +551,12 @@ export default function TradeShareModal({ open, onClose }) {
             {/* Expiry + generate */}
             <div className="flex flex-col gap-1 border-t pt-2.5" style={{ borderColor: 'var(--ta-slate)' }}>
               <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Link expires after</span>
-              <select
+              <AnimatedSelect
                 value={expiryValue}
-                onChange={(e) => setExpiryValue(e.target.value)}
-                className="w-full rounded-md border px-2 py-1.5 text-[11px]"
-                style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)', backgroundColor: 'var(--ta-surface)' }}
-              >
-                {LIVE_EXPIRY_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
+                onChange={setExpiryValue}
+                options={LIVE_EXPIRY_OPTIONS}
+                inputCls="w-full rounded-md border bg-[var(--ta-surface)] px-2 py-1.5 text-[11px] outline-none transition-colors focus:ring-1"
+              />
             </div>
 
             {!isSupabaseConfigured ? (
@@ -616,9 +621,12 @@ export default function TradeShareModal({ open, onClose }) {
                             {link.summary || 'All trades'}
                           </p>
                         </div>
-                        <p className="text-[9px]" style={{ color: 'var(--ta-slate)' }}>
-                          {link.expiresAt ? `Expires ${new Date(link.expiresAt).toLocaleString()}` : 'No expiry'}
-                        </p>
+                        <div className="flex items-center gap-2 text-[9px]" style={{ color: 'var(--ta-slate)' }}>
+                          <span>{link.expiresAt ? `Expires ${new Date(link.expiresAt).toLocaleString()}` : 'No expiry'}</span>
+                          <span className="flex items-center gap-0.5 font-semibold" style={{ color: 'var(--ta-accent)' }}>
+                            <Eye size={9} /> {link.viewCount || 0} view{link.viewCount === 1 ? '' : 's'}
+                          </span>
+                        </div>
                         <div className="flex items-center gap-1.5">
                           <motion.button
                             whileHover={{ scale: 1.03 }}

@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   RefreshCw,
   TrendingUp,
@@ -11,8 +11,9 @@ import {
   Sparkles,
   LayoutGrid,
   BarChart3,
+  Eye,
 } from 'lucide-react'
-import { fetchTradeShare } from '../../lib/tradeShare'
+import { fetchTradeShare, incrementTradeShareView } from '../../lib/tradeShare'
 import { tradeThemeCssVars, isGlassTheme, isClayTheme } from '../../theme/tradeAnalysisThemes'
 import { splitTradesByCurrency, formatSignedAmount, CURRENCY_GROUP_LABEL } from '../../utils/currency'
 import ViewerTradeCard from './ViewerTradeCard'
@@ -72,6 +73,13 @@ const FALLBACK_ERROR = {
 export default function TradeShareView({ shareId }) {
   const [state, setState] = useState({ status: 'loading', data: null, error: null })
   const [refreshing, setRefreshing] = useState(false)
+  // Total times anyone has opened this link, shown to visitors so they can
+  // see how many people looked at it. Counted server-side (view_count on
+  // the trade_shares row) — only bumped once per page-load (the ref below),
+  // never on a manual Refresh click or a Retry, so re-checking the same
+  // open tab doesn't inflate it.
+  const [viewCount, setViewCount] = useState(null)
+  const hasCountedRef = useRef(false)
   // 'cards' — the original read-only trade-card grid. 'analysis' — a
   // storeless widgets dashboard (equity curve, win rate, P&L breakdowns,
   // best/worst trades) computed straight from these same trades. See
@@ -81,8 +89,16 @@ export default function TradeShareView({ shareId }) {
 
   const load = useCallback(async () => {
     const result = await fetchTradeShare(shareId)
-    if (result.error) setState({ status: 'error', data: null, error: result.error })
-    else setState({ status: 'ready', data: result.data, error: null })
+    if (result.error) {
+      setState({ status: 'error', data: null, error: result.error })
+      return
+    }
+    setState({ status: 'ready', data: result.data, error: null })
+    if (!hasCountedRef.current) {
+      hasCountedRef.current = true
+      const newCount = await incrementTradeShareView(shareId)
+      if (newCount != null) setViewCount(newCount)
+    }
   }, [shareId])
 
   useEffect(() => {
@@ -286,6 +302,20 @@ export default function TradeShareView({ shareId }) {
           >
             {trades.length} trade{trades.length === 1 ? '' : 's'}
           </motion.span>
+          {viewCount != null && (
+            <motion.span
+              key={viewCount}
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 18 }}
+              title="Total number of times this link has been opened"
+              className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
+              style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-slate)' }}
+            >
+              <Eye size={10} />
+              {viewCount} view{viewCount === 1 ? '' : 's'}
+            </motion.span>
+          )}
           {trades.length > 0 && (
             <div
               className="ml-auto flex items-center gap-0.5 rounded-full p-0.5"
