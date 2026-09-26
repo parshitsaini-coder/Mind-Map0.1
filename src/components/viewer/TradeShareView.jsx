@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { motion } from 'framer-motion'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { RefreshCw, TrendingUp } from 'lucide-react'
 import { fetchTradeShare } from '../../lib/tradeShare'
 import { tradeThemeCssVars, isGlassTheme, isClayTheme } from '../../theme/tradeAnalysisThemes'
+import { splitTradesByCurrency, formatSignedAmount, CURRENCY_GROUP_LABEL } from '../../utils/currency'
 import ViewerTradeCard from './ViewerTradeCard'
 import ImageLightbox from '../common/ImageLightbox'
 
@@ -41,6 +43,36 @@ export default function TradeShareView({ shareId }) {
     setTimeout(() => setRefreshing(false), 400)
   }
 
+  // Derived unconditionally (with safe fallbacks) so this stays before the
+  // loading/error early-returns below and never breaks hook order.
+  const trades = state.data?.trades || []
+  const validationRules = state.data?.validation_rules || []
+
+  const stats = useMemo(() => {
+    const total = trades.length
+    const buy = trades.filter((t) => t.direction === 'Buy').length
+    const sell = trades.filter((t) => t.direction === 'Sell').length
+    const decided = trades.filter((t) => t.status === 'Target Hit' || t.status === 'SL Hit')
+    const wins = trades.filter((t) => t.status === 'Target Hit').length
+    const winRate = decided.length ? Math.round((wins / decided.length) * 100) : null
+
+    // P&L must never be summed across currencies (₹ Equity vs $ Forex/
+    // Commodity) — see utils/currency.js's splitTradesByCurrency — so this
+    // produces one total per currency group that actually has trades.
+    const { INR, USD } = splitTradesByCurrency(trades)
+    const pnlTotal = (group) => {
+      const withPnl = group.filter((t) => t.pnl != null && !Number.isNaN(Number(t.pnl)))
+      if (withPnl.length === 0) return null
+      return withPnl.reduce((sum, t) => sum + Number(t.pnl), 0)
+    }
+    const pnlGroups = [
+      { currency: 'INR', total: pnlTotal(INR), sampleType: INR[0]?.instrumentType },
+      { currency: 'USD', total: pnlTotal(USD), sampleType: USD[0]?.instrumentType },
+    ].filter((g) => g.total !== null)
+
+    return { total, buy, sell, winRate, pnlGroups }
+  }, [trades])
+
   if (state.status === 'loading') {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-[#ecebe4] text-sm text-[#242423]">
@@ -57,7 +89,7 @@ export default function TradeShareView({ shareId }) {
     )
   }
 
-  const { trades = [], validation_rules: validationRules = [], theme_name: theme, expires_at: expiresAt } = state.data
+  const { theme_name: theme, expires_at: expiresAt } = state.data
   const themeName = theme || 'classic'
   const isGlass = isGlassTheme(themeName)
   const isClay = isClayTheme(themeName)
@@ -99,11 +131,65 @@ export default function TradeShareView({ shareId }) {
         </button>
       </div>
 
-      {/* Body — one column, vertically stacked cards, centered with a
-          readable max-width regardless of viewport size. */}
-      <div className="mx-auto flex w-full max-w-md flex-col gap-2.5 p-3">
+      {/* Stats strip — the at-a-glance numbers a visitor actually cares
+          about (how many, which side, how it went), computed client-side
+          from the same trades the cards below render. Wraps to its own
+          row(s) on narrow screens instead of squeezing into the 40px top
+          bar; fills out on wide screens instead of leaving dead air
+          beside a narrow card column. */}
+      {trades.length > 0 && (
+        <div
+          className="flex flex-wrap items-stretch justify-center gap-2 border-b px-3 py-2.5"
+          style={{ borderColor: 'var(--ta-slate)', backgroundColor: 'color-mix(in srgb, var(--ta-bg) 55%, transparent)' }}
+        >
+          {[
+            { emoji: '📊', label: 'Total Trades', value: stats.total, color: 'var(--ta-accent)' },
+            { emoji: '🟢', label: 'Buy Side', value: stats.buy, color: '#16a34a' },
+            { emoji: '🔴', label: 'Sell Side', value: stats.sell, color: '#dc2626' },
+            {
+              emoji: '🎯',
+              label: 'Win Rate',
+              value: stats.winRate === null ? '—' : `${stats.winRate}%`,
+              color: stats.winRate === null ? 'var(--ta-slate)' : stats.winRate >= 50 ? '#16a34a' : '#dc2626',
+            },
+            ...(stats.pnlGroups.length > 0
+              ? stats.pnlGroups.map((g) => ({
+                  emoji: '💰',
+                  label: stats.pnlGroups.length > 1 ? `P&L · ${CURRENCY_GROUP_LABEL[g.currency]}` : 'P&L',
+                  value: formatSignedAmount(g.total, g.sampleType),
+                  color: g.total > 0 ? '#16a34a' : g.total < 0 ? '#dc2626' : 'var(--ta-ink)',
+                }))
+              : [{ emoji: '💰', label: 'P&L', value: 'No P&L logged', color: 'var(--ta-slate)' }]),
+          ].map((stat, i) => (
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.04, duration: 0.22 }}
+              className="ta-card-glow flex min-w-[104px] flex-1 flex-col items-center gap-0.5 rounded-xl border px-3 py-2 sm:flex-none"
+              style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)' }}
+            >
+              <span className="text-base leading-none">{stat.emoji}</span>
+              <span className="text-[13px] font-extrabold leading-tight" style={{ color: stat.color }}>
+                {stat.value}
+              </span>
+              <span
+                className="text-center text-[8.5px] font-semibold uppercase leading-tight tracking-wide"
+                style={{ color: 'var(--ta-slate)' }}
+              >
+                {stat.label}
+              </span>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      {/* Body — stacked on phones, a filled-out multi-column grid on
+          wider screens so the layout doesn't leave two dead margins
+          beside one narrow card column. */}
+      <div className="mx-auto grid w-full max-w-[1400px] grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {trades.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-16 text-center">
+          <div className="col-span-full flex flex-col items-center gap-2 py-16 text-center">
             <span className="text-3xl">📈</span>
             <p className="text-xs font-semibold" style={{ color: 'var(--ta-ink)' }}>No trades in this link</p>
             <p className="max-w-[220px] text-[11px]" style={{ color: 'var(--ta-slate)' }}>
