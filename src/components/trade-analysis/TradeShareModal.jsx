@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { X, Share2, Link2, Copy, Square, SlidersHorizontal, Layers, Clock3, ArrowLeftRight, CheckCircle2, ShieldCheck, Eraser, ChevronDown } from 'lucide-react'
+import { X, Share2, Link2, Copy, Square, SlidersHorizontal, Layers, Clock3, ArrowLeftRight, CheckCircle2, ShieldCheck, Eraser, ChevronDown, Check, Loader2, Eye, EyeOff } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { INDIAN_STOCKS, FOREX_PAIRS, COMMODITIES } from '../../data/instruments'
 import { applyFilters } from '../../utils/tradeFilters'
@@ -80,7 +80,10 @@ export default function TradeShareModal({ open, onClose }) {
   const [status, setStatus] = useState([])
   const [validationRuleId, setValidationRuleId] = useState([])
   const [moreOpen, setMoreOpen] = useState(false)
+  const [copiedId, setCopiedId] = useState(null)
+  const [endingId, setEndingId] = useState(null)
   const [expiryValue, setExpiryValue] = useState('7d')
+  const [hideValidation, setHideValidation] = useState(false)
   const [busy, setBusy] = useState(false)
 
   const validationRuleOptions = useMemo(
@@ -132,11 +135,22 @@ export default function TradeShareModal({ open, onClose }) {
 
   // Only the validation rules any filtered trade actually references get
   // embedded — same "denormalized snapshot, nothing extra" convention as
-  // exportShareLink's collectReferencedChecklistsAndTrades.
+  // exportShareLink's collectReferencedChecklistsAndTrades. Empty outright
+  // when the owner has switched validation details off for this link.
   const referencedValidationRules = useMemo(() => {
+    if (hideValidation) return []
     const neededIds = new Set(filteredTrades.flatMap((t) => t.validationRuleIds || []))
     return validationRules.filter((r) => neededIds.has(r.id))
-  }, [filteredTrades, validationRules])
+  }, [filteredTrades, validationRules, hideValidation])
+
+  // The actual snapshot sent to Supabase — strips validationRuleIds/
+  // validationScore off each trade when hidden, so there's nothing for a
+  // viewer to recover even by inspecting the raw payload (not just a UI
+  // toggle on the display side).
+  const shareTrades = useMemo(() => {
+    if (!hideValidation) return filteredTrades
+    return filteredTrades.map(({ validationRuleIds, validationScore, ...rest }) => rest)
+  }, [filteredTrades, hideValidation])
 
   const handleGenerate = async () => {
     if (busy || filteredTrades.length === 0) return
@@ -152,7 +166,7 @@ export default function TradeShareModal({ open, onClose }) {
     const summary = describeFilters({ types, pair, timeframe, direction, status, validationRuleId, dateFrom, dateTo, presetId })
     const result = await createLink({
       userId: authUser.id,
-      trades: filteredTrades,
+      trades: shareTrades,
       validationRules: referencedValidationRules,
       filters: { pair, instrumentType: types, timeframe, direction, status, validationRuleId, dateFrom, dateTo },
       themeName: theme,
@@ -171,11 +185,17 @@ export default function TradeShareModal({ open, onClose }) {
   const handleCopy = async (id) => {
     const copied = await copyToClipboard(tradeShareUrl(id))
     showToast(copied ? 'Link copied to clipboard' : 'Link ready — copy it manually')
+    if (copied) {
+      setCopiedId(id)
+      setTimeout(() => setCopiedId((cur) => (cur === id ? null : cur)), 1400)
+    }
   }
 
   const handleEnd = async (id) => {
     if (!window.confirm('End this share link? Anyone with it will see "link ended" from now on.')) return
+    setEndingId(id)
     await endLink(id)
+    setEndingId(null)
     showToast('Share link ended')
   }
 
@@ -479,6 +499,46 @@ export default function TradeShareModal({ open, onClose }) {
               {filteredTrades.length === trades.length ? '' : ' (this selection)'}.
             </p>
 
+            {/* Validation visibility — separate from the field filters
+                above (which decide WHICH trades go in); this decides
+                whether the validation rule badges + checklist score
+                travel with them, for owners who don't want their setup
+                checklist visible to whoever opens the link. */}
+            <div className="flex flex-col gap-1 rounded-lg border p-2.5" style={{ borderColor: 'var(--ta-slate)' }}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-[10.5px] font-semibold" style={{ color: 'var(--ta-ink)' }}>
+                  {hideValidation ? (
+                    <EyeOff size={12} style={{ color: 'var(--ta-slate)' }} />
+                  ) : (
+                    <Eye size={12} style={{ color: 'var(--ta-accent)' }} />
+                  )}
+                  Validation details
+                </span>
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.92 }}
+                  onClick={() => setHideValidation((v) => !v)}
+                  role="switch"
+                  aria-checked={!hideValidation}
+                  title={hideValidation ? 'Hidden from viewers — tap to show' : 'Visible to viewers — tap to hide'}
+                  className="relative flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors"
+                  style={{ backgroundColor: hideValidation ? 'var(--ta-slate)' : 'var(--ta-accent)' }}
+                >
+                  <motion.span
+                    layout
+                    transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                    className="h-4 w-4 rounded-full shadow"
+                    style={{ backgroundColor: '#fffcf2', marginLeft: hideValidation ? 0 : 'auto' }}
+                  />
+                </motion.button>
+              </div>
+              <p className="text-[9px] leading-snug" style={{ color: 'var(--ta-slate)' }}>
+                {hideValidation
+                  ? 'Hidden — viewers won\u2019t see validation rule badges or the checklist score on any card.'
+                  : 'Visible — viewers will see validation rule badges and the checklist score on each card.'}
+              </p>
+            </div>
+
             {/* Expiry + generate */}
             <div className="flex flex-col gap-1 border-t pt-2.5" style={{ borderColor: 'var(--ta-slate)' }}>
               <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Link expires after</span>
@@ -535,41 +595,89 @@ export default function TradeShareModal({ open, onClose }) {
                   Your active links ({activeLinks.length})
                 </span>
                 <div className="flex flex-col gap-1.5">
-                  {activeLinks.map((link) => (
-                    <div
-                      key={link.id}
-                      className="flex flex-col gap-1 rounded-md border px-2 py-1.5"
-                      style={{ borderColor: 'var(--ta-slate)' }}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <span className="relative flex h-1.5 w-1.5 shrink-0">
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#3fa66a] opacity-60" />
-                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#3fa66a]" />
-                        </span>
-                        <p className="min-w-0 flex-1 truncate text-[10px]" style={{ color: 'var(--ta-ink)' }} title={link.summary}>
-                          {link.summary || 'All trades'}
+                  <AnimatePresence initial={false}>
+                    {activeLinks.map((link) => (
+                      <motion.div
+                        key={link.id}
+                        layout
+                        initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9, height: 0, marginTop: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="flex flex-col gap-1 overflow-hidden rounded-md border px-2 py-1.5"
+                        style={{ borderColor: 'var(--ta-slate)' }}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span className="relative flex h-1.5 w-1.5 shrink-0">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#3fa66a] opacity-60" />
+                            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#3fa66a]" />
+                          </span>
+                          <p className="min-w-0 flex-1 truncate text-[10px]" style={{ color: 'var(--ta-ink)' }} title={link.summary}>
+                            {link.summary || 'All trades'}
+                          </p>
+                        </div>
+                        <p className="text-[9px]" style={{ color: 'var(--ta-slate)' }}>
+                          {link.expiresAt ? `Expires ${new Date(link.expiresAt).toLocaleString()}` : 'No expiry'}
                         </p>
-                      </div>
-                      <p className="text-[9px]" style={{ color: 'var(--ta-slate)' }}>
-                        {link.expiresAt ? `Expires ${new Date(link.expiresAt).toLocaleString()}` : 'No expiry'}
-                      </p>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => handleCopy(link.id)}
-                          className="flex flex-1 items-center justify-center gap-1 rounded py-1 text-[10px] font-medium"
-                          style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }}
-                        >
-                          <Copy size={10} /> Copy
-                        </button>
-                        <button
-                          onClick={() => handleEnd(link.id)}
-                          className="flex items-center justify-center gap-1 rounded border border-[#c1443c] px-2 py-1 text-[10px] text-[#c1443c]"
-                        >
-                          <Square size={9} /> End
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                        <div className="flex items-center gap-1.5">
+                          <motion.button
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.94 }}
+                            onClick={() => handleCopy(link.id)}
+                            className="flex flex-1 items-center justify-center gap-1 overflow-hidden rounded py-1 text-[10px] font-medium transition-colors"
+                            style={
+                              copiedId === link.id
+                                ? { backgroundColor: 'rgba(63,166,106,0.18)', color: '#2f7a4c' }
+                                : { backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }
+                            }
+                          >
+                            <AnimatePresence mode="wait" initial={false}>
+                              {copiedId === link.id ? (
+                                <motion.span
+                                  key="copied"
+                                  initial={{ opacity: 0, y: 6 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: -6 }}
+                                  transition={{ duration: 0.15 }}
+                                  className="flex items-center gap-1"
+                                >
+                                  <Check size={10} /> Copied!
+                                </motion.span>
+                              ) : (
+                                <motion.span
+                                  key="copy"
+                                  initial={{ opacity: 0, y: 6 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: -6 }}
+                                  transition={{ duration: 0.15 }}
+                                  className="flex items-center gap-1"
+                                >
+                                  <Copy size={10} /> Copy
+                                </motion.span>
+                              )}
+                            </AnimatePresence>
+                          </motion.button>
+                          <motion.button
+                            whileHover={endingId === link.id ? {} : { scale: 1.03 }}
+                            whileTap={endingId === link.id ? {} : { scale: 0.94 }}
+                            onClick={() => handleEnd(link.id)}
+                            disabled={endingId === link.id}
+                            className="flex items-center justify-center gap-1 rounded border px-2 py-1 text-[10px] transition-opacity disabled:opacity-60"
+                            style={{ borderColor: '#c1443c', color: '#c1443c' }}
+                          >
+                            <motion.span
+                              className="flex"
+                              animate={endingId === link.id ? { rotate: 360 } : { rotate: 0 }}
+                              transition={endingId === link.id ? { duration: 0.8, repeat: Infinity, ease: 'linear' } : { duration: 0.2 }}
+                            >
+                              {endingId === link.id ? <Loader2 size={9} /> : <Square size={9} />}
+                            </motion.span>
+                            {endingId === link.id ? 'Ending…' : 'End'}
+                          </motion.button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
                 </div>
               </div>
             )}
