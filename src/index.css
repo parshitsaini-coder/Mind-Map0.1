@@ -327,6 +327,114 @@ body {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 12px 40px -8px rgba(31, 30, 80, 0.45);
 }
 
+/* ── Trade Analysis — "Claymorphism" theme ──────────────────────────────
+   Soft, inflated, "molded plastic" shapes: bigger border-radius everywhere,
+   a floating drop-shadow underneath each shape, and a dual light-from-top /
+   shadow-from-bottom inset pair inside it so every rounded surface reads as
+   *convex* (puffy) rather than flat. Inputs get the opposite treatment — a
+   single inset shadow with no outer drop-shadow — so they read as *concave*
+   (pressed into the surface), which is what sells the "clay" illusion; a
+   button and the field next to it should not look like the same material.
+   Every shadow color is mixed from the live --ta-ink / --ta-surface tokens
+   (not hard-coded grays) so it stays correctly tinted if the palette above
+   is ever tweaked, same convention as .ta-input/.ta-card-glow use already.
+   Scoped to [data-ta-theme="claymorphism"] so the other themes are untouched. */
+@keyframes taClayDrift {
+  0%, 100% { background-position: 0% 0%, 100% 100%, 50% 50%; }
+  50% { background-position: 10% 6%, 92% 94%, 46% 54%; }
+}
+.ta-clay-bg {
+  background-image:
+    radial-gradient(circle at 12% 18%, color-mix(in srgb, var(--ta-accent) 22%, transparent), transparent 42%),
+    radial-gradient(circle at 88% 82%, color-mix(in srgb, var(--ta-accent) 16%, transparent), transparent 46%),
+    linear-gradient(150deg, #eef0fb, #dfe4f7 45%, #ece6f9 100%);
+  background-size: 160% 160%, 160% 160%, 100% 100%;
+  background-color: #dfe4f7;
+  animation: taClayDrift 26s ease-in-out infinite;
+}
+
+/* Bigger, puffier corners on every shape in the overlay. */
+[data-ta-theme="claymorphism"] .rounded-2xl { border-radius: 28px !important; }
+[data-ta-theme="claymorphism"] .rounded-xl { border-radius: 22px !important; }
+[data-ta-theme="claymorphism"] .rounded-lg { border-radius: 18px !important; }
+[data-ta-theme="claymorphism"] .rounded-md { border-radius: 14px !important; }
+[data-ta-theme="claymorphism"] .rounded { border-radius: 12px !important; }
+
+/* The core "inflated" recipe: a soft floating shadow outside the shape,
+   plus a light-from-top / shadow-from-bottom pair just inside its edge. */
+[data-ta-theme="claymorphism"] .border,
+[data-ta-theme="claymorphism"] .ta-card-glow,
+[data-ta-theme="claymorphism"] .ta-pro-card,
+[data-ta-theme="claymorphism"] .ta-glass-popover {
+  border-color: color-mix(in srgb, var(--ta-ink) 8%, transparent) !important;
+  box-shadow:
+    0 14px 28px -10px color-mix(in srgb, var(--ta-ink) 30%, transparent),
+    inset 0 -6px 10px -2px color-mix(in srgb, var(--ta-ink) 12%, transparent),
+    inset 0 6px 10px -2px color-mix(in srgb, #ffffff 85%, var(--ta-surface) 15%);
+  transition: box-shadow 0.25s ease, transform 0.2s ease;
+}
+[data-ta-theme="claymorphism"] .ta-card-glow:hover,
+[data-ta-theme="claymorphism"] .ta-pro-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 20px 36px -12px color-mix(in srgb, var(--ta-ink) 36%, transparent),
+    inset 0 -6px 10px -2px color-mix(in srgb, var(--ta-ink) 14%, transparent),
+    inset 0 6px 10px -2px color-mix(in srgb, #ffffff 90%, var(--ta-surface) 10%);
+}
+
+/* Small round swatches/badges/avatars get a lighter version of the same
+   recipe — enough to feel like a little bead of clay, not a heavy shadow
+   several times the size of the dot itself. */
+[data-ta-theme="claymorphism"] .rounded-full {
+  box-shadow:
+    0 3px 6px -1px color-mix(in srgb, var(--ta-ink) 25%, transparent),
+    inset 0 -2px 3px color-mix(in srgb, var(--ta-ink) 12%, transparent),
+    inset 0 2px 3px color-mix(in srgb, #ffffff 85%, var(--ta-surface) 15%);
+}
+
+/* Fields read as pressed *into* the surface — the opposite of a card —
+   which is what makes a button next to a field look like a different,
+   raised material. No outer drop-shadow here on purpose. */
+[data-ta-theme="claymorphism"] .ta-input,
+[data-ta-theme="claymorphism"] .ta-tool-input {
+  border-color: color-mix(in srgb, var(--ta-ink) 10%, transparent) !important;
+  box-shadow:
+    inset 0 3px 6px color-mix(in srgb, var(--ta-ink) 16%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, #ffffff 80%, var(--ta-surface) 20%);
+}
+[data-ta-theme="claymorphism"] .ta-input:focus {
+  box-shadow:
+    inset 0 3px 6px color-mix(in srgb, var(--ta-ink) 16%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--ta-accent) 28%, transparent) !important;
+}
+
+/* The primary "Add" button: same puffy recipe as cards, tuned brighter
+   since it sits on the accent gradient, plus a pressed-in look on click so
+   tapping it actually feels like squeezing soft plastic. */
+[data-ta-theme="claymorphism"] .ta-btn-primary {
+  box-shadow:
+    0 10px 22px -6px color-mix(in srgb, var(--ta-accent) 65%, transparent),
+    inset 0 -4px 8px -1px rgba(0, 0, 0, 0.18),
+    inset 0 3px 6px -1px rgba(255, 255, 255, 0.55);
+}
+[data-ta-theme="claymorphism"] .ta-btn-primary:active {
+  transform: scale(0.97);
+  box-shadow:
+    0 4px 10px -4px color-mix(in srgb, var(--ta-accent) 55%, transparent),
+    inset 0 3px 8px -1px rgba(0, 0, 0, 0.28),
+    inset 0 -2px 4px -1px rgba(255, 255, 255, 0.35);
+}
+
+/* Table rows get gentle separation via shadow instead of hairlines, and
+   the whole table reads as one big puffy card. */
+[data-ta-theme="claymorphism"] .ta-table {
+  border-radius: 18px;
+  overflow: hidden;
+}
+[data-ta-theme="claymorphism"] .ta-table tbody tr:hover {
+  box-shadow: inset 0 0 0 9999px color-mix(in srgb, var(--ta-accent) 6%, transparent);
+}
+
 @keyframes taUnderlineGrow {
   from { width: 0; opacity: 0; }
   to { width: 28px; opacity: 1; }

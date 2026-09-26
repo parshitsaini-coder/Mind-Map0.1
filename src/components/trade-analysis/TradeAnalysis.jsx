@@ -12,7 +12,7 @@ import FiltersPopover, { countActiveFilters } from './FiltersPopover'
 import ReportFiltersModal from './ReportFiltersModal'
 import ThemePicker from './ThemePicker'
 import AnalysisTab from './analysis/AnalysisTab'
-import { tradeThemeCssVars, isGlassTheme } from '../../theme/tradeAnalysisThemes'
+import { tradeThemeCssVars, isGlassTheme, isClayTheme } from '../../theme/tradeAnalysisThemes'
 import { getKpis } from '../../utils/tradeAnalytics'
 import { splitTradesByCurrency } from '../../utils/currency'
 import { generateTradeReport } from '../../utils/generateTradeReport'
@@ -232,6 +232,7 @@ export default function TradeAnalysis() {
   const [reportModalOpen, setReportModalOpen] = useState(false)
   const activeFilterCount = countActiveFilters(filters)
   const isGlass = isGlassTheme(theme)
+  const isClay = isClayTheme(theme)
   const isMobile = useIsMobile()
   const hasAutoCollapsed = useRef(false)
 
@@ -294,8 +295,8 @@ export default function TradeAnalysis() {
           exit={{ opacity: 0, scale: 0.98 }}
           transition={{ duration: 0.18, ease: 'easeOut' }}
           data-ta-theme={theme}
-          className={`fixed inset-0 z-[60] flex flex-col ${isGlass ? 'ta-liquid-bg' : ''}`}
-          style={isGlass ? { ...tradeThemeCssVars(theme) } : { backgroundColor: '#ffffff', ...tradeThemeCssVars(theme) }}
+          className={`fixed inset-0 z-[60] flex flex-col ${isGlass ? 'ta-liquid-bg' : isClay ? 'ta-clay-bg' : ''}`}
+          style={isGlass || isClay ? { ...tradeThemeCssVars(theme) } : { backgroundColor: '#ffffff', ...tradeThemeCssVars(theme) }}
         >
           {/* Top bar */}
           <div

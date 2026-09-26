@@ -116,6 +116,26 @@ export const TRADE_THEMES = [
       accent: '#000000',
     },
   },
+  {
+    id: 'claymorphism',
+    name: 'Claymorphism',
+    // Soft, inflated, "3D clay" style — every panel, card, button and input
+    // reads like a puffy piece of molded plastic/clay rather than a flat
+    // sheet. Like `glass` above, the parts that can't be expressed as a
+    // plain color (the dual light/shadow inset that makes shapes look
+    // inflated, the bigger border-radius, the pressed-in look on inputs)
+    // live in index.css scoped to [data-ta-theme="claymorphism"]. The
+    // `clay: true` flag below is what TradeAnalysis.jsx checks to turn on
+    // that skin and swap in the soft pastel backdrop instead of plain white.
+    clay: true,
+    colors: {
+      bg: '#dfe4f7',
+      surface: '#f6f5ff',
+      ink: '#2c2a4a',
+      slate: '#746fa0',
+      accent: '#7c6bf0',
+    },
+  },
 ]
 
 export const DEFAULT_TRADE_THEME_ID = 'classic'
@@ -127,6 +147,12 @@ export const getTradeTheme = (id) => TRADE_THEMES.find((t) => t.id === id) || TR
 // and the global backdrop-blur rules (see .ta-liquid-bg in index.css)
 // instead of the plain white page background the other themes use.
 export const isGlassTheme = (id) => !!getTradeTheme(id).glass
+
+// Whether a theme id is the puffy/inflated "Claymorphism" theme —
+// TradeAnalysis.jsx uses this to switch on the soft pastel clay backdrop
+// and the global inflated-shadow skin (see [data-ta-theme="claymorphism"]
+// in index.css) instead of the plain white page background.
+export const isClayTheme = (id) => !!getTradeTheme(id).clay
 
 // CSS custom-property overrides for a theme, ready to spread into a React
 // inline `style` object on the overlay root — cascades down to every
