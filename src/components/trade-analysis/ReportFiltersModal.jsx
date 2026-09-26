@@ -279,15 +279,25 @@ export default function ReportFiltersModal({ open, onClose, trades, busy, onGene
                 </motion.span>
               </motion.button>
 
-              <AnimatePresence initial={false}>
-                {moreOpen && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.18 }}
-                    className="overflow-hidden"
-                  >
+              {/* Persistent CSS-grid collapse (not framer-motion's
+                  height:'auto') — that pattern measures height once in
+                  JS and locks it, so when a dropdown inside (Pair/Time
+                  frame/etc.) opens and grows taller afterwards, the
+                  locked height clips the rest of the tray. grid-rows
+                  is driven natively by the browser every frame, so it
+                  always fits whatever is actually inside, dropdowns
+                  included. Content stays mounted even when collapsed
+                  so selections aren't lost while it's hidden. */}
+              <div
+                className="grid transition-[grid-template-rows,opacity] duration-200 ease-out"
+                style={{
+                  gridTemplateRows: moreOpen ? '1fr' : '0fr',
+                  opacity: moreOpen ? 1 : 0,
+                  pointerEvents: moreOpen ? 'auto' : 'none',
+                }}
+              >
+                <div className="overflow-hidden">
+                  <div className="pt-3" aria-hidden={!moreOpen}>
                     {/* Grouped in its own tray so it reads as a distinct
                         "advanced" cluster instead of blending into the
                         date/type fields above it. */}
@@ -412,9 +422,9 @@ export default function ReportFiltersModal({ open, onClose, trades, busy, onGene
                         </motion.button>
                       )}
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  </div>
+                </div>
+              </div>
 
               {/* PDF quality */}
               <div className="flex flex-col gap-1">
