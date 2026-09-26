@@ -4,19 +4,27 @@ import './index.css'
 import App from './App.jsx'
 import SharedMapView from './components/viewer/SharedMapView.jsx'
 import LiveMapView from './components/viewer/LiveMapView.jsx'
+import TradeShareView from './components/viewer/TradeShareView.jsx'
 import { decodeMapFromParam } from './utils/exportShareLink.js'
 
 // Section — shared-link routing. A URL like `...?map=<encoded>` (one-time,
-// produced by the Share modal's "One-time" tab) or `...?live=<id>` (produced
-// by its "Live" tab) should show ONLY the mind map — no top toolbar, no tabs
-// bar, no side panels — with expand/collapse as the only interaction.
-// Deciding this here, before <App/> ever mounts, means the viewer never
-// touches the visitor's own saved projects, auth session, or local/cloud
-// autosave: none of that code runs at all in either branch.
+// produced by the Share modal's "One-time" tab), `...?live=<id>` (produced
+// by its "Live" tab), or `...?tradeShare=<id>` (produced by Trade
+// Analysis's own Share button) should show ONLY that shared content — no
+// top toolbar, no tabs bar, no side panels — with expand/collapse (or
+// scrolling, for the trade viewer) as the only interaction. Deciding this
+// here, before <App/> ever mounts, means the viewer never touches the
+// visitor's own saved projects, auth session, or local/cloud autosave:
+// none of that code runs at all in any of these branches.
 function Root() {
   const params = new URLSearchParams(window.location.search)
   const mapParam = params.get('map')
   const liveParam = params.get('live')
+  const tradeShareParam = params.get('tradeShare')
+
+  if (tradeShareParam) {
+    return <TradeShareView shareId={tradeShareParam} />
+  }
 
   if (liveParam) {
     return <LiveMapView shareId={liveParam} />

@@ -191,6 +191,63 @@ Creating a live link requires being signed in (it needs somewhere to write
 to), so the Live Link tab in the share modal prompts sign-in if needed. The
 One-time tab keeps working for anyone with no login and no setup at all.
 
+## 3c-1. Create the `trade_shares` table (optional — Trade Analysis's own Share button)
+
+Separate from the `live_shares` table above (which shares the whole mind
+map), this backs the **Share** button inside Trade Analysis itself — it
+lets someone pick a date range/type/pair/etc. filter, then generate a
+view-only link that shows just that filtered set of trades as a vertical,
+read-only card list, in whatever color theme they had selected. A person
+can have several of these links alive at once (e.g. one scoped to this
+month for one group, another scoped to a single pair for someone else),
+unlike `live_shares`'s one-per-project model.
+
+```sql
+create table public.trade_shares (
+  id text primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  trades jsonb not null default '[]',
+  validation_rules jsonb not null default '[]',
+  filters jsonb not null default '{}',
+  theme_name text,
+  expires_at timestamptz,
+  ended_at timestamptz,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+alter table public.trade_shares enable row level security;
+
+create policy "Owner manages own trade shares"
+  on public.trade_shares for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Same reasoning as get_live_share above — visitors read through this
+-- function (only ever the one row whose id they already have) instead of
+-- a direct SELECT policy, so the anon key can never list/dump every
+-- user's share links.
+create or replace function public.get_trade_share(share_id text)
+returns table (
+  trades jsonb, validation_rules jsonb, filters jsonb, theme_name text,
+  expires_at timestamptz, ended_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select trades, validation_rules, filters, theme_name, expires_at, ended_at
+  from public.trade_shares
+  where id = share_id;
+$$;
+
+grant execute on function public.get_trade_share(text) to anon, authenticated;
+```
+
+Creating a trade-share link requires being signed in (same as a live mind-
+map link), so the Share popup inside Trade Analysis prompts sign-in if
+needed.
+
 ## 3c-2. Create the `project_maps` table (recommended — backs up every project, not just one)
 
 The `maps` table above only ever holds **one** map per user — whatever's

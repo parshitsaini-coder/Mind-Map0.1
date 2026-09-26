@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, SlidersHorizontal, Settings, ChevronLeft, ChevronRight, Table2, LineChart, Wallet, Target, List, LayoutGrid, FileDown, Loader2 } from 'lucide-react'
+import { ArrowLeft, SlidersHorizontal, Settings, ChevronLeft, ChevronRight, Table2, LineChart, Wallet, Target, List, LayoutGrid, FileDown, Loader2, Share2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useIsMobile } from '../../hooks/useIsMobile'
@@ -10,6 +10,7 @@ import ValidationSettingsPanel from './ValidationSettingsPanel'
 import EditTradeModal from './EditTradeModal'
 import FiltersPopover, { countActiveFilters } from './FiltersPopover'
 import ReportFiltersModal from './ReportFiltersModal'
+import TradeShareModal from './TradeShareModal'
 import ThemePicker from './ThemePicker'
 import AnalysisTab from './analysis/AnalysisTab'
 import { tradeThemeCssVars, isGlassTheme, isClayTheme } from '../../theme/tradeAnalysisThemes'
@@ -230,6 +231,7 @@ export default function TradeAnalysis() {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [reportBusy, setReportBusy] = useState(false)
   const [reportModalOpen, setReportModalOpen] = useState(false)
+  const [shareModalOpen, setShareModalOpen] = useState(false)
   const activeFilterCount = countActiveFilters(filters)
   const isGlass = isGlassTheme(theme)
   const isClay = isClayTheme(theme)
@@ -337,6 +339,24 @@ export default function TradeAnalysis() {
                 in the table. Filters now renders in both views too (right
                 below); only "Add Validation Rule" stays Table-only. */}
             <div className="ml-auto flex shrink-0 items-center gap-1">
+              {/* Share — separate from Download Report: instead of a PDF,
+                  this generates a live view-only link (vertical, read-only
+                  trade cards in this same theme) that anyone can open,
+                  scoped by whatever filters are picked in the popup. */}
+              <motion.button
+                whileHover={{ scale: 1.04, y: -1, boxShadow: '0 4px 14px rgba(0,0,0,0.18)' }}
+                whileTap={{ scale: 0.94 }}
+                transition={{ type: 'spring', stiffness: 480, damping: 22 }}
+                disabled={trades.length === 0}
+                title={trades.length === 0 ? 'Log at least one trade first' : 'Create a view-only link to share these trades'}
+                onClick={() => setShareModalOpen(true)}
+                className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }}
+              >
+                <Share2 size={11} />
+                Share
+              </motion.button>
+
               <motion.button
                 whileHover={{ scale: 1.04, y: -1, boxShadow: '0 4px 14px rgba(0,0,0,0.18)' }}
                 whileTap={{ scale: 0.94 }}
@@ -494,6 +514,7 @@ export default function TradeAnalysis() {
       </AnimatePresence>
       <ValidationSettingsPanel open={rulesModalOpen} onClose={() => setRulesModalOpen(false)} />
       <EditTradeModal />
+      <TradeShareModal open={shareModalOpen} onClose={() => setShareModalOpen(false)} />
       <ReportFiltersModal
         open={reportModalOpen}
         onClose={() => (reportBusy ? null : setReportModalOpen(false))}

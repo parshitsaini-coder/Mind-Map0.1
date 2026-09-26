@@ -129,8 +129,8 @@ export const TRADE_THEMES = [
     // that skin and swap in the soft pastel backdrop instead of plain white.
     clay: true,
     colors: {
-      bg: '#b8bdb5',
-      surface: '#b8bdb5',
+      bg: '#f0ebd8',
+      surface: '#f0ebd8',
       ink: '#2c2a4a',
       slate: '#746fa0',
       accent: '#252422',

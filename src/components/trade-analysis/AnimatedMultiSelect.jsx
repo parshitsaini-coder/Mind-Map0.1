@@ -20,6 +20,14 @@ export default function AnimatedMultiSelect({
   inputCls = '',
   searchable = false, // show a search box above the list — for long option sets (e.g. Pair)
   searchPlaceholder = 'Search...',
+  // true (default) = classic floating popover that overlays whatever sits
+  // below it — right for FiltersPopover, which already floats over the
+  // table/cards behind it. false = the menu renders in normal document
+  // flow instead, pushing the fields below it down the page rather than
+  // covering them — needed inside ReportFiltersModal, where several of
+  // these selects sit stacked in a scrollable column and an overlaid menu
+  // would hide the PDF-quality picker / footer underneath it.
+  floating = true,
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -89,7 +97,7 @@ export default function AnimatedMultiSelect({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.1, ease: 'easeOut' }}
-            className="ta-glass-popover absolute left-0 right-0 top-full z-30 mt-1 flex flex-col rounded-lg border shadow-xl"
+            className={`ta-glass-popover z-30 mt-1 flex flex-col rounded-lg border shadow-xl ${floating ? 'absolute left-0 right-0 top-full' : 'relative'}`}
             style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)', transformOrigin: 'top' }}
           >
             {searchable && (

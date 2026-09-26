@@ -3,6 +3,7 @@ import { X, FileDown, Loader2, CalendarRange, Gauge, SlidersHorizontal } from 'l
 import { useMemo, useState } from 'react'
 import { INDIAN_STOCKS, FOREX_PAIRS, COMMODITIES } from '../../data/instruments'
 import { applyFilters } from '../../utils/tradeFilters'
+import { isoDate, daysAgoIso, DATE_RANGE_PRESETS } from '../../utils/dateRangePresets'
 import AnimatedMultiSelect from './AnimatedMultiSelect'
 
 const INSTRUMENT_TYPES = ['Equity', 'Forex', 'Commodity']
@@ -20,31 +21,6 @@ const QUALITY_LEVELS = [
   { id: 'standard', label: 'Standard', hint: 'Balanced' },
   { id: 'high', label: 'High', hint: 'Best quality' },
 ]
-
-// Quick date-range presets shown as pills above the custom from/to
-// inputs. `days: null` means "All time" (no date filtering at all).
-const PRESETS = [
-  { id: 'all', label: 'All time', days: null },
-  { id: '7d', label: 'Last 7 days', days: 7 },
-  { id: '15d', label: 'Last 15 days', days: 15 },
-  { id: '30d', label: 'Last 30 days', days: 30 },
-  { id: 'custom', label: 'Custom range', days: undefined },
-]
-
-// YYYY-MM-DD in local time (matches the `date` field trades already
-// store, which comes from a native <input type="date">).
-function isoDate(d) {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
-function daysAgoIso(n) {
-  const d = new Date()
-  d.setDate(d.getDate() - (n - 1)) // inclusive of today
-  return isoDate(d)
-}
 
 // Step: report-scoping popup. Sits between clicking "Download Report"
 // and actually generating the PDF. Originally only scoped by date + one
@@ -184,7 +160,7 @@ export default function ReportFiltersModal({ open, onClose, trades, busy, onGene
               <div className="flex flex-col gap-1">
                 <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Date range</span>
                 <div className="grid grid-cols-2 gap-1">
-                  {PRESETS.map((p) => {
+                  {DATE_RANGE_PRESETS.map((p) => {
                     const active = presetId === p.id
                     const cls = pillCls(active)
                     return (
@@ -290,6 +266,7 @@ export default function ReportFiltersModal({ open, onClose, trades, busy, onGene
                         placeholder="All pairs"
                         searchable
                         searchPlaceholder="Search pair..."
+                        floating={false}
                         options={ALL_PAIRS.map((i) => ({ value: i.symbol, label: i.symbol }))}
                       />
                     </label>
@@ -302,6 +279,7 @@ export default function ReportFiltersModal({ open, onClose, trades, busy, onGene
                         onToggle={toggleArr(setTimeframe)}
                         inputCls={inputCls}
                         placeholder="All time frames"
+                        floating={false}
                         options={TIMEFRAMES.map((tf) => ({ value: tf, label: tf }))}
                       />
                     </label>
@@ -338,6 +316,7 @@ export default function ReportFiltersModal({ open, onClose, trades, busy, onGene
                         onToggle={toggleArr(setStatus)}
                         inputCls={inputCls}
                         placeholder="All statuses"
+                        floating={false}
                         options={STATUS_OPTIONS.map((s) => ({ value: s, label: s }))}
                       />
                     </label>
@@ -351,6 +330,7 @@ export default function ReportFiltersModal({ open, onClose, trades, busy, onGene
                         inputCls={inputCls}
                         disabled={validationRuleOptions.length === 0}
                         placeholder={validationRuleOptions.length === 0 ? 'No rules yet' : 'Any rule'}
+                        floating={false}
                         options={validationRuleOptions}
                       />
                     </label>
