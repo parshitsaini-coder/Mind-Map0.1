@@ -240,11 +240,11 @@ export default function TradeAnalysis() {
   // ReportFiltersModal so the person can scope the PDF to a date range
   // (quick preset or custom) and/or instrument type first. The modal
   // hands back the already-filtered trade list.
-  const handleDownloadReport = async (filteredTrades, reportMeta) => {
+  const handleDownloadReport = async (filteredTrades, reportMeta, quality) => {
     if (reportBusy || filteredTrades.length === 0) return
     setReportBusy(true)
     try {
-      await generateTradeReport(filteredTrades, validationRules, validationCategories, reportMeta)
+      await generateTradeReport(filteredTrades, validationRules, validationCategories, reportMeta, quality)
       setReportModalOpen(false)
     } catch (err) {
       console.error('Report generation failed:', err)
@@ -500,6 +500,8 @@ export default function TradeAnalysis() {
         trades={trades}
         busy={reportBusy}
         onGenerate={handleDownloadReport}
+        validationRules={validationRules}
+        validationCategories={validationCategories}
       />
     </>
   )

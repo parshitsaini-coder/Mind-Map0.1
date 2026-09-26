@@ -1,8 +1,25 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { X, FileDown, Loader2, CalendarRange } from 'lucide-react'
-import { useState } from 'react'
+import { X, FileDown, Loader2, CalendarRange, Gauge, SlidersHorizontal } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { INDIAN_STOCKS, FOREX_PAIRS, COMMODITIES } from '../../data/instruments'
+import { applyFilters } from '../../utils/tradeFilters'
+import AnimatedMultiSelect from './AnimatedMultiSelect'
 
 const INSTRUMENT_TYPES = ['Equity', 'Forex', 'Commodity']
+const TIMEFRAMES = ['1m', '3m', '5m', '15m', '30m', '60m', '75m', '2h', '3h', '4h', '1D', '1W', '1M']
+const STATUS_OPTIONS = ['Pending', 'Target Hit', 'SL Hit']
+const ALL_PAIRS = [...INDIAN_STOCKS, ...FOREX_PAIRS, ...COMMODITIES]
+
+// PDF quality presets — how far screenshots get downscaled/compressed
+// before being embedded (see generateTradeReport.js's QUALITY_PRESETS,
+// which these ids map straight into). Higher quality = crisper trade
+// screenshots but a bigger PDF file; Low trades that off for a small file
+// that's easy to WhatsApp/email.
+const QUALITY_LEVELS = [
+  { id: 'low', label: 'Low', hint: 'Smallest file' },
+  { id: 'standard', label: 'Standard', hint: 'Balanced' },
+  { id: 'high', label: 'High', hint: 'Best quality' },
+]
 
 // Quick date-range presets shown as pills above the custom from/to
 // inputs. `days: null` means "All time" (no date filtering at all).
@@ -30,17 +47,39 @@ function daysAgoIso(n) {
 }
 
 // Step: report-scoping popup. Sits between clicking "Download Report"
-// and actually generating the PDF — lets the person narrow the report
-// to a date window (quick preset or custom from/to) and/or an
-// instrument type, instead of always dumping every logged trade into
-// the report. Filtering happens client-side against the same `date` /
-// `instrumentType` fields FiltersPopover already filters the table by,
-// so the semantics match what "Filters" means elsewhere in this screen.
-export default function ReportFiltersModal({ open, onClose, trades, busy, onGenerate }) {
+// and actually generating the PDF. Originally only scoped by date + one
+// instrument type; now exposes the *same* filter fields as the main
+// "Filters" popover (pair, type, time frame, direction, status,
+// validation rule, date range) plus a PDF quality picker, so the report
+// can be narrowed exactly like the table can — via the one shared
+// `applyFilters` predicate (utils/tradeFilters.js) that already backs
+// FiltersPopover/TradesTable/TradeCards, so "match" here means the same
+// thing it means everywhere else in the app.
+export default function ReportFiltersModal({ open, onClose, trades, busy, onGenerate, validationRules = [], validationCategories = [] }) {
   const [presetId, setPresetId] = useState('all')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [types, setTypes] = useState([]) // empty = all types
+  const [pair, setPair] = useState([])
+  const [timeframe, setTimeframe] = useState([])
+  const [direction, setDirection] = useState([])
+  const [status, setStatus] = useState([])
+  const [validationRuleId, setValidationRuleId] = useState([])
+  const [quality, setQuality] = useState('standard')
+  const [moreOpen, setMoreOpen] = useState(false)
+
+  const validationRuleOptions = useMemo(
+    () =>
+      [...validationCategories]
+        .sort((a, b) => a.order - b.order)
+        .flatMap((cat) =>
+          validationRules
+            .filter((r) => r.categoryId === cat.id)
+            .sort((a, b) => a.order - b.order)
+            .map((r) => ({ value: r.id, label: `${cat.name} · ${r.label}` }))
+        ),
+    [validationRules, validationCategories]
+  )
 
   const applyPreset = (preset) => {
     setPresetId(preset.id)
@@ -60,13 +99,17 @@ export default function ReportFiltersModal({ open, onClose, trades, busy, onGene
   const toggleType = (t) => {
     setTypes((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]))
   }
+  const toggleDirection = (d) => {
+    setDirection((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]))
+  }
+  const toggleArr = (setter) => (v) => setter((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]))
 
-  const filteredTrades = trades.filter((t) => {
-    if (dateFrom && t.date < dateFrom) return false
-    if (dateTo && t.date > dateTo) return false
-    if (types.length && !types.includes(t.instrumentType)) return false
-    return true
-  })
+  const filteredTrades = useMemo(
+    () => applyFilters(trades, { pair, instrumentType: types, timeframe, direction, status, validationRuleId, dateFrom, dateTo }),
+    [trades, pair, types, timeframe, direction, status, validationRuleId, dateFrom, dateTo]
+  )
+
+  const extraActiveCount = [pair, timeframe, direction, status, validationRuleId].filter((a) => a.length > 0).length
 
   const fieldLabelCls = 'text-[10px] font-medium uppercase tracking-wide'
   const inputCls =
@@ -74,8 +117,15 @@ export default function ReportFiltersModal({ open, onClose, trades, busy, onGene
 
   const handleGenerate = () => {
     if (busy || filteredTrades.length === 0) return
-    onGenerate(filteredTrades, { dateFrom, dateTo, types })
+    onGenerate(filteredTrades, { dateFrom, dateTo, types }, quality)
   }
+
+  const pillCls = (active, activeColor = 'var(--ta-accent)') => ({
+    className: 'rounded-md border py-1 text-[9.5px] font-medium transition-colors',
+    style: active
+      ? { backgroundColor: activeColor, borderColor: activeColor, color: '#fffcf2' }
+      : { borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' },
+  })
 
   return (
     <AnimatePresence>
@@ -94,7 +144,7 @@ export default function ReportFiltersModal({ open, onClose, trades, busy, onGene
             exit={{ opacity: 0, scale: 0.94, y: 8 }}
             transition={{ type: 'spring', stiffness: 380, damping: 30 }}
             onClick={(e) => e.stopPropagation()}
-            className="flex w-full max-w-[340px] flex-col overflow-hidden rounded-xl border shadow-2xl"
+            className="ta-card-glow flex max-h-[86vh] w-full max-w-[380px] flex-col overflow-hidden rounded-xl border shadow-2xl"
             style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)' }}
           >
             {/* Header */}
@@ -129,26 +179,16 @@ export default function ReportFiltersModal({ open, onClose, trades, busy, onGene
             </div>
 
             {/* Body */}
-            <div className="flex flex-col gap-3 px-3.5 py-3">
+            <div className="ta-scroll flex flex-col gap-3 overflow-y-auto px-3.5 py-3">
               {/* Date range presets */}
               <div className="flex flex-col gap-1">
                 <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Date range</span>
                 <div className="grid grid-cols-2 gap-1">
                   {PRESETS.map((p) => {
                     const active = presetId === p.id
+                    const cls = pillCls(active)
                     return (
-                      <motion.button
-                        key={p.id}
-                        type="button"
-                        whileTap={{ scale: 0.94 }}
-                        onClick={() => applyPreset(p)}
-                        className="rounded-md border py-1 text-[9.5px] font-medium transition-colors"
-                        style={
-                          active
-                            ? { backgroundColor: 'var(--ta-accent)', borderColor: 'var(--ta-accent)', color: '#fffcf2' }
-                            : { borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }
-                        }
-                      >
+                      <motion.button key={p.id} type="button" whileTap={{ scale: 0.94 }} onClick={() => applyPreset(p)} {...cls}>
                         {p.label}
                       </motion.button>
                     )
@@ -196,20 +236,171 @@ export default function ReportFiltersModal({ open, onClose, trades, busy, onGene
                   {['All', ...INSTRUMENT_TYPES].map((t) => {
                     const isAll = t === 'All'
                     const active = isAll ? types.length === 0 : types.includes(t)
+                    const cls = pillCls(active)
                     return (
                       <motion.button
                         key={t}
                         type="button"
                         whileTap={{ scale: 0.94 }}
                         onClick={() => (isAll ? setTypes([]) : toggleType(t))}
-                        className="rounded-md border py-1 text-[9.5px] font-medium transition-colors"
+                        {...cls}
+                      >
+                        {t}
+                      </motion.button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Toggle for the rest of the filter system — collapsed by
+                  default so the common case (just a date range) stays
+                  quick, but every field FiltersPopover has is one tap
+                  away. */}
+              <button
+                type="button"
+                onClick={() => setMoreOpen((o) => !o)}
+                className="flex items-center justify-between rounded-md border px-2 py-1.5 text-[10px] font-semibold"
+                style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
+              >
+                <span className="flex items-center gap-1.5">
+                  <SlidersHorizontal size={11} style={{ color: 'var(--ta-accent)' }} />
+                  More filters{extraActiveCount > 0 ? ` (${extraActiveCount})` : ''}
+                </span>
+                <motion.span animate={{ rotate: moreOpen ? 180 : 0 }} transition={{ duration: 0.15 }} className="flex">
+                  ⌄
+                </motion.span>
+              </button>
+
+              <AnimatePresence initial={false}>
+                {moreOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.18 }}
+                    className="flex flex-col gap-3 overflow-hidden"
+                  >
+                    {/* Pair */}
+                    <label className="flex flex-col gap-1">
+                      <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Pair</span>
+                      <AnimatedMultiSelect
+                        values={pair}
+                        onToggle={toggleArr(setPair)}
+                        inputCls={inputCls}
+                        placeholder="All pairs"
+                        searchable
+                        searchPlaceholder="Search pair..."
+                        options={ALL_PAIRS.map((i) => ({ value: i.symbol, label: i.symbol }))}
+                      />
+                    </label>
+
+                    {/* Time frame */}
+                    <label className="flex flex-col gap-1">
+                      <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Time frame</span>
+                      <AnimatedMultiSelect
+                        values={timeframe}
+                        onToggle={toggleArr(setTimeframe)}
+                        inputCls={inputCls}
+                        placeholder="All time frames"
+                        options={TIMEFRAMES.map((tf) => ({ value: tf, label: tf }))}
+                      />
+                    </label>
+
+                    {/* Direction */}
+                    <div className="flex flex-col gap-1">
+                      <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Direction</span>
+                      <div className="grid grid-cols-3 gap-1">
+                        {['All', 'Buy', 'Sell'].map((d) => {
+                          const isAll = d === 'All'
+                          const active = isAll ? direction.length === 0 : direction.includes(d)
+                          const activeColor = d === 'Buy' ? '#16a34a' : d === 'Sell' ? '#dc2626' : 'var(--ta-accent)'
+                          const cls = pillCls(active, activeColor)
+                          return (
+                            <motion.button
+                              key={d}
+                              type="button"
+                              whileTap={{ scale: 0.94 }}
+                              onClick={() => (isAll ? setDirection([]) : toggleDirection(d))}
+                              {...cls}
+                            >
+                              {d}
+                            </motion.button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Status */}
+                    <label className="flex flex-col gap-1">
+                      <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Status</span>
+                      <AnimatedMultiSelect
+                        values={status}
+                        onToggle={toggleArr(setStatus)}
+                        inputCls={inputCls}
+                        placeholder="All statuses"
+                        options={STATUS_OPTIONS.map((s) => ({ value: s, label: s }))}
+                      />
+                    </label>
+
+                    {/* Validation rule */}
+                    <label className="flex flex-col gap-1">
+                      <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Validation rule met</span>
+                      <AnimatedMultiSelect
+                        values={validationRuleId}
+                        onToggle={toggleArr(setValidationRuleId)}
+                        inputCls={inputCls}
+                        disabled={validationRuleOptions.length === 0}
+                        placeholder={validationRuleOptions.length === 0 ? 'No rules yet' : 'Any rule'}
+                        options={validationRuleOptions}
+                      />
+                    </label>
+
+                    {extraActiveCount > 0 && (
+                      <motion.button
+                        whileTap={{ scale: 0.96 }}
+                        type="button"
+                        onClick={() => {
+                          setPair([])
+                          setTimeframe([])
+                          setDirection([])
+                          setStatus([])
+                          setValidationRuleId([])
+                        }}
+                        className="self-start text-[10px] font-medium underline-offset-2 hover:underline"
+                        style={{ color: 'var(--ta-slate)' }}
+                      >
+                        Clear these filters
+                      </motion.button>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* PDF quality */}
+              <div className="flex flex-col gap-1">
+                <span className={`${fieldLabelCls} flex items-center gap-1`} style={{ color: 'var(--ta-slate)' }}>
+                  <Gauge size={10} />
+                  PDF quality
+                </span>
+                <div className="grid grid-cols-3 gap-1">
+                  {QUALITY_LEVELS.map((q) => {
+                    const active = quality === q.id
+                    return (
+                      <motion.button
+                        key={q.id}
+                        type="button"
+                        whileTap={{ scale: 0.94 }}
+                        onClick={() => setQuality(q.id)}
+                        title={q.hint}
+                        className="flex flex-col items-center gap-0.5 rounded-md border py-1.5 transition-colors"
                         style={
                           active
                             ? { backgroundColor: 'var(--ta-accent)', borderColor: 'var(--ta-accent)', color: '#fffcf2' }
                             : { borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }
                         }
                       >
-                        {t}
+                        <span className="text-[10px] font-semibold">{q.label}</span>
+                        <span className="text-[8px] opacity-80">{q.hint}</span>
                       </motion.button>
                     )
                   })}
@@ -227,7 +418,7 @@ export default function ReportFiltersModal({ open, onClose, trades, busy, onGene
 
             {/* Footer */}
             <div
-              className="flex items-center justify-between border-t px-3.5 py-2.5"
+              className="flex shrink-0 items-center justify-between border-t px-3.5 py-2.5"
               style={{ borderColor: 'var(--ta-slate)', backgroundColor: 'var(--ta-bg)' }}
             >
               <motion.button

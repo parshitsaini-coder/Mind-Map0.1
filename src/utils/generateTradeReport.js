@@ -53,8 +53,51 @@ const fmtPct = (n) => (n == null ? '—' : `${n.toFixed(0)}%`)
 // Supabase Storage, or was embedded as base64 locally. Returns null
 // (instead of throwing) on any failure so one bad/expired image link
 // doesn't stop the whole report from generating.
-async function loadImage(url) {
+//
+// `quality` (see QUALITY_PRESETS below) controls how the image gets
+// re-encoded before it goes in the PDF: every image is drawn onto an
+// offscreen canvas capped at the preset's max dimension (never upscaled,
+// only ever shrunk) and re-exported as JPEG at the preset's compression
+// level. This is what actually makes "Low/Standard/High" mean something —
+// jsPDF just embeds whatever bytes it's handed, so the size/quality
+// trade-off has to happen here, before addImage ever sees the picture.
+const QUALITY_PRESETS = {
+  low: { maxDim: 480, jpegQuality: 0.45 },
+  standard: { maxDim: 900, jpegQuality: 0.72 },
+  high: { maxDim: 1600, jpegQuality: 0.92 },
+}
+
+function resizeToJpeg(img, dataUrl, preset) {
+  const scale = Math.min(1, preset.maxDim / Math.max(img.width, img.height))
+  // Nothing to gain by re-encoding a PNG we're not shrinking at the
+  // highest quality tier — skip the canvas round-trip and keep the
+  // original bytes/format as-is.
+  if (scale >= 1 && preset === QUALITY_PRESETS.high) return { dataUrl, width: img.width, height: img.height, format: null }
+
+  const w = Math.max(1, Math.round(img.width * scale))
+  const h = Math.max(1, Math.round(img.height * scale))
+  try {
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext('2d')
+    // Flatten onto white first — JPEG has no alpha channel, and a
+    // screenshot with transparent corners would otherwise turn black.
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, w, h)
+    ctx.drawImage(img.el, 0, 0, w, h)
+    return { dataUrl: canvas.toDataURL('image/jpeg', preset.jpegQuality), width: w, height: h, format: 'JPEG' }
+  } catch {
+    // Canvas can throw on a tainted (cross-origin, no CORS headers)
+    // image — fall back to embedding the original bytes unresized rather
+    // than dropping the picture from the report entirely.
+    return { dataUrl, width: img.width, height: img.height, format: null }
+  }
+}
+
+async function loadImage(url, quality = 'standard') {
   if (!url) return null
+  const preset = QUALITY_PRESETS[quality] || QUALITY_PRESETS.standard
   try {
     let dataUrl = url
     if (!url.startsWith('data:')) {
@@ -68,15 +111,19 @@ async function loadImage(url) {
         reader.readAsDataURL(blob)
       })
     }
-    const match = /^data:image\/(png|jpeg|jpg|webp)/i.exec(dataUrl)
-    const format = match ? match[1].toUpperCase().replace('JPG', 'JPEG') : 'PNG'
-    const { width, height } = await new Promise((resolve) => {
+    const el = await new Promise((resolve, reject) => {
       const img = new Image()
-      img.onload = () => resolve({ width: img.naturalWidth || 1, height: img.naturalHeight || 1 })
-      img.onerror = () => resolve({ width: 1, height: 1 })
+      img.onload = () => resolve(img)
+      img.onerror = reject
       img.src = dataUrl
     })
-    return { dataUrl, format, width, height }
+    const resized = resizeToJpeg({ el, width: el.naturalWidth || 1, height: el.naturalHeight || 1 }, dataUrl, preset)
+    let format = resized.format
+    if (!format) {
+      const match = /^data:image\/(png|jpeg|jpg|webp)/i.exec(dataUrl)
+      format = match ? match[1].toUpperCase().replace('JPG', 'JPEG') : 'PNG'
+    }
+    return { dataUrl: resized.dataUrl, format, width: resized.width, height: resized.height }
   } catch {
     return null
   }
@@ -345,7 +392,7 @@ function ruleLabelMap(validationRules, validationCategories) {
   return map
 }
 
-async function buildTradePage(doc, trade, index, total, ruleLabels) {
+async function buildTradePage(doc, trade, index, total, ruleLabels, quality) {
   header(doc, trade.instrumentName || trade.pair || 'Trade', `Trade ${index + 1} of ${total} · ${trade.date || '—'}`)
 
   let y = 88
@@ -429,7 +476,7 @@ async function buildTradePage(doc, trade, index, total, ruleLabels) {
     doc.setTextColor(...ACCENT)
     doc.text(box.label, box.x + 32, y + 17, { align: 'center' })
 
-    const img = await loadImage(box.url)
+    const img = await loadImage(box.url, quality)
     const innerX = box.x + 8
     const innerY = y + 30
     const innerW = boxW - 16
@@ -479,9 +526,11 @@ function describeReportScope({ dateFrom, dateTo, types } = {}) {
 // in memory and triggers a browser download; does not touch the store.
 // `reportMeta` (optional) carries the date-range/type selection made in
 // ReportFiltersModal purely for display in the header subtitle — the
-// actual filtering already happened before `trades` got here.
-export async function generateTradeReport(trades, validationRules = [], validationCategories = [], reportMeta) {
-  const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+// actual filtering already happened before `trades` got here. `quality`
+// ('low' | 'standard' | 'high', default 'standard') controls how the
+// setup/result screenshots get compressed — see QUALITY_PRESETS above.
+export async function generateTradeReport(trades, validationRules = [], validationCategories = [], reportMeta, quality = 'standard') {
+  const doc = new jsPDF({ unit: 'pt', format: 'a4', compress: true })
   const ruleLabels = ruleLabelMap(validationRules, validationCategories)
 
   buildDashboardPage(doc, trades, describeReportScope(reportMeta))
@@ -491,7 +540,7 @@ export async function generateTradeReport(trades, validationRules = [], validati
   for (let i = 0; i < sorted.length; i++) {
     doc.addPage()
     // eslint-disable-next-line no-await-in-loop
-    await buildTradePage(doc, sorted[i], i, sorted.length, ruleLabels)
+    await buildTradePage(doc, sorted[i], i, sorted.length, ruleLabels, quality)
   }
 
   const stamp = new Date().toISOString().slice(0, 10)
