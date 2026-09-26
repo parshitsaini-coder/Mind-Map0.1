@@ -1,5 +1,19 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { X, FileDown, Loader2, CalendarRange, Gauge, SlidersHorizontal } from 'lucide-react'
+import {
+  X,
+  FileDown,
+  Loader2,
+  CalendarRange,
+  Gauge,
+  SlidersHorizontal,
+  Layers,
+  Clock3,
+  ArrowLeftRight,
+  CheckCircle2,
+  ShieldCheck,
+  Eraser,
+  ChevronDown,
+} from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { INDIAN_STOCKS, FOREX_PAIRS, COMMODITIES } from '../../data/instruments'
 import { applyFilters } from '../../utils/tradeFilters'
@@ -87,7 +101,7 @@ export default function ReportFiltersModal({ open, onClose, trades, busy, onGene
 
   const extraActiveCount = [pair, timeframe, direction, status, validationRuleId].filter((a) => a.length > 0).length
 
-  const fieldLabelCls = 'text-[10px] font-medium uppercase tracking-wide'
+  const fieldLabelCls = 'text-[10px] font-medium uppercase tracking-wide flex items-center gap-1'
   const inputCls =
     'w-full rounded-md border bg-white/70 px-2 py-1.5 text-[11px] outline-none transition-colors focus:ring-1'
 
@@ -232,20 +246,38 @@ export default function ReportFiltersModal({ open, onClose, trades, busy, onGene
                   default so the common case (just a date range) stays
                   quick, but every field FiltersPopover has is one tap
                   away. */}
-              <button
+              <motion.button
                 type="button"
+                whileTap={{ scale: 0.98 }}
                 onClick={() => setMoreOpen((o) => !o)}
-                className="flex items-center justify-between rounded-md border px-2 py-1.5 text-[10px] font-semibold"
-                style={{ borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }}
+                className="flex items-center justify-between rounded-md border px-2.5 py-1.5 text-[10px] font-semibold transition-colors"
+                style={
+                  moreOpen
+                    ? { borderColor: 'var(--ta-accent)', color: 'var(--ta-ink)', backgroundColor: 'color-mix(in srgb, var(--ta-accent) 8%, transparent)' }
+                    : { borderColor: 'var(--ta-slate)', color: 'var(--ta-ink)' }
+                }
               >
                 <span className="flex items-center gap-1.5">
                   <SlidersHorizontal size={11} style={{ color: 'var(--ta-accent)' }} />
-                  More filters{extraActiveCount > 0 ? ` (${extraActiveCount})` : ''}
+                  More filters
+                  {extraActiveCount > 0 && (
+                    <span
+                      className="flex h-3.5 min-w-[14px] items-center justify-center rounded-full px-1 text-[8.5px] font-bold leading-none"
+                      style={{ backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }}
+                    >
+                      {extraActiveCount}
+                    </span>
+                  )}
                 </span>
-                <motion.span animate={{ rotate: moreOpen ? 180 : 0 }} transition={{ duration: 0.15 }} className="flex">
-                  ⌄
+                <motion.span
+                  animate={{ rotate: moreOpen ? 180 : 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex"
+                  style={{ color: 'var(--ta-slate)' }}
+                >
+                  <ChevronDown size={12} />
                 </motion.span>
-              </button>
+              </motion.button>
 
               <AnimatePresence initial={false}>
                 {moreOpen && (
@@ -254,104 +286,132 @@ export default function ReportFiltersModal({ open, onClose, trades, busy, onGene
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.18 }}
-                    className="flex flex-col gap-3 overflow-hidden"
+                    className="overflow-hidden"
                   >
-                    {/* Pair */}
-                    <label className="flex flex-col gap-1">
-                      <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Pair</span>
-                      <AnimatedMultiSelect
-                        values={pair}
-                        onToggle={toggleArr(setPair)}
-                        inputCls={inputCls}
-                        placeholder="All pairs"
-                        searchable
-                        searchPlaceholder="Search pair..."
-                        floating={false}
-                        options={ALL_PAIRS.map((i) => ({ value: i.symbol, label: i.symbol }))}
-                      />
-                    </label>
+                    {/* Grouped in its own tray so it reads as a distinct
+                        "advanced" cluster instead of blending into the
+                        date/type fields above it. */}
+                    <div
+                      className="flex flex-col gap-2.5 rounded-lg border p-2.5"
+                      style={{ borderColor: 'var(--ta-slate)', backgroundColor: 'color-mix(in srgb, var(--ta-bg) 45%, transparent)' }}
+                    >
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* Pair */}
+                        <label className="flex flex-col gap-1">
+                          <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>
+                            <Layers size={9} />
+                            Pair
+                          </span>
+                          <AnimatedMultiSelect
+                            values={pair}
+                            onToggle={toggleArr(setPair)}
+                            inputCls={inputCls}
+                            placeholder="All pairs"
+                            searchable
+                            searchPlaceholder="Search pair..."
+                            floating={false}
+                            options={ALL_PAIRS.map((i) => ({ value: i.symbol, label: i.symbol }))}
+                          />
+                        </label>
 
-                    {/* Time frame */}
-                    <label className="flex flex-col gap-1">
-                      <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Time frame</span>
-                      <AnimatedMultiSelect
-                        values={timeframe}
-                        onToggle={toggleArr(setTimeframe)}
-                        inputCls={inputCls}
-                        placeholder="All time frames"
-                        floating={false}
-                        options={TIMEFRAMES.map((tf) => ({ value: tf, label: tf }))}
-                      />
-                    </label>
-
-                    {/* Direction */}
-                    <div className="flex flex-col gap-1">
-                      <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Direction</span>
-                      <div className="grid grid-cols-3 gap-1">
-                        {['All', 'Buy', 'Sell'].map((d) => {
-                          const isAll = d === 'All'
-                          const active = isAll ? direction.length === 0 : direction.includes(d)
-                          const activeColor = d === 'Buy' ? '#16a34a' : d === 'Sell' ? '#dc2626' : 'var(--ta-accent)'
-                          const cls = pillCls(active, activeColor)
-                          return (
-                            <motion.button
-                              key={d}
-                              type="button"
-                              whileTap={{ scale: 0.94 }}
-                              onClick={() => (isAll ? setDirection([]) : toggleDirection(d))}
-                              {...cls}
-                            >
-                              {d}
-                            </motion.button>
-                          )
-                        })}
+                        {/* Time frame */}
+                        <label className="flex flex-col gap-1">
+                          <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>
+                            <Clock3 size={9} />
+                            Time frame
+                          </span>
+                          <AnimatedMultiSelect
+                            values={timeframe}
+                            onToggle={toggleArr(setTimeframe)}
+                            inputCls={inputCls}
+                            placeholder="All time frames"
+                            floating={false}
+                            options={TIMEFRAMES.map((tf) => ({ value: tf, label: tf }))}
+                          />
+                        </label>
                       </div>
+
+                      {/* Direction */}
+                      <div className="flex flex-col gap-1">
+                        <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>
+                          <ArrowLeftRight size={9} />
+                          Direction
+                        </span>
+                        <div className="grid grid-cols-3 gap-1">
+                          {['All', 'Buy', 'Sell'].map((d) => {
+                            const isAll = d === 'All'
+                            const active = isAll ? direction.length === 0 : direction.includes(d)
+                            const activeColor = d === 'Buy' ? '#16a34a' : d === 'Sell' ? '#dc2626' : 'var(--ta-accent)'
+                            const cls = pillCls(active, activeColor)
+                            return (
+                              <motion.button
+                                key={d}
+                                type="button"
+                                whileTap={{ scale: 0.94 }}
+                                onClick={() => (isAll ? setDirection([]) : toggleDirection(d))}
+                                {...cls}
+                              >
+                                {d}
+                              </motion.button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* Status */}
+                        <label className="flex flex-col gap-1">
+                          <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>
+                            <CheckCircle2 size={9} />
+                            Status
+                          </span>
+                          <AnimatedMultiSelect
+                            values={status}
+                            onToggle={toggleArr(setStatus)}
+                            inputCls={inputCls}
+                            placeholder="All statuses"
+                            floating={false}
+                            options={STATUS_OPTIONS.map((s) => ({ value: s, label: s }))}
+                          />
+                        </label>
+
+                        {/* Validation rule */}
+                        <label className="flex flex-col gap-1">
+                          <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>
+                            <ShieldCheck size={9} />
+                            Rule met
+                          </span>
+                          <AnimatedMultiSelect
+                            values={validationRuleId}
+                            onToggle={toggleArr(setValidationRuleId)}
+                            inputCls={inputCls}
+                            disabled={validationRuleOptions.length === 0}
+                            placeholder={validationRuleOptions.length === 0 ? 'No rules yet' : 'Any rule'}
+                            floating={false}
+                            options={validationRuleOptions}
+                          />
+                        </label>
+                      </div>
+
+                      {extraActiveCount > 0 && (
+                        <motion.button
+                          whileTap={{ scale: 0.96 }}
+                          type="button"
+                          onClick={() => {
+                            setPair([])
+                            setTimeframe([])
+                            setDirection([])
+                            setStatus([])
+                            setValidationRuleId([])
+                          }}
+                          className="flex items-center gap-1 self-start text-[10px] font-medium underline-offset-2 hover:underline"
+                          style={{ color: 'var(--ta-slate)' }}
+                        >
+                          <Eraser size={10} />
+                          Clear these filters
+                        </motion.button>
+                      )}
                     </div>
-
-                    {/* Status */}
-                    <label className="flex flex-col gap-1">
-                      <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Status</span>
-                      <AnimatedMultiSelect
-                        values={status}
-                        onToggle={toggleArr(setStatus)}
-                        inputCls={inputCls}
-                        placeholder="All statuses"
-                        floating={false}
-                        options={STATUS_OPTIONS.map((s) => ({ value: s, label: s }))}
-                      />
-                    </label>
-
-                    {/* Validation rule */}
-                    <label className="flex flex-col gap-1">
-                      <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Validation rule met</span>
-                      <AnimatedMultiSelect
-                        values={validationRuleId}
-                        onToggle={toggleArr(setValidationRuleId)}
-                        inputCls={inputCls}
-                        disabled={validationRuleOptions.length === 0}
-                        placeholder={validationRuleOptions.length === 0 ? 'No rules yet' : 'Any rule'}
-                        floating={false}
-                        options={validationRuleOptions}
-                      />
-                    </label>
-
-                    {extraActiveCount > 0 && (
-                      <motion.button
-                        whileTap={{ scale: 0.96 }}
-                        type="button"
-                        onClick={() => {
-                          setPair([])
-                          setTimeframe([])
-                          setDirection([])
-                          setStatus([])
-                          setValidationRuleId([])
-                        }}
-                        className="self-start text-[10px] font-medium underline-offset-2 hover:underline"
-                        style={{ color: 'var(--ta-slate)' }}
-                      >
-                        Clear these filters
-                      </motion.button>
-                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
