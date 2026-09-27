@@ -4,6 +4,7 @@ import { CalendarCheck, Target, Scale, IndianRupee, ArrowLeftRight, Sparkles } f
 import { useStrategyTesterStore } from '../../store/strategyTesterStore'
 import { RRR_OPTIONS, daysInMonth, dateKey, isValueFilled, MONTH_NAMES } from '../../utils/strategyTesterFields'
 import { Card, Grid, Stat, HBar, SectionHeader, EmptyHint, fmtPct } from '../trade-analysis/analysis/primitives'
+import StrategyCalendar from './StrategyCalendar'
 
 // Reduces one strategy's entries for the selected month into everything
 // the cards below need. Pure function of (strategy, entries slice, days)
@@ -91,15 +92,30 @@ export default function StrategyTesterAnalysis() {
   const month = useStrategyTesterStore((s) => s.month)
   const analysisStrategyId = useStrategyTesterStore((s) => s.analysisStrategyId)
 
-  const activeId = analysisStrategyId && strategies.some((s) => s.id === analysisStrategyId) ? analysisStrategyId : strategies[0]?.id
-  const strategy = strategies.find((s) => s.id === activeId)
+  // Hidden strategies are hidden everywhere in Analysis too — they never
+  // show up in the picker, and a strategy hidden while it was the active
+  // one falls back to the first still-visible strategy instead of
+  // rendering stale data for something the person just tucked away.
+  const visibleStrategies = strategies.filter((st) => !st.hidden)
+
+  const activeId =
+    analysisStrategyId && visibleStrategies.some((s) => s.id === analysisStrategyId)
+      ? analysisStrategyId
+      : visibleStrategies[0]?.id
+  const strategy = visibleStrategies.find((s) => s.id === activeId)
 
   const stats = useMemo(() => {
     if (!strategy) return null
     return computeStats(strategy, entries?.[strategy.id], year, month)
   }, [strategy, entries, year, month])
 
-  if (!strategy || !stats) return <EmptyHint>Add a strategy first.</EmptyHint>
+  if (!strategy || !stats) {
+    return (
+      <EmptyHint>
+        {strategies.length === 0 ? 'Add a strategy first.' : 'All strategies are hidden — unhide one in Table view to see its analysis.'}
+      </EmptyHint>
+    )
+  }
 
   const hasAnyMetric = stats.hasOutcome || stats.hasPnl || stats.hasRrr || stats.hasBuysell
 
@@ -109,7 +125,7 @@ export default function StrategyTesterAnalysis() {
           ViewSwitch, just driven by the strategy list instead of a fixed
           pair of tabs. */}
       <div className="mb-3 flex flex-wrap items-center gap-1 pt-1">
-        {strategies.map((st) => {
+        {visibleStrategies.map((st) => {
           const active = st.id === activeId
           return (
             <motion.button
@@ -143,6 +159,9 @@ export default function StrategyTesterAnalysis() {
           </div>
         </div>
       </Card>
+
+      <SectionHeader icon={CalendarCheck} title="Calendar" subtitle="Tap a day for details" />
+      <StrategyCalendar strategy={strategy} entries={entries} />
 
       {!hasAnyMetric && (
         <div className="mt-3">

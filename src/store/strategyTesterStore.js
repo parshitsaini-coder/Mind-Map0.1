@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 
 // Section — Strategy Tester. A separate full-screen feature (own overlay,
 // own top bar), inspired by a classic backtest "strategy tester" grid:
@@ -43,6 +44,10 @@ const initialState = {
   analysisStrategyId: null,
   // entries[strategyId][dateKey][fieldId] = value
   entries: {},
+  // 'idle' | 'saving' | 'saved' | 'error' — surfaced by the cloud-sync
+  // pill in TopToolbar/StrategyTester the same way tradeAnalysisStore's
+  // cloudStatus is, not persisted (see partialize below).
+  cloudStatus: 'idle',
 }
 
 export const useStrategyTesterStore = create(
@@ -143,9 +148,66 @@ export const useStrategyTesterStore = create(
       // Read-only helper — not itself reactive, callers should select
       // `entries` directly if they need re-renders on change.
       getCellValue: (strategyId, dk, fieldId) => get().entries?.[strategyId]?.[dk]?.[fieldId],
+
+      // Cross-device sync — same one-row-per-user pattern as
+      // tradeAnalysisStore's loadFromCloud/saveToCloud, in its own
+      // `strategy_tester` table (see SUPABASE_SETUP.md § 3e). Images
+      // themselves are already cloud-hosted URLs (Cloudinary/Supabase
+      // Storage, see imageUpload.js) — this is what carries the
+      // strategies/entries that *point* at those URLs to another
+      // device, so opening the app signed in elsewhere shows the same
+      // grid, screenshots included. Works fine locally-only (localStorage)
+      // when Supabase isn't configured or nobody's signed in.
+      loadFromCloud: async (userId) => {
+        if (!isSupabaseConfigured || !userId) return
+        const { data, error } = await supabase
+          .from('strategy_tester')
+          .select('strategies, entries')
+          .eq('user_id', userId)
+          .maybeSingle()
+        if (error) return
+
+        const cloudStrategies = data?.strategies || []
+        const cloudEntries = data?.entries || {}
+        const { strategies: localStrategies, entries: localEntries } = get()
+        const cloudIsEmpty = cloudStrategies.length === 0
+        const localHasData = localStrategies.length > 0 && Object.keys(localEntries).length > 0
+
+        // First sync (or the cloud row doesn't exist yet): don't let an
+        // empty cloud row stomp real local data — push local up instead.
+        if (cloudIsEmpty && localHasData) {
+          get().saveToCloud(userId)
+          return
+        }
+        if (cloudIsEmpty) return
+
+        set({ strategies: cloudStrategies, entries: cloudEntries })
+      },
+      saveToCloud: async (userId) => {
+        if (!isSupabaseConfigured || !userId) return
+        set({ cloudStatus: 'saving' })
+        const { strategies, entries } = get()
+        const { error } = await supabase.from('strategy_tester').upsert({
+          user_id: userId,
+          strategies,
+          entries,
+          updated_at: new Date().toISOString(),
+        })
+        set({ cloudStatus: error ? 'error' : 'saved' })
+      },
     }),
     {
       name: 'mindmap-strategy-tester-storage',
+      partialize: (state) => ({
+        isOpen: state.isOpen,
+        theme: state.theme,
+        activeView: state.activeView,
+        year: state.year,
+        month: state.month,
+        strategies: state.strategies,
+        analysisStrategyId: state.analysisStrategyId,
+        entries: state.entries,
+      }),
     }
   )
 )

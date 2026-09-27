@@ -359,6 +359,39 @@ Until this is turned on, clicking "Continue with Google" will show a
 Supabase error toast (e.g. "provider is not enabled") — email/password
 login and signup keep working either way.
 
+## 3e. Create the `strategy_tester` table (optional — Strategy Tester cross-device sync)
+
+The Strategy Tester (Table + Analysis, inside the mind map's toolbar) works
+entirely offline (localStorage) without this — this table just adds the
+same cross-device cloud sync the mind map and Trade Analysis get above.
+Screenshots attached to a strategy's Image column are already uploaded to
+Cloudinary/Supabase Storage (see step 3 above) and stored as plain URLs, so
+once this table exists the whole grid — images included — shows up on any
+device you sign into:
+
+```sql
+create table public.strategy_tester (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  strategies jsonb not null default '[]',
+  entries jsonb not null default '{}',
+  updated_at timestamptz not null default now()
+);
+
+alter table public.strategy_tester enable row level security;
+
+create policy "Users can view own strategy tester data"
+  on public.strategy_tester for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own strategy tester data"
+  on public.strategy_tester for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own strategy tester data"
+  on public.strategy_tester for update
+  using (auth.uid() = user_id);
+```
+
 ## 4. Get your API keys
 
 **Project Settings → API**. You need two values:

@@ -1,16 +1,13 @@
-import { useRef, useState } from 'react'
-import { Camera, Check, Loader2, StickyNote } from 'lucide-react'
-import { uploadTradeImage } from '../../lib/imageUpload'
-import { useUiStore } from '../../store/uiStore'
+import { useState } from 'react'
+import { Check, StickyNote } from 'lucide-react'
 import NotesPopup from './NotesPopup'
 import RRRSelect from './RRRSelect'
+import ImageCell from './ImageCell'
 
 const inputCls = 'st-cell-input'
 
 export default function FieldCell({ field, value, onChange, rowLabel }) {
-  const [uploading, setUploading] = useState(false)
   const [notesOpen, setNotesOpen] = useState(false)
-  const fileRef = useRef(null)
 
   switch (field.type) {
     case 'checkbox':
@@ -175,50 +172,8 @@ export default function FieldCell({ field, value, onChange, rowLabel }) {
         </>
       )
 
-    case 'image': {
-      const handleFile = async (e) => {
-        const file = e.target.files?.[0]
-        e.target.value = ''
-        if (!file) return
-        setUploading(true)
-        try {
-          const { url } = await uploadTradeImage(file)
-          onChange(url)
-        } catch (err) {
-          useUiStore.getState().showToast(err.message || 'Could not upload image')
-        } finally {
-          setUploading(false)
-        }
-      }
-      return (
-        <div className="flex h-full w-full items-center justify-center py-0.5">
-          <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
-          {uploading ? (
-            <Loader2 size={11} className="animate-spin" style={{ color: 'var(--ta-accent)' }} />
-          ) : value ? (
-            <button
-              type="button"
-              onClick={() => useUiStore.getState().openImageLightbox(value, () => onChange(null))}
-              className="h-5 w-7 shrink-0 overflow-hidden rounded-[3px] border"
-              style={{ borderColor: 'var(--tad-border)' }}
-              title="View image"
-            >
-              <img src={value} alt="" className="h-full w-full object-cover" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              title="Attach an image"
-              className="flex h-5 w-7 items-center justify-center rounded-[3px] border border-dashed transition-colors hover:bg-black/5"
-              style={{ borderColor: 'var(--tad-border)' }}
-            >
-              <Camera size={10} style={{ color: 'var(--ta-slate)', opacity: 0.6 }} />
-            </button>
-          )}
-        </div>
-      )
-    }
+    case 'image':
+      return <ImageCell value={value} onChange={onChange} />
 
     default:
       return null

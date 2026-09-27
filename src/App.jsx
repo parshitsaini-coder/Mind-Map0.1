@@ -21,6 +21,7 @@ import { useMapStore } from './store/mapStore'
 import { useProjectsStore, readProjectData } from './store/projectsStore'
 import { useAuthStore } from './store/authStore'
 import { useTradeAnalysisStore } from './store/tradeAnalysisStore'
+import { useStrategyTesterStore } from './store/strategyTesterStore'
 import { useLiveShareStore } from './store/liveShareStore'
 import { applyThemeVars } from './theme/tokens'
 import { isSupabaseConfigured } from './lib/supabaseClient'
@@ -35,6 +36,8 @@ export default function App() {
   const authInitialized = useAuthStore((s) => s.initialized)
   const tradeSaveTimeout = useRef(null)
   const hasLoadedTradesForUser = useRef(null)
+  const strategyTesterSaveTimeout = useRef(null)
+  const hasLoadedStrategyTesterForUser = useRef(null)
   const projectSaveTimeout = useRef(null)
   const liveShareSaveTimeout = useRef(null)
   const projectCloudSaveTimeout = useRef(null)
@@ -272,6 +275,33 @@ export default function App() {
     return () => {
       clearTimeout(tradeSaveTimeout.current)
       unsubscribe()
+    }
+  }, [user, authInitialized])
+
+  // Same online sync pattern again, for the Strategy Tester feature
+  // (strategies + entries — the images inside them are already
+  // cloud-hosted URLs via imageUpload.js, so this is what makes the
+  // whole grid, screenshots included, show up on another device).
+  // Independent debounce/timer so it doesn't cancel the Trade Analysis
+  // save above.
+  useEffect(() => {
+    if (!authInitialized) return
+    if (user && hasLoadedStrategyTesterForUser.current !== user.id) {
+      hasLoadedStrategyTesterForUser.current = user.id
+      useStrategyTesterStore.getState().loadFromCloud(user.id)
+    }
+    if (!user) hasLoadedStrategyTesterForUser.current = null
+
+    const unsubscribeStrategyTester = useStrategyTesterStore.subscribe(() => {
+      if (!user) return
+      clearTimeout(strategyTesterSaveTimeout.current)
+      strategyTesterSaveTimeout.current = setTimeout(() => {
+        useStrategyTesterStore.getState().saveToCloud(user.id)
+      }, 1200)
+    })
+    return () => {
+      clearTimeout(strategyTesterSaveTimeout.current)
+      unsubscribeStrategyTester()
     }
   }, [user, authInitialized])
 
