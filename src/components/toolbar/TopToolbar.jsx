@@ -30,6 +30,7 @@ import {
   Sparkles,
   PenSquare,
   CandlestickChart,
+  CalendarRange,
   ListChecks,
   LibraryBig,
 } from 'lucide-react'
@@ -38,6 +39,7 @@ import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
 import { useWhiteboardStore } from '../../store/whiteboardStore'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
+import { useStrategyTesterStore } from '../../store/strategyTesterStore'
 import { useAuthStore } from '../../store/authStore'
 import { useProjectsStore } from '../../store/projectsStore'
 
@@ -176,6 +178,11 @@ export default function TopToolbar() {
           icon={CandlestickChart}
           label="Trade Analysis — log trades with screenshots, notes & a validation checklist"
           onClick={() => useTradeAnalysisStore.getState().open()}
+        />
+        <IconBtn
+          icon={CalendarRange}
+          label="Strategy Tester — track a strategy's setups day by day across a whole month"
+          onClick={() => useStrategyTesterStore.getState().open()}
         />
         <IconBtn
           icon={ListChecks}
