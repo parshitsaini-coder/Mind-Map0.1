@@ -12,9 +12,9 @@ import ShareModal from './components/toolbar/ShareModal'
 import ImageLightbox from './components/common/ImageLightbox'
 import Whiteboard from './components/whiteboard/Whiteboard'
 import TradeAnalysis from './components/trade-analysis/TradeAnalysis'
-import StrategyTester from './components/strategy-tester/StrategyTester'
 import TradeLinkPickerModal from './components/trade-analysis/TradeLinkPickerModal'
 import TradeDetailModal from './components/trade-analysis/TradeDetailModal'
+import StrategyTester from './components/strategy-tester/StrategyTester'
 import MindMapCanvas from './components/canvas/MindMapCanvas'
 import { useUiStore } from './store/uiStore'
 import { useMapStore } from './store/mapStore'
@@ -333,9 +333,9 @@ export default function App() {
       <ImageLightbox />
       <Whiteboard />
       <TradeAnalysis />
-      <StrategyTester />
       <TradeLinkPickerModal />
       <TradeDetailModal />
+      <StrategyTester />
       <ChecklistPanel />
     </div>
   )

@@ -1,84 +1,75 @@
+import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { StickyNote, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
 
-// Centered modal for the Notes field — explicitly requested to open "in a
-// popup" rather than an inline text box, since a date x strategy note can
-// run longer than a grid cell should ever grow.
-export default function NotesPopup({ open, value, dayLabel, strategyName, onClose, onSave }) {
+// Small centered popup for a Notes cell — opened by clicking the cell.
+// Per the design brief, notes shouldn't try to fit inline in a narrow
+// grid cell; they get their own focused popup with a real textarea.
+export default function NotesPopup({ title, value, onSave, onClose }) {
   const [draft, setDraft] = useState(value || '')
 
-  useEffect(() => {
-    if (open) setDraft(value || '')
-  }, [open, value])
-
-  const handleClose = () => {
+  const handleSave = () => {
     onSave(draft)
     onClose()
   }
 
   return (
     <AnimatePresence>
-      {open && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="fixed inset-0 z-[210] flex items-center justify-center bg-black/40 p-4"
+      >
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.15 }}
-          className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-          onClick={handleClose}
+          initial={{ opacity: 0, scale: 0.94, y: 8 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96, y: 6 }}
+          transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+          onClick={(e) => e.stopPropagation()}
+          className="flex w-full max-w-sm flex-col gap-2 rounded-xl border p-3 shadow-2xl"
+          style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)' }}
         >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.94, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.94, y: 8 }}
-            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-            onClick={(e) => e.stopPropagation()}
-            className="flex w-full max-w-sm flex-col overflow-hidden rounded-xl border shadow-2xl"
-            style={{ backgroundColor: 'var(--color-cream)', borderColor: 'var(--color-slate)' }}
-          >
-            <div
-              className="flex shrink-0 items-center gap-2 border-b px-3 py-2"
-              style={{ borderColor: 'var(--color-sage)' }}
+          <div className="flex items-center gap-1.5">
+            <StickyNote size={12} style={{ color: 'var(--ta-accent)' }} />
+            <span className="flex-1 text-[11px] font-semibold" style={{ color: 'var(--ta-ink)' }}>
+              {title}
+            </span>
+            <button onClick={onClose} className="rounded p-0.5 hover:bg-black/5" style={{ color: 'var(--ta-slate)' }}>
+              <X size={13} />
+            </button>
+          </div>
+          <textarea
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Write a note…"
+            rows={5}
+            className="ta-input w-full resize-none rounded-md border px-2 py-1.5 text-[11px] outline-none"
+            style={{ borderColor: 'var(--ta-slate)', backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }}
+          />
+          <div className="flex justify-end gap-1.5">
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={onClose}
+              className="rounded-md px-2.5 py-1 text-[10.5px] font-medium"
+              style={{ color: 'var(--ta-slate)' }}
             >
-              <span
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
-                style={{ backgroundColor: 'var(--color-accent)' }}
-              >
-                <StickyNote size={12} color="var(--color-ink)" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-semibold leading-tight" style={{ color: 'var(--color-ink)' }}>
-                  Note
-                </p>
-                <p className="truncate text-[9px] leading-tight" style={{ color: 'var(--color-slate)' }}>
-                  Day {dayLabel} · {strategyName}
-                </p>
-              </div>
-              <motion.button
-                whileTap={{ scale: 0.88 }}
-                onClick={handleClose}
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md hover:bg-black/5"
-                style={{ color: 'var(--color-slate)' }}
-                title="Save & close"
-              >
-                <X size={14} />
-              </motion.button>
-            </div>
-            <div className="p-3">
-              <textarea
-                autoFocus
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                rows={6}
-                placeholder="What happened on this trade / day..."
-                className="w-full resize-none rounded-md border bg-white/70 p-2 text-[11px] outline-none focus:ring-1"
-                style={{ borderColor: 'var(--color-sage)', color: 'var(--color-ink)' }}
-              />
-            </div>
-          </motion.div>
+              Cancel
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleSave}
+              className="rounded-md px-2.5 py-1 text-[10.5px] font-semibold"
+              style={{ backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }}
+            >
+              Save note
+            </motion.button>
+          </div>
         </motion.div>
-      )}
+      </motion.div>
     </AnimatePresence>
   )
 }

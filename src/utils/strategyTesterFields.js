@@ -1,82 +1,50 @@
-// Strategy Tester — shared field-type config + month/date helpers.
+// Strategy Tester — field-type registry + date helpers.
 //
-// A "field" is one trackable data point a person can attach to a date row
-// (Image, Checkbox, Notes, ...). Which fields are active is stored per ROW
-// (see strategyTesterStore.js) — every strategy column then renders its own
-// independent value for each active field on that row, which is what lets
-// one date be compared apples-to-apples across every strategy.
+// A "field" is one selectable column type a person can add to a strategy
+// via the + menu on that strategy's header (Image, Checkbox, Notes,
+// Number, Buy/Sell, SL/Target, Win Rate, RRR, P&L). Each strategy carries
+// its own ordered list of fields, so two strategies can track completely
+// different things side by side in the same monthly grid.
+
+export const FIELD_TYPES = [
+  { type: 'image', label: 'Image', icon: 'Image', width: 52, hint: 'Attach a chart screenshot' },
+  { type: 'checkbox', label: 'Checkbox', icon: 'CheckSquare', width: 36, hint: 'Yes/no — rule followed, setup valid…' },
+  { type: 'notes', label: 'Notes', icon: 'StickyNote', width: 40, hint: 'Free text, opens in a popup' },
+  { type: 'number', label: 'Number', icon: 'Hash', width: 52, hint: 'Any custom number (qty, points…)' },
+  { type: 'buysell', label: 'Buy/Sell', icon: 'ArrowLeftRight', width: 56, hint: 'Trade direction' },
+  { type: 'sltarget', label: 'SL / Target', icon: 'Crosshair', width: 76, hint: 'Stop-loss & target price' },
+  { type: 'outcome', label: 'Win Rate', icon: 'Trophy', width: 58, hint: 'Win / Loss / Breakeven' },
+  { type: 'rrr', label: 'RRR', icon: 'Scale', width: 58, hint: 'Reward:Risk ratio' },
+  { type: 'pnl', label: 'P&L', icon: 'IndianRupee', width: 66, hint: 'Profit / loss for that entry' },
+]
+
+export const FIELD_TYPE_MAP = Object.fromEntries(FIELD_TYPES.map((f) => [f.type, f]))
+
+export const RRR_OPTIONS = ['1:2', '1:3', '1:5', '1:6', '1:8', '1:10', '1:10+']
 
 export const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
 
-export const RRR_OPTIONS = ['1:2', '1:3', '1:5', '1:6', '1:8', '1:10+']
+export const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-// `kind` drives which mini control CellFieldControl renders.
-export const FIELD_TYPES = [
-  { id: 'image', label: 'Image', icon: 'Image', kind: 'image' },
-  { id: 'checkbox', label: 'Checkbox', icon: 'SquareCheck', kind: 'checkbox' },
-  { id: 'notes', label: 'Notes', icon: 'StickyNote', kind: 'notes' },
-  { id: 'number', label: 'Number', icon: 'Hash', kind: 'number' },
-  { id: 'side', label: 'Buy / Sell', icon: 'ArrowUpDown', kind: 'side' },
-  { id: 'slTarget', label: 'SL / Target', icon: 'Crosshair', kind: 'slTarget' },
-  { id: 'winrate', label: 'Winrate %', icon: 'Percent', kind: 'winrate' },
-  { id: 'rrr', label: 'RRR', icon: 'Scale', kind: 'rrr' },
-  { id: 'pnl', label: 'P&L', icon: 'Wallet', kind: 'pnl' },
-]
+export const daysInMonth = (year, month) => new Date(year, month + 1, 0).getDate()
 
-export const FIELD_BY_ID = Object.fromEntries(FIELD_TYPES.map((f) => [f.id, f]))
+const pad2 = (n) => String(n).padStart(2, '0')
 
-export function monthKeyFor(year, month) {
-  return `${year}-${String(month + 1).padStart(2, '0')}`
-}
+// 'YYYY-MM-DD' — used as the row key inside a strategy's entries map.
+export const dateKey = (year, month, day) => `${year}-${pad2(month + 1)}-${pad2(day)}`
 
-export function parseMonthKey(key) {
-  const [y, m] = key.split('-').map(Number)
-  return { year: y, month: m - 1 }
-}
+export const weekdayFor = (year, month, day) => WEEKDAY_SHORT[new Date(year, month, day).getDay()]
 
-export function daysInMonth(year, month) {
-  return new Date(year, month + 1, 0).getDate()
-}
-
-export function shiftMonthKey(key, delta) {
-  const { year, month } = parseMonthKey(key)
-  const d = new Date(year, month + delta, 1)
-  return monthKeyFor(d.getFullYear(), d.getMonth())
-}
-
-// RRR string ("1:3", "1:10+") -> numeric R-multiple, for averaging in analysis.
-export function rrrToNumber(rrr) {
-  if (!rrr) return null
-  const clean = String(rrr).replace('+', '')
-  const parts = clean.split(':')
-  const n = Number(parts[1])
-  return Number.isFinite(n) ? n : null
-}
-
-// Has anything at all been entered for this field's value?
-export function isFieldFilled(kind, value) {
+// Does this row have any value worth counting as "filled" for progress /
+// analysis purposes? An empty string, null, undefined, or an all-empty
+// sl/target object don't count; a real 0 does.
+export const isValueFilled = (type, value) => {
   if (value == null) return false
-  switch (kind) {
-    case 'checkbox':
-      return value === true
-    case 'notes':
-      return typeof value === 'string' && value.trim().length > 0
-    case 'image':
-      return typeof value === 'string' && value.length > 0
-    case 'slTarget':
-      return value.sl != null && value.sl !== '' || value.target != null && value.target !== ''
-    case 'side':
-      return value === 'buy' || value === 'sell'
-    case 'rrr':
-      return RRR_OPTIONS.includes(value)
-    case 'number':
-    case 'winrate':
-    case 'pnl':
-      return value !== '' && Number.isFinite(Number(value))
-    default:
-      return Boolean(value)
-  }
+  if (type === 'sltarget') return (value.sl !== '' && value.sl != null) || (value.target !== '' && value.target != null)
+  if (type === 'checkbox') return value === true
+  if (typeof value === 'string') return value.trim() !== ''
+  return true
 }

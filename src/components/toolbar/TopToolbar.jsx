@@ -30,9 +30,9 @@ import {
   Sparkles,
   PenSquare,
   CandlestickChart,
-  CalendarRange,
   ListChecks,
   LibraryBig,
+  FlaskConical,
 } from 'lucide-react'
 import { useState, useRef } from 'react'
 import { useMapStore } from '../../store/mapStore'
@@ -180,11 +180,6 @@ export default function TopToolbar() {
           onClick={() => useTradeAnalysisStore.getState().open()}
         />
         <IconBtn
-          icon={CalendarRange}
-          label="Strategy Tester — track a strategy's setups day by day across a whole month"
-          onClick={() => useStrategyTesterStore.getState().open()}
-        />
-        <IconBtn
           icon={ListChecks}
           label="Checklists — build reusable checkbox lists and apply them to any node"
           onClick={() => useUiStore.getState().openChecklistPanel()}
@@ -233,6 +228,11 @@ export default function TopToolbar() {
           label="Node Library — add multiple nodes in a layout (horizontal, vertical, circular, grid)"
           active={nodeLibraryOpen}
           onClick={toggleNodeLibrary}
+        />
+        <IconBtn
+          icon={FlaskConical}
+          label="Strategy Tester — a month-by-month grid to backtest and score multiple strategies side by side"
+          onClick={() => useStrategyTesterStore.getState().open()}
         />
       </div>
 
