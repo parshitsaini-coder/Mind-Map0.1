@@ -25,6 +25,7 @@ const makeStrategy = (name, withSeedFields = false) => ({
   id: uid(),
   name,
   fields: withSeedFields ? seedFields() : [],
+  hidden: false,
 })
 
 const today = new Date()
@@ -78,6 +79,12 @@ export const useStrategyTesterStore = create(
       renameStrategy: (strategyId, name) =>
         set((s) => ({
           strategies: s.strategies.map((st) => (st.id === strategyId ? { ...st, name } : st)),
+        })),
+      toggleStrategyHidden: (strategyId) =>
+        set((s) => ({
+          strategies: s.strategies.map((st) =>
+            st.id === strategyId ? { ...st, hidden: !st.hidden } : st
+          ),
         })),
       removeStrategy: (strategyId) =>
         set((s) => {

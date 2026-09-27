@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react'
 import { Camera, Check, Loader2, StickyNote } from 'lucide-react'
-import { RRR_OPTIONS } from '../../utils/strategyTesterFields'
 import { uploadTradeImage } from '../../lib/imageUpload'
 import { useUiStore } from '../../store/uiStore'
 import NotesPopup from './NotesPopup'
+import RRRSelect from './RRRSelect'
 
 const inputCls = 'st-cell-input'
 
@@ -84,21 +84,7 @@ export default function FieldCell({ field, value, onChange, rowLabel }) {
       )
 
     case 'rrr':
-      return (
-        <select
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value || null)}
-          className="st-cell-select"
-          title={field.label}
-        >
-          <option value="">—</option>
-          {RRR_OPTIONS.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
-      )
+      return <RRRSelect value={value || null} onChange={onChange} label={field.label} />
 
     case 'sltarget':
       return (

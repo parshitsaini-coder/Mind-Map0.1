@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, Eye, EyeOff } from 'lucide-react'
 import { useStrategyTesterStore } from '../../store/strategyTesterStore'
 import { FIELD_TYPE_MAP, daysInMonth, dateKey, weekdayFor } from '../../utils/strategyTesterFields'
 import AddFieldMenu from './AddFieldMenu'
@@ -62,6 +62,8 @@ function StrategyGroupHeader({ strategy, isOnly }) {
     useStrategyTesterStore.getState().removeStrategy(strategy.id)
   }
 
+  const handleHide = () => useStrategyTesterStore.getState().toggleStrategyHidden(strategy.id)
+
   return (
     <th colSpan={colSpan} className="st-th-group px-1.5 text-left align-middle">
       <div className="flex items-center gap-1">
@@ -78,6 +80,17 @@ function StrategyGroupHeader({ strategy, isOnly }) {
             onPick={(type, label) => useStrategyTesterStore.getState().addField(strategy.id, type, label)}
           />
         </span>
+        <motion.button
+          type="button"
+          whileHover={{ scale: 1.15 }}
+          whileTap={{ scale: 0.9 }}
+          title="Hide this strategy's panel"
+          onClick={handleHide}
+          className="shrink-0 opacity-60 hover:opacity-100"
+          style={{ color: 'var(--ta-slate)' }}
+        >
+          <EyeOff size={10} />
+        </motion.button>
         {!isOnly && (
           <motion.button
             type="button"
@@ -93,6 +106,37 @@ function StrategyGroupHeader({ strategy, isOnly }) {
         )}
       </div>
     </th>
+  )
+}
+
+// Small restore bar for hidden strategies — shown above the table so a
+// hidden panel is never permanently lost, just tucked away.
+function HiddenStrategiesBar({ hiddenStrategies }) {
+  if (hiddenStrategies.length === 0) return null
+  return (
+    <div
+      className="mb-1 flex shrink-0 flex-wrap items-center gap-1 rounded-lg border px-1.5 py-1"
+      style={{ borderColor: 'var(--tad-border-strong)', backgroundColor: 'var(--ta-surface)' }}
+    >
+      <span className="text-[8px] font-semibold uppercase tracking-wide opacity-60" style={{ color: 'var(--ta-ink)' }}>
+        Hidden:
+      </span>
+      {hiddenStrategies.map((st) => (
+        <motion.button
+          key={st.id}
+          type="button"
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.96 }}
+          title={`Show "${st.name}" again`}
+          onClick={() => useStrategyTesterStore.getState().toggleStrategyHidden(st.id)}
+          className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold"
+          style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }}
+        >
+          <Eye size={9} />
+          {st.name}
+        </motion.button>
+      ))}
+    </div>
   )
 }
 
@@ -132,15 +176,20 @@ export default function StrategyTesterTable() {
   const today = new Date()
   const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month
 
+  const visibleStrategies = strategies.filter((st) => !st.hidden)
+  const hiddenStrategies = strategies.filter((st) => st.hidden)
+
   return (
-    <div className="ta-scroll h-full overflow-auto rounded-lg border" style={{ borderColor: 'var(--tad-border-strong)' }}>
+    <div className="flex h-full min-h-0 flex-col">
+      <HiddenStrategiesBar hiddenStrategies={hiddenStrategies} />
+      <div className="ta-scroll min-h-0 flex-1 overflow-auto rounded-lg border" style={{ borderColor: 'var(--tad-border-strong)' }}>
       <table className="st-table">
         <thead>
           <tr>
             <th rowSpan={2} className="st-th-corner min-w-[64px] px-1.5 text-left text-[9px] font-bold uppercase tracking-wide">
               Date
             </th>
-            {strategies.map((st) => (
+            {visibleStrategies.map((st) => (
               <StrategyGroupHeader key={st.id} strategy={st} isOnly={strategies.length === 1} />
             ))}
             <th rowSpan={2} className="st-th-group px-1 text-center align-middle">
@@ -158,7 +207,7 @@ export default function StrategyTesterTable() {
             </th>
           </tr>
           <tr>
-            {strategies.map((st) =>
+            {visibleStrategies.map((st) =>
               st.fields.length > 0 ? (
                 st.fields.map((f) => <FieldHeaderCell key={f.id} strategy={st} field={f} />)
               ) : (
@@ -183,7 +232,7 @@ export default function StrategyTesterTable() {
                     <span className="text-[7.5px] font-normal opacity-60">{weekdayFor(year, month, day)}</span>
                   </div>
                 </td>
-                {strategies.map((st) =>
+                {visibleStrategies.map((st) =>
                   st.fields.length > 0 ? (
                     st.fields.map((f) => (
                       <td key={f.id} className="text-center">
@@ -205,6 +254,7 @@ export default function StrategyTesterTable() {
           })}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }
