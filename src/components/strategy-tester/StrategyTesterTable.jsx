@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Pencil, Trash2, Eye, EyeOff } from 'lucide-react'
+import { CalendarDays, GripVertical, Trash2, Eye, EyeOff } from 'lucide-react'
 import { useStrategyTesterStore } from '../../store/strategyTesterStore'
 import {
   FIELD_TYPE_MAP,
@@ -13,10 +13,12 @@ import {
   MAX_COL_WIDTH,
   daysInMonth,
   dateKey,
-  weekdayFor,
+  WEEKDAY_SHORT,
+  WEEKDAY_COLORS,
 } from '../../utils/strategyTesterFields'
 import AddFieldMenu from './AddFieldMenu'
 import FieldCell from './FieldCell'
+import { beginColumnDrag } from './columnDrag'
 import { EASE_OUT } from './motionBits'
 import SelectOptionsPopup from './SelectOptionsPopup'
 import WeekdayFilterPopup from './WeekdayFilterPopup'
@@ -227,7 +229,7 @@ function HiddenStrategiesBar({ hiddenStrategies }) {
   )
 }
 
-function FieldHeaderCell({ strategy, field, index = 0, isNew }) {
+function FieldHeaderCell({ strategy, field, index = 0, isNew, onColDragStart }) {
   const meta = FIELD_TYPE_MAP[field.type]
   const [menuAt, setMenuAt] = useState(null)
   const isSelect = ['select', 'multiselect', 'checkbox'].includes(field.type)
@@ -238,8 +240,10 @@ function FieldHeaderCell({ strategy, field, index = 0, isNew }) {
   const showItems = items.length > 0
   return (
     <th
-      className={`st-th-field group px-1 py-0.5 text-center align-middle ${isNew ? 'st-col-new' : ''}`}
+      data-field-id={field.id}
+      className={`st-th-field st-th-drag group px-1 py-0.5 text-center align-middle ${isNew ? 'st-col-new' : ''}`}
       style={{ minWidth: meta?.width ?? 50 }}
+      onPointerDown={onColDragStart}
       onContextMenu={
         isSelect
           ? (e) => {
@@ -263,11 +267,17 @@ function FieldHeaderCell({ strategy, field, index = 0, isNew }) {
           useStrategyTesterStore.getState().setFieldWidth(strategy.id, field.id, undefined)
         }}
       />
+      <GripVertical
+        size={9}
+        aria-hidden="true"
+        className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 opacity-0 transition-opacity duration-150 group-hover:opacity-40"
+        style={{ color: 'var(--ta-slate)' }}
+      />
       <div className="flex items-center justify-center gap-0.5">
         <EditableLabel
           value={field.label}
           onCommit={(label) => useStrategyTesterStore.getState().renameField(strategy.id, field.id, label)}
-          className={showItems ? 'flex min-w-0 flex-wrap items-center justify-center gap-0.5' : 'st-hd-chip st-hd-in text-[8px] uppercase'}
+          className={showItems ? 'flex min-w-0 flex-wrap items-center justify-center gap-0.5' : 'st-hd-chip st-hd-themed st-hd-in text-[8px] uppercase'}
           style={
             showItems
               ? undefined
@@ -300,6 +310,7 @@ function FieldHeaderCell({ strategy, field, index = 0, isNew }) {
         <button
           type="button"
           title={`Remove ${field.label}`}
+          data-no-drag
           onClick={() => useStrategyTesterStore.getState().removeField(strategy.id, field.id)}
           className="shrink-0 scale-75 opacity-0 transition-[opacity,transform] duration-150 group-hover:scale-100 group-hover:opacity-60 hover:!opacity-100 active:!scale-90"
           style={{ color: 'var(--ta-slate)' }}
@@ -358,6 +369,15 @@ export default function StrategyTesterTable() {
 
   const fresh = useFreshIds(visibleStrategies.flatMap((st) => [st.id, ...st.fields.map((f) => f.id)]))
 
+  // Drag a field header left/right to reorder columns inside its strategy.
+  const startColDrag = (e, strategy, field) =>
+    beginColumnDrag(e, {
+      fieldIds: strategy.fields.map((f) => f.id),
+      fieldId: field.id,
+      scroller: scrollerRef.current,
+      onReorder: (from, to) => useStrategyTesterStore.getState().reorderFields(strategy.id, from, to),
+    })
+
   // Soft shadow under the sticky header / beside the sticky date column
   // once content is scrolled beneath them. Toggles data attributes only
   // when the state actually flips — no React re-render per scroll event.
@@ -407,26 +427,29 @@ export default function StrategyTesterTable() {
                 setDateMenuAt({ x: e.clientX, y: e.clientY })
               }}
               title="Right-click to choose which days to show"
-              className="st-th-corner min-w-[64px] px-1.5 text-left text-[9px] font-bold uppercase tracking-wide"
+              className="st-th-corner min-w-[64px] text-left align-middle"
             >
-              <span className="st-hd-chip st-hd-in text-[9px]" style={{ '--i': 0, '--c1': DATE_HEADER_COLORS[0], '--c2': DATE_HEADER_COLORS[1] }}>
-                Date
-              </span>
-              <AnimatePresence initial={false}>
-                {dayFilterActive && (
-                  <motion.span
-                    key="day-filter-badge"
-                    initial={{ opacity: 0, scale: 0.6 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.6, transition: { duration: 0.1 } }}
-                    transition={{ type: 'spring', stiffness: 520, damping: 26 }}
-                    className="ml-1 inline-block rounded-full px-1 text-[7px] font-bold normal-case"
-                    style={{ backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }}
-                  >
-                    {visibleWeekdays.length}/7
-                  </motion.span>
-                )}
-              </AnimatePresence>
+              <div className="st-corner">
+                <span className="st-hd-chip st-hd-themed st-hd-in st-corner-chip" style={{ '--i': 0, '--c1': DATE_HEADER_COLORS[0], '--c2': DATE_HEADER_COLORS[1] }}>
+                  <CalendarDays size={10} strokeWidth={2.6} />
+                  Date
+                </span>
+                <AnimatePresence initial={false}>
+                  {dayFilterActive && (
+                    <motion.span
+                      key="day-filter-badge"
+                      initial={{ opacity: 0, scale: 0.6 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.6, transition: { duration: 0.1 } }}
+                      transition={{ type: 'spring', stiffness: 520, damping: 26 }}
+                      title={`Showing ${visibleWeekdays.length} of 7 weekdays — right-click to change`}
+                      className="st-corner-badge"
+                    >
+                      {visibleWeekdays.length}/7 days
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
               <AnimatePresence>
                 {dateMenuAt && <WeekdayFilterPopup x={dateMenuAt.x} y={dateMenuAt.y} onClose={() => setDateMenuAt(null)} />}
               </AnimatePresence>
@@ -467,7 +490,14 @@ export default function StrategyTesterTable() {
               const base = visibleStrategies.slice(0, visibleStrategies.indexOf(st)).reduce((n, x) => n + Math.max(1, x.fields.length), 1)
               return st.fields.length > 0 ? (
                 st.fields.map((f, fi) => (
-                  <FieldHeaderCell key={f.id} strategy={st} field={f} index={base + fi} isNew={fresh.has(f.id) || fresh.has(st.id)} />
+                  <FieldHeaderCell
+                    key={f.id}
+                    strategy={st}
+                    field={f}
+                    index={base + fi}
+                    isNew={fresh.has(f.id) || fresh.has(st.id)}
+                    onColDragStart={(e) => startColDrag(e, st, f)}
+                  />
                 ))
               ) : (
                 <th key={st.id} className={`st-th-field px-1 py-0.5 text-center ${fresh.has(st.id) ? 'st-col-new' : ''}`}>
@@ -483,19 +513,21 @@ export default function StrategyTesterTable() {
           {rows.map((day, rowIdx) => {
             const dk = dateKey(year, month, day)
             const isToday = isCurrentMonth && today.getDate() === day
-            const rowLabel = `${day} ${weekdayFor(year, month, day)}`
+            const wd = new Date(year, month, day).getDay()
+            const rowLabel = `${day} ${WEEKDAY_SHORT[wd]}`
             return (
               <tr key={day} className={`st-row-in ${isToday ? 'st-today' : ''}`} style={{ '--i': rowIdx }}>
-                <td className="st-td-date px-1.5 text-[9px] font-semibold">
-                  <div className="flex items-baseline gap-1">
-                    <span>{day}</span>
-                    <span className="text-[7.5px] font-normal opacity-60">{weekdayFor(year, month, day)}</span>
+                <td className="st-td-date" style={{ '--wk': WEEKDAY_COLORS[wd] }}>
+                  {(wd === 0 || wd === 6) && <span className="st-date-bg" aria-hidden="true" />}
+                  <div className="st-date">
+                    <span className="st-date-num">{day}</span>
+                    <span className="st-wk">{WEEKDAY_SHORT[wd]}</span>
                   </div>
                 </td>
                 {visibleStrategies.map((st) =>
                   st.fields.length > 0 ? (
                     st.fields.map((f) => (
-                      <td key={f.id} className={`text-center ${fresh.has(f.id) || fresh.has(st.id) ? 'st-col-new' : ''}`}>
+                      <td key={f.id} data-field-id={f.id} className={`text-center ${fresh.has(f.id) || fresh.has(st.id) ? 'st-col-new' : ''}`}>
                         <FieldCell
                           strategyId={st.id}
                           field={f}

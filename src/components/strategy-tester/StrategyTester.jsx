@@ -2,7 +2,7 @@ import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import { ArrowLeft, ChevronLeft, ChevronRight, LineChart, PanelRightClose, PanelRightOpen, Table2 } from 'lucide-react'
 import { useEffect } from 'react'
 import { useStrategyTesterStore } from '../../store/strategyTesterStore'
-import { tradeThemeCssVars, isGlassTheme, isClayTheme } from '../../theme/tradeAnalysisThemes'
+import { tradeThemeCssVars, tradeHeaderCssVars, isGlassTheme, isClayTheme } from '../../theme/tradeAnalysisThemes'
 import { MONTH_NAMES } from '../../utils/strategyTesterFields'
 import StrategyTesterThemePicker from './StrategyTesterThemePicker'
 import StrategyTesterTable from './StrategyTesterTable'
@@ -157,7 +157,7 @@ export default function StrategyTester() {
           data-ta-theme={theme}
           data-ta-density="dense"
           className={`fixed inset-0 z-[60] flex flex-col ${isGlass ? 'ta-liquid-bg' : isClay ? 'ta-clay-bg' : ''}`}
-          style={isGlass || isClay ? { ...tradeThemeCssVars(theme) } : { backgroundColor: '#ffffff', ...tradeThemeCssVars(theme) }}
+          style={isGlass || isClay ? { ...tradeThemeCssVars(theme), ...tradeHeaderCssVars(theme) } : { backgroundColor: '#ffffff', ...tradeThemeCssVars(theme), ...tradeHeaderCssVars(theme) }}
         >
           {/* Top bar */}
           <motion.div

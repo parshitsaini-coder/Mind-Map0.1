@@ -167,3 +167,62 @@ export const tradeThemeCssVars = (id) => {
     '--ta-accent': colors.accent,
   }
 }
+
+// ── Strategy Tester header palette ─────────────────────────────────────
+// The table header band and its column chips follow the active theme instead
+// of fixed per-type colours. Everything is derived from the five --ta-*
+// colours so a new theme gets a matching header for free, and the tones are
+// nudged light enough (relative luminance) that the dark header text always
+// stays readable on them.
+const toRgb = (hex) => {
+  const h = hex.replace('#', '')
+  const f = h.length === 3 ? h.split('').map((x) => x + x).join('') : h.slice(0, 6)
+  return [0, 2, 4].map((i) => parseInt(f.slice(i, i + 2), 16))
+}
+const toHex = (rgb) => '#' + rgb.map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('')
+// mix(a, b, t) → t of `a` over `b`
+const mix = (a, b, t) => {
+  const A = toRgb(a)
+  const B = toRgb(b)
+  return toHex(A.map((v, i) => v * t + B[i] * (1 - t)))
+}
+const luminance = (hex) => {
+  const [r, g, b] = toRgb(hex).map((v) => {
+    const c = v / 255
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+const ensureLight = (color, surface, minLum) => {
+  let c = color
+  for (let i = 0; i < 24 && luminance(c) < minLum; i++) c = mix(surface, c, 0.15)
+  return c
+}
+
+export const tradeHeaderCssVars = (id) => {
+  const t = getTradeTheme(id)
+  const { bg, surface, ink, accent, slate } = t.colors
+  const headInk = '#0b0b10'
+  // Frosted glass: translucent white header + soft white chips, dark text.
+  if (t.glass) {
+    return {
+      '--st-head-bg': 'rgba(255,255,255,0.66)',
+      '--st-head-bg-2': 'rgba(255,255,255,0.78)',
+      '--st-chip-1': '#ffffff',
+      '--st-chip-2': '#dfe4fb',
+      '--st-head-ink': headInk,
+    }
+  }
+  // Themes whose accent is near-black (clay) tint with their slate instead.
+  const tint = luminance(accent) < 0.08 ? slate : accent
+  const headBg = ensureLight(mix(tint, bg, 0.22), surface, 0.55)
+  const chip2 = ensureLight(mix(tint, surface, 0.6), surface, 0.5)
+  return {
+    '--st-head-bg': headBg,
+    '--st-head-bg-2': mix(surface, headBg, 0.35),
+    '--st-chip-1': mix(surface, chip2, 0.45),
+    '--st-chip-2': chip2,
+    // theme ink pushed most of the way to black: dark, but still theme-flavoured
+    '--st-head-ink': mix(ink, '#000000', 0.35),
+  }
+}

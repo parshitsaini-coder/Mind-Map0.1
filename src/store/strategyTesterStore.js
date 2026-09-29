@@ -156,6 +156,18 @@ export const useStrategyTesterStore = create(
             entries,
           }
         }),
+      // Move a column within one strategy (drag & drop in the table header).
+      reorderFields: (strategyId, from, to) =>
+        set((s) => ({
+          strategies: s.strategies.map((st) => {
+            if (st.id !== strategyId || from === to) return st
+            if (from < 0 || to < 0 || from >= st.fields.length || to >= st.fields.length) return st
+            const fields = [...st.fields]
+            const [moved] = fields.splice(from, 1)
+            fields.splice(to, 0, moved)
+            return { ...st, fields }
+          }),
+        })),
       renameField: (strategyId, fieldId, label) =>
         set((s) => ({
           strategies: s.strategies.map((st) =>

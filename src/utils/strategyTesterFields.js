@@ -68,6 +68,8 @@ export const MONTH_NAMES = [
 ]
 
 export const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+// One accent per weekday (JS getDay(): 0 = Sun … 6 = Sat) for the Date column's day pill.
+export const WEEKDAY_COLORS = ['#ef4444', '#3b82f6', '#8b5cf6', '#14b8a6', '#f59e0b', '#ec4899', '#f97316']
 
 export const daysInMonth = (year, month) => new Date(year, month + 1, 0).getDate()
 
