@@ -122,11 +122,11 @@ export default function AddFieldMenu({ onPick, compact = false }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 440, damping: 30 }}
+            transformTemplate={(_, generated) => (pos.flipUp ? `translateY(-100%) ${generated}` : generated)}
             className="ta-glass-popover ta-scroll fixed z-[95] flex max-h-[calc(100vh-16px)] w-44 flex-col gap-0.5 overflow-y-auto rounded-lg border p-1.5 shadow-xl"
             style={{
               left: pos.left,
               top: pos.top,
-              transform: pos.flipUp ? 'translateY(-100%)' : undefined,
               backgroundColor: 'var(--ta-surface)',
               borderColor: 'var(--ta-slate)',
               transformOrigin: `${pos.flipUp ? 'bottom' : 'top'} ${pos.alignRight ? 'right' : 'left'}`,

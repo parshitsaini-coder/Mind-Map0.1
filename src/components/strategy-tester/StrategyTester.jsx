@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import { ArrowLeft, ChevronLeft, ChevronRight, LineChart, PanelRightClose, PanelRightOpen, Table2 } from 'lucide-react'
 import { useEffect } from 'react'
 import { useStrategyTesterStore } from '../../store/strategyTesterStore'
@@ -7,6 +7,17 @@ import { MONTH_NAMES } from '../../utils/strategyTesterFields'
 import StrategyTesterThemePicker from './StrategyTesterThemePicker'
 import StrategyTesterTable from './StrategyTesterTable'
 import StrategyTesterAnalysis from './StrategyTesterAnalysis'
+import { EASE_OUT, useNavDirection } from './motionBits'
+
+// Body cross-slide between Table and Analysis (direction follows the tab order).
+// (x / y / scale shorthands on purpose: they render `transform: none` at rest,
+// so fixed-position popups inside the grid keep the viewport as their
+// containing block. A leftover `translate(0)` string would break that.)
+const bodyVariants = {
+  enter: (d) => ({ opacity: 0, x: d * 18 }),
+  center: { opacity: 1, x: 0 },
+  exit: (d) => ({ opacity: 0, x: d * -18 }),
+}
 
 function ViewSwitch({ activeView, onChange }) {
   const tabs = [
@@ -49,11 +60,13 @@ function ViewSwitch({ activeView, onChange }) {
 function MonthNav() {
   const year = useStrategyTesterStore((s) => s.year)
   const month = useStrategyTesterStore((s) => s.month)
+  const dir = useNavDirection(year * 12 + month)
   return (
     <div className="ml-1 flex shrink-0 items-center gap-0.5 rounded-full px-1 py-0.5" style={{ backgroundColor: 'var(--ta-bg)' }}>
       <motion.button
-        whileHover={{ scale: 1.15 }}
-        whileTap={{ scale: 0.9 }}
+        whileHover={{ scale: 1.15, x: -1 }}
+        whileTap={{ scale: 0.88 }}
+        transition={{ type: 'spring', stiffness: 520, damping: 24 }}
         onClick={() => useStrategyTesterStore.getState().goToMonth(-1)}
         title="Previous month"
         className="flex items-center justify-center rounded-full p-0.5"
@@ -66,14 +79,32 @@ function MonthNav() {
         whileTap={{ scale: 0.96 }}
         onClick={() => useStrategyTesterStore.getState().goToToday()}
         title="Jump to current month"
-        className="whitespace-nowrap px-1 text-[10px] font-semibold"
+        className="relative flex items-center overflow-hidden whitespace-nowrap px-1 text-[10px] font-semibold"
         style={{ color: 'var(--ta-ink)' }}
       >
-        {MONTH_NAMES[month]} {year}
+        <AnimatePresence mode="popLayout" initial={false} custom={dir}>
+          <motion.span
+            key={`${year}-${month}`}
+            custom={dir}
+            variants={{
+              enter: (d) => ({ opacity: 0, transform: `translateY(${d * 9}px)` }),
+              center: { opacity: 1, transform: 'translateY(0px)' },
+              exit: (d) => ({ opacity: 0, transform: `translateY(${d * -9}px)` }),
+            }}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.2, ease: EASE_OUT }}
+            className="block"
+          >
+            {MONTH_NAMES[month]} {year}
+          </motion.span>
+        </AnimatePresence>
       </motion.button>
       <motion.button
-        whileHover={{ scale: 1.15 }}
-        whileTap={{ scale: 0.9 }}
+        whileHover={{ scale: 1.15, x: 1 }}
+        whileTap={{ scale: 0.88 }}
+        transition={{ type: 'spring', stiffness: 520, damping: 24 }}
         onClick={() => useStrategyTesterStore.getState().goToMonth(1)}
         title="Next month"
         className="flex items-center justify-center rounded-full p-0.5"
@@ -98,6 +129,7 @@ export default function StrategyTester() {
   const showAddStrategy = useStrategyTesterStore((s) => s.showAddStrategy)
   const isGlass = isGlassTheme(theme)
   const isClay = isClayTheme(theme)
+  const viewDir = activeView === 'analysis' ? 1 : -1
 
   useEffect(() => {
     if (!isOpen) return
@@ -114,20 +146,24 @@ export default function StrategyTester() {
   }, [isOpen])
 
   return (
+    <MotionConfig reducedMotion="user">
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.98 }}
+          initial={{ opacity: 0, scale: 0.985 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.98 }}
-          transition={{ duration: 0.18, ease: 'easeOut' }}
+          exit={{ opacity: 0, scale: 0.985, transition: { duration: 0.14, ease: EASE_OUT } }}
+          transition={{ duration: 0.24, ease: EASE_OUT }}
           data-ta-theme={theme}
           data-ta-density="dense"
           className={`fixed inset-0 z-[60] flex flex-col ${isGlass ? 'ta-liquid-bg' : isClay ? 'ta-clay-bg' : ''}`}
           style={isGlass || isClay ? { ...tradeThemeCssVars(theme) } : { backgroundColor: '#ffffff', ...tradeThemeCssVars(theme) }}
         >
           {/* Top bar */}
-          <div
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.28, delay: 0.05, ease: EASE_OUT }}
             className="flex h-8 shrink-0 items-center gap-1.5 border-b px-2"
             style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)' }}
           >
@@ -146,8 +182,16 @@ export default function StrategyTester() {
 
             <div className="mx-0.5 h-4 w-px shrink-0" style={{ backgroundColor: 'var(--ta-slate)', opacity: 0.25 }} />
 
-            <span className="shrink-0 text-[11px] font-semibold" style={{ color: 'var(--ta-ink)' }}>
-              🧪 Strategy Tester
+            <span className="flex shrink-0 items-center gap-0.5 text-[11px] font-semibold" style={{ color: 'var(--ta-ink)' }}>
+              <motion.span
+                initial={{ rotate: 0 }}
+                animate={{ rotate: [0, -16, 12, -7, 0] }}
+                transition={{ duration: 0.75, delay: 0.35, ease: 'easeInOut' }}
+                className="inline-block origin-bottom"
+              >
+                🧪
+              </motion.span>
+              Strategy Tester
             </span>
 
             <StrategyTesterThemePicker />
@@ -172,7 +216,18 @@ export default function StrategyTester() {
                     color: showAddStrategy ? '#fffcf2' : 'var(--ta-ink)',
                   }}
                 >
-                  {showAddStrategy ? <PanelRightClose size={12} /> : <PanelRightOpen size={12} />}
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.span
+                      key={showAddStrategy ? 'close' : 'open'}
+                      initial={{ opacity: 0, transform: 'rotate(-60deg) scale(0.6)' }}
+                      animate={{ opacity: 1, transform: 'rotate(0deg) scale(1)' }}
+                      exit={{ opacity: 0, transform: 'rotate(60deg) scale(0.6)' }}
+                      transition={{ duration: 0.14, ease: EASE_OUT }}
+                      className="flex"
+                    >
+                      {showAddStrategy ? <PanelRightClose size={12} /> : <PanelRightOpen size={12} />}
+                    </motion.span>
+                  </AnimatePresence>
                 </motion.button>
               )}
               <div className="hidden text-[9px] sm:block" style={{ color: 'var(--ta-slate)' }}>
@@ -180,14 +235,33 @@ export default function StrategyTester() {
                 a field
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* Body */}
-          <div className="min-h-0 flex-1 overflow-hidden p-2">
-            {activeView === 'table' ? <StrategyTesterTable /> : <StrategyTesterAnalysis />}
-          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.09, ease: EASE_OUT }}
+            className="min-h-0 flex-1 overflow-hidden p-2"
+          >
+            <AnimatePresence mode="wait" initial={false} custom={viewDir}>
+              <motion.div
+                key={activeView}
+                custom={viewDir}
+                variants={bodyVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.16, ease: EASE_OUT }}
+                className="h-full"
+              >
+                {activeView === 'table' ? <StrategyTesterTable /> : <StrategyTesterAnalysis />}
+              </motion.div>
+            </AnimatePresence>
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
+    </MotionConfig>
   )
 }

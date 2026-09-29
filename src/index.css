@@ -978,6 +978,11 @@ body {
    the offset). */
 :root {
   --st-row1-h: 26px;
+  /* motion tokens (Strategy Tester) */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --st-shadow: rgba(0, 0, 0, 0.28);
 }
 .st-table {
   width: 100%;
@@ -1021,10 +1026,12 @@ body {
 .st-table tbody tr:nth-child(even) .st-td-date {
   background-color: color-mix(in srgb, var(--ta-surface) 96%, var(--ta-slate) 4%);
 }
-.st-table tbody tr:hover td {
+.st-table tbody tr:hover td,
+.st-table tbody tr:focus-within td {
   background-color: color-mix(in srgb, var(--ta-accent) 7%, transparent);
 }
-.st-table tbody tr:hover .st-td-date {
+.st-table tbody tr:hover .st-td-date,
+.st-table tbody tr:focus-within .st-td-date {
   background-color: color-mix(in srgb, var(--ta-accent) 12%, var(--ta-surface) 88%);
 }
 .st-table tbody tr.st-today .st-td-date {
@@ -1033,6 +1040,7 @@ body {
 .st-table td {
   padding: 0;
   height: var(--tad-row-h);
+  transition: background-color 0.14s ease;
 }
 .st-cell-input {
   width: 100%;
@@ -1046,6 +1054,8 @@ body {
   color: var(--ta-ink);
   padding: 0 2px;
   font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 -2px 0 0 transparent;
+  transition: background-color 0.16s ease, box-shadow 0.18s var(--ease-out), color 0.2s ease;
 }
 .st-cell-input::-webkit-outer-spin-button,
 .st-cell-input::-webkit-inner-spin-button {
@@ -1054,6 +1064,7 @@ body {
 }
 .st-cell-input:focus {
   background-color: color-mix(in srgb, var(--ta-accent) 10%, transparent);
+  box-shadow: inset 0 -2px 0 0 var(--ta-accent);
 }
 .st-cell-select {
   width: 100%;
@@ -1092,31 +1103,40 @@ body {
   letter-spacing: 0.05em;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.28);
   box-shadow: 0 1px 4px color-mix(in srgb, var(--c2) 45%, transparent);
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  transition: transform 0.18s var(--ease-out), box-shadow 0.18s ease;
 }
-.st-hd-chip:hover {
-  transform: translateY(-1px) scale(1.05);
-  box-shadow: 0 3px 10px color-mix(in srgb, var(--c2) 60%, transparent);
+@media (hover: hover) and (pointer: fine) {
+  .st-hd-chip:hover {
+    transform: translateY(-1px) scale(1.05);
+    box-shadow: 0 3px 10px color-mix(in srgb, var(--c2) 60%, transparent);
+  }
+}
+.st-hd-chip:active {
+  transform: scale(0.96);
 }
 .st-hd-chip::after {
   content: '';
   position: absolute;
   top: 0;
-  left: -60%;
+  left: 0;
   width: 40%;
   height: 100%;
   background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55), transparent);
-  transform: skewX(-20deg);
-  animation: st-hd-shine 3.6s ease-in-out infinite;
+  transform: translateX(-160%) skewX(-20deg);
+  animation: st-hd-shine 4.2s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 260ms);
+  will-change: transform;
   pointer-events: none;
 }
+/* transform-only (was animating `left`, which re-laid-out + repainted every
+   chip on every frame, forever) — now runs on the compositor. */
 @keyframes st-hd-shine {
   0%,
-  60% {
-    left: -60%;
+  62% {
+    transform: translateX(-160%) skewX(-20deg);
   }
   100% {
-    left: 130%;
+    transform: translateX(320%) skewX(-20deg);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1155,4 +1175,234 @@ body {
 .st-resizer:hover::after,
 .st-resizer.is-dragging::after {
   opacity: 0.85;
+}
+
+
+/* ── Strategy Tester: motion layer ──────────────────────────────────────
+   Everything here is transform / opacity (compositor-only) except the tiny
+   inset box-shadows, which only ever change on a single element at a time.
+   Row / header entrances are pure CSS so 30+ rows never spin up a JS
+   animation each — that is what keeps the grid fast. Every effect has a
+   reduced-motion variant at the bottom (gentler, not zero). */
+
+@keyframes st-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes st-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes st-hd-in {
+  from {
+    opacity: 0;
+    transform: translateY(-7px) scale(0.9);
+  }
+}
+@keyframes st-pop {
+  0% {
+    transform: scale(0.78);
+  }
+  55% {
+    transform: scale(1.14);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes st-chip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+}
+@keyframes st-item-in {
+  from {
+    opacity: 0;
+    transform: translateX(-5px);
+  }
+}
+@keyframes st-tick-draw {
+  from {
+    stroke-dashoffset: 14;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes st-col-in {
+  from {
+    opacity: 0;
+    box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--ta-accent) 26%, transparent);
+  }
+  to {
+    opacity: 1;
+    box-shadow: inset 0 0 0 999px transparent;
+  }
+}
+@keyframes st-today-pulse {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.22;
+  }
+}
+
+/* Row cascade — capped at 12 steps so a 31-row month is fully in by ~0.6s
+   and never blocks a click (animation-fill backwards: no lingering
+   transform, so sticky cells behave normally once it ends). */
+.st-row-in {
+  animation: st-row-in 300ms var(--ease-out) backwards;
+  animation-delay: calc(min(var(--i, 0), 12) * 22ms);
+}
+.st-hd-in {
+  animation: st-hd-in 340ms var(--ease-out) backwards;
+  animation-delay: calc(80ms + min(var(--i, 0), 14) * 32ms);
+}
+.st-col-new {
+  animation: st-col-in 760ms var(--ease-out) backwards;
+}
+.st-chip-in {
+  animation: st-chip-in 170ms var(--ease-out) backwards;
+}
+.st-item-in {
+  animation: st-item-in 170ms var(--ease-out) backwards;
+  animation-delay: calc(min(var(--i, 0), 10) * 18ms);
+}
+
+/* Toggle buttons (B / S, W / L / BE) */
+.st-toggle {
+  transition: background-color 0.14s ease, color 0.14s ease, border-color 0.14s ease, transform 0.14s var(--ease-out);
+}
+.st-toggle:active {
+  transform: scale(0.88);
+}
+.st-toggle.is-on {
+  animation: st-pop 240ms var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .st-toggle:not(.is-on):hover {
+    background-color: color-mix(in srgb, var(--ta-accent) 12%, transparent) !important;
+  }
+}
+
+/* Checkbox */
+.st-box {
+  transition: background-color 0.14s ease, border-color 0.14s ease, transform 0.14s var(--ease-out);
+}
+.st-cb:active .st-box {
+  transform: scale(0.84);
+}
+.st-box.is-on {
+  animation: st-pop 260ms var(--ease-out);
+}
+.st-tick {
+  stroke-dasharray: 14;
+  stroke-dashoffset: 0;
+  animation: st-tick-draw 220ms var(--ease-out) 40ms backwards;
+}
+
+/* Star rating */
+.st-star {
+  transition: transform 0.12s var(--ease-out), opacity 0.12s ease;
+}
+.st-star:active {
+  transform: scale(0.8);
+}
+@media (hover: hover) and (pointer: fine) {
+  .st-star:hover {
+    transform: scale(1.25);
+  }
+}
+.st-star-wave {
+  animation: st-pop 320ms var(--ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+
+/* Date cell: hover / today accent bar + today pulse */
+.st-td-date::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--ta-accent);
+  transform: scaleY(0);
+  transition: transform 0.2s var(--ease-out);
+  pointer-events: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .st-table tbody tr:hover .st-td-date::before {
+    transform: scaleY(1);
+  }
+}
+.st-table tbody tr:focus-within .st-td-date::before,
+.st-table tbody tr.st-today .st-td-date::before {
+  transform: scaleY(1);
+}
+.st-table tbody tr.st-today .st-td-date::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--ta-accent);
+  opacity: 0;
+  animation: st-today-pulse 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Sticky header / date column get a soft shadow once content scrolls under
+   them (data attrs are toggled by a scroll listener — no re-render). */
+.st-th-field,
+.st-th-corner,
+.st-td-date {
+  transition: box-shadow 0.22s ease, background-color 0.14s ease;
+}
+.st-scroller[data-st-y='1'] .st-th-field,
+.st-scroller[data-st-y='1'] .st-th-corner {
+  box-shadow: 0 8px 10px -8px var(--st-shadow);
+}
+.st-scroller[data-st-x='1'] .st-td-date,
+.st-scroller[data-st-x='1'] .st-th-corner {
+  box-shadow: 8px 0 10px -8px var(--st-shadow);
+}
+.st-scroller[data-st-x='1'][data-st-y='1'] .st-th-corner {
+  box-shadow: 8px 8px 10px -8px var(--st-shadow);
+}
+
+/* Analysis calendar day colour changes ease instead of snapping */
+.st-day {
+  transition: background-color 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-row-in,
+  .st-hd-in,
+  .st-col-new,
+  .st-chip-in,
+  .st-item-in {
+    animation: st-fade 160ms ease backwards;
+    animation-delay: 0ms;
+  }
+  .st-toggle.is-on,
+  .st-box.is-on,
+  .st-star-wave,
+  .st-tick {
+    animation: none;
+  }
+  .st-table tbody tr.st-today .st-td-date::after {
+    animation: none;
+    opacity: 0.12;
+  }
+  .st-toggle:active,
+  .st-cb:active .st-box,
+  .st-star:hover,
+  .st-star:active {
+    transform: none;
+  }
 }

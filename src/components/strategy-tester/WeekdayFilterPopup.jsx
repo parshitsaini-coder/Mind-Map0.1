@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
-import { Check, X } from 'lucide-react'
+import { X } from 'lucide-react'
+import { Tick } from './motionBits'
 import { useStrategyTesterStore } from '../../store/strategyTesterStore'
 
 // [weekday index (JS getDay), label] — Monday-first, the way a trading
@@ -56,13 +57,15 @@ export default function WeekdayFilterPopup({ x, y, onClose }) {
         e.preventDefault()
         e.stopPropagation()
       }}
-      initial={{ opacity: 0, scale: 0.96 }}
+      initial={{ opacity: 0, scale: 0.94 }}
       animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.12, ease: [0.23, 1, 0.32, 1] } }}
       transition={{ type: 'spring', stiffness: 500, damping: 32 }}
       className="ta-glass-popover fixed z-[100] flex w-48 flex-col gap-1.5 rounded-lg border p-2 shadow-xl"
       style={{
         left: pos?.left ?? -9999,
         top: pos?.top ?? -9999,
+        transformOrigin: 'top left',
         backgroundColor: 'var(--ta-surface)',
         borderColor: 'var(--ta-slate)',
         color: 'var(--ta-ink)',
@@ -104,16 +107,16 @@ export default function WeekdayFilterPopup({ x, y, onClose }) {
               key={idx}
               type="button"
               onClick={() => st().toggleWeekday(idx)}
-              className="flex items-center gap-1.5 rounded px-1.5 py-1 text-left hover:bg-black/5"
+              className="st-cb flex items-center gap-1.5 rounded px-1.5 py-1 text-left transition-colors hover:bg-black/5"
             >
               <span
-                className="flex h-3 w-3 shrink-0 items-center justify-center rounded-[3px] border"
+                className={`st-box flex h-3 w-3 shrink-0 items-center justify-center rounded-[3px] border ${on ? 'is-on' : ''}`}
                 style={{
                   borderColor: on ? 'var(--ta-accent)' : 'var(--ta-slate)',
                   backgroundColor: on ? 'var(--ta-accent)' : 'transparent',
                 }}
               >
-                {on && <Check size={8} color="#fffcf2" strokeWidth={3} />}
+                {on && <Tick />}
               </span>
               <span className="text-[10px] font-medium">{name}</span>
             </button>

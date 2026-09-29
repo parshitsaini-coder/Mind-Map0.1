@@ -114,9 +114,13 @@ export default function ImageCell({ value, onChange }) {
         <Loader2 size={11} className="animate-spin" style={{ color: 'var(--ta-accent)' }} />
       ) : value ? (
         <motion.button
+          key={value}
           type="button"
-          animate={dragOver ? { scale: 1.1 } : { scale: 1 }}
-          transition={{ type: 'spring', stiffness: 500, damping: 26 }}
+          initial={{ opacity: 0, scale: 0.6 }}
+          animate={dragOver ? { opacity: 1, scale: 1.1 } : { opacity: 1, scale: 1 }}
+          whileHover={{ scale: 1.18, zIndex: 3 }}
+          whileTap={{ scale: 0.95 }}
+          transition={{ type: 'spring', stiffness: 460, damping: 24 }}
           onClick={() => useUiStore.getState().openImageLightbox(value, () => onChange(null))}
           className="h-5 w-7 shrink-0 overflow-hidden rounded-[3px] border"
           style={{

@@ -130,22 +130,35 @@ export default function StrategyTesterAnalysis() {
           return (
             <motion.button
               key={st.id}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 520, damping: 26 }}
               onClick={() => useStrategyTesterStore.getState().setAnalysisStrategyId(st.id)}
-              className="rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors"
-              style={
-                active
-                  ? { backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }
-                  : { backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }
-              }
+              className="relative rounded-full px-2.5 py-1 text-[10px] font-semibold"
+              style={{ backgroundColor: active ? 'transparent' : 'var(--ta-bg)', color: active ? '#fffcf2' : 'var(--ta-ink)', transition: 'color 0.18s ease' }}
             >
-              {st.name}
+              {active && (
+                <motion.span
+                  layoutId="st-analysis-strategy-pill"
+                  transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                  className="absolute inset-0 rounded-full"
+                  style={{ backgroundColor: 'var(--ta-accent)' }}
+                />
+              )}
+              <span className="relative">{st.name}</span>
             </motion.button>
           )
         })}
       </div>
 
+      {/* Content re-fades when the active strategy changes (opacity only — the
+          cards below already run their own scroll-in reveals). */}
+      <motion.div
+        key={activeId}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+      >
       <SectionHeader
         icon={CalendarCheck}
         title="Monthly progress"
@@ -248,6 +261,7 @@ export default function StrategyTesterAnalysis() {
           Numbers update live as you fill in the Table view.
         </div>
       )}
+      </motion.div>
     </div>
   )
 }

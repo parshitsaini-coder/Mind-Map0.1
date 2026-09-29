@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { memo, useCallback, useState } from 'react'
+import { AnimatePresence } from 'framer-motion'
 import { ExternalLink, Star, StickyNote } from 'lucide-react'
+import { useStrategyTesterStore } from '../../store/strategyTesterStore'
 import NotesPopup from './NotesPopup'
 import RRRSelect from './RRRSelect'
 import ImageCell from './ImageCell'
@@ -8,7 +10,59 @@ import CheckboxCell from './CheckboxCell'
 
 const inputCls = 'st-cell-input'
 
-export default function FieldCell({ strategyId, field, value, onChange, rowLabel }) {
+// Five stars with a hover preview (stars light up to the one under the
+// pointer) and a small left-to-right pop wave when a rating is set.
+function RatingCell({ value, onChange, label }) {
+  const n = Number(value) || 0
+  const [hover, setHover] = useState(0)
+  const [wave, setWave] = useState(0)
+  const shown = hover || n
+  return (
+    <div
+      className="flex items-center justify-center gap-[1px]"
+      title={n ? `${n}/5` : label}
+      onMouseLeave={() => setHover(0)}
+    >
+      {[1, 2, 3, 4, 5].map((i) => (
+        <button
+          key={`${i}-${wave}`}
+          type="button"
+          onMouseEnter={() => setHover(i)}
+          onClick={() => {
+            setWave((w) => w + 1)
+            onChange(n === i ? null : i)
+          }}
+          className={`st-star flex ${wave > 0 && i <= n ? 'st-star-wave' : ''}`}
+          style={{ '--i': i - 1 }}
+        >
+          <Star
+            size={9}
+            strokeWidth={2}
+            style={{
+              color: i <= shown ? '#f59e0b' : 'var(--ta-slate)',
+              fill: i <= shown ? '#f59e0b' : 'transparent',
+              opacity: i <= shown ? (hover && i > n ? 0.65 : 1) : 0.4,
+              transition: 'color 0.12s ease, fill 0.12s ease, opacity 0.12s ease',
+            }}
+          />
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// Grid cells are memoised: typing in one cell only re-renders that cell, not
+// all ~300 of them. `onChange` is built here from stable props (strategy id,
+// day key, field id) so it never breaks the memo.
+export default memo(function FieldCellMemo({ strategyId, field, dk, value, rowLabel }) {
+  const onChange = useCallback(
+    (v) => useStrategyTesterStore.getState().setCellValue(strategyId, dk, field.id, v),
+    [strategyId, dk, field.id]
+  )
+  return <FieldCell strategyId={strategyId} field={field} value={value} onChange={onChange} rowLabel={rowLabel} />
+})
+
+function FieldCell({ strategyId, field, value, onChange, rowLabel }) {
   const [notesOpen, setNotesOpen] = useState(false)
 
   switch (field.type) {
@@ -26,7 +80,7 @@ export default function FieldCell({ strategyId, field, value, onChange, rowLabel
               key={opt.key}
               type="button"
               onClick={() => onChange(value === opt.key ? null : opt.key)}
-              className="flex h-4 w-4 items-center justify-center rounded-[3px] text-[8.5px] font-bold transition-colors"
+              className={`st-toggle flex h-4 w-4 items-center justify-center rounded-[3px] text-[8.5px] font-bold ${value === opt.key ? 'is-on' : ''}`}
               style={{
                 backgroundColor: value === opt.key ? opt.color : 'transparent',
                 color: value === opt.key ? '#fffcf2' : 'var(--ta-slate)',
@@ -52,7 +106,7 @@ export default function FieldCell({ strategyId, field, value, onChange, rowLabel
               type="button"
               onClick={() => onChange(value === opt.key ? null : opt.key)}
               title={opt.key === 'be' ? 'Breakeven' : opt.key === 'win' ? 'Win' : 'Loss'}
-              className="flex h-4 min-w-[13px] items-center justify-center rounded-[3px] px-0.5 text-[7.5px] font-bold transition-colors"
+              className={`st-toggle flex h-4 min-w-[13px] items-center justify-center rounded-[3px] px-0.5 text-[7.5px] font-bold ${value === opt.key ? 'is-on' : ''}`}
               style={{
                 backgroundColor: value === opt.key ? opt.color : 'transparent',
                 color: value === opt.key ? '#fffcf2' : 'var(--ta-slate)',
@@ -139,21 +193,25 @@ export default function FieldCell({ strategyId, field, value, onChange, rowLabel
             title={value ? value : 'Add a note'}
             className="flex h-full w-full items-center justify-center gap-0.5 px-0.5"
           >
-            <StickyNote size={10} style={{ color: value ? 'var(--ta-accent)' : 'var(--ta-slate)', opacity: value ? 1 : 0.45 }} />
+            <span key={value ? 'has' : 'none'} className={`flex ${value ? 'st-chip-in' : ''}`}>
+              <StickyNote size={10} style={{ color: value ? 'var(--ta-accent)' : 'var(--ta-slate)', opacity: value ? 1 : 0.45, transition: 'color 0.2s ease, opacity 0.2s ease' }} />
+            </span>
             {value ? (
               <span className="truncate text-[8px]" style={{ color: 'var(--ta-ink)', maxWidth: 46 }}>
                 {value}
               </span>
             ) : null}
           </button>
-          {notesOpen && (
-            <NotesPopup
-              title={`${field.label} — ${rowLabel}`}
-              value={value}
-              onSave={onChange}
-              onClose={() => setNotesOpen(false)}
-            />
-          )}
+          <AnimatePresence>
+            {notesOpen && (
+              <NotesPopup
+                title={`${field.label} — ${rowLabel}`}
+                value={value}
+                onSave={onChange}
+                onClose={() => setNotesOpen(false)}
+              />
+            )}
+          </AnimatePresence>
         </>
       )
 
@@ -187,31 +245,8 @@ export default function FieldCell({ strategyId, field, value, onChange, rowLabel
         />
       )
 
-    case 'rating': {
-      const n = Number(value) || 0
-      return (
-        <div className="flex items-center justify-center gap-[1px]" title={n ? `${n}/5` : field.label}>
-          {[1, 2, 3, 4, 5].map((i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => onChange(n === i ? null : i)}
-              className="flex"
-            >
-              <Star
-                size={9}
-                strokeWidth={2}
-                style={{
-                  color: i <= n ? '#f59e0b' : 'var(--ta-slate)',
-                  fill: i <= n ? '#f59e0b' : 'transparent',
-                  opacity: i <= n ? 1 : 0.4,
-                }}
-              />
-            </button>
-          ))}
-        </div>
-      )
-    }
+    case 'rating':
+      return <RatingCell value={value} onChange={onChange} label={field.label} />
 
     case 'link': {
       const href = value ? (/^https?:\/\//i.test(value) ? value : `https://${value}`) : ''

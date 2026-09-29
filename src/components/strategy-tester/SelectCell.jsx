@@ -8,10 +8,10 @@ import { SELECT_COLORS, optionTextStyle } from '../../utils/strategyTesterFields
 
 const chipStyle = (color) => ({ backgroundColor: `${color}26`, color })
 
-function Chip({ option, className = '' }) {
+function Chip({ option, className = '', pop = false }) {
   return (
     <span
-      className={`inline-flex max-w-full items-center truncate rounded-[4px] px-1.5 py-[1px] text-[9px] font-semibold ${className}`}
+      className={`inline-flex max-w-full items-center truncate rounded-[4px] px-1.5 py-[1px] text-[9px] font-semibold ${pop ? 'st-chip-in' : ''} ${className}`}
       style={{ ...chipStyle(option.color), ...optionTextStyle(option) }}
     >
       <span className="truncate">{option.label}</span>
@@ -138,11 +138,11 @@ export default function SelectCell({ strategyId, field, value, onChange }) {
           multi ? (
             <span className="flex flex-wrap items-center justify-center gap-0.5 py-0.5">
               {selectedOpts.map((o) => (
-                <Chip key={o.id} option={o} />
+                <Chip key={o.id} option={o} pop />
               ))}
             </span>
           ) : (
-            <Chip option={selected} />
+            <Chip key={selected.id} option={selected} pop />
           )
         ) : (
           <span className="flex items-center gap-0.5 text-[9px]" style={{ color: 'var(--ta-slate)', opacity: 0.55 }}>
@@ -151,15 +151,17 @@ export default function SelectCell({ strategyId, field, value, onChange }) {
         )}
       </motion.button>
 
-      {menuAt && (
-        <SelectOptionsPopup
-          strategyId={strategyId}
-          fieldId={field.id}
-          x={menuAt.x}
-          y={menuAt.y}
-          onClose={() => setMenuAt(null)}
-        />
-      )}
+      <AnimatePresence>
+        {menuAt && (
+          <SelectOptionsPopup
+            strategyId={strategyId}
+            fieldId={field.id}
+            x={menuAt.x}
+            y={menuAt.y}
+            onClose={() => setMenuAt(null)}
+          />
+        )}
+      </AnimatePresence>
 
       {createPortal(
         <AnimatePresence>
@@ -167,16 +169,17 @@ export default function SelectCell({ strategyId, field, value, onChange }) {
             <motion.div
               ref={popRef}
               data-st-popover
-              initial={{ opacity: 0, y: pos.flipUp ? 4 : -4, scale: 0.96 }}
+              initial={{ opacity: 0, y: pos.flipUp ? 5 : -5, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+              exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.12, ease: [0.23, 1, 0.32, 1] } }}
+              transition={{ type: 'spring', stiffness: 520, damping: 34 }}
+              transformTemplate={(_, generated) => (pos.flipUp ? `translateY(-100%) ${generated}` : generated)}
               className="ta-glass-popover fixed z-[95] flex flex-col gap-1 rounded-lg border p-1.5 shadow-xl"
               style={{
                 left: pos.left,
                 top: pos.top,
                 width: pos.width,
-                transform: pos.flipUp ? 'translateY(-100%)' : undefined,
+                transformOrigin: pos.flipUp ? 'bottom center' : 'top center',
                 backgroundColor: 'var(--ta-surface)',
                 borderColor: 'var(--ta-slate)',
                 color: 'var(--ta-ink)',
@@ -213,8 +216,12 @@ export default function SelectCell({ strategyId, field, value, onChange }) {
                     — Clear
                   </button>
                 )}
-                {filtered.map((o) => (
-                  <div key={o.id} className="group flex items-center gap-1 rounded px-1 py-0.5 hover:bg-black/5">
+                {filtered.map((o, i) => (
+                  <div
+                    key={o.id}
+                    className="st-item-in group flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:bg-black/5"
+                    style={{ '--i': i }}
+                  >
                     <button
                       type="button"
                       title="Change colour"

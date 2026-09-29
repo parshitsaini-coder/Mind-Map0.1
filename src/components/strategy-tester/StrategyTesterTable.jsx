@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { motion } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Pencil, Trash2, Eye, EyeOff } from 'lucide-react'
 import { useStrategyTesterStore } from '../../store/strategyTesterStore'
 import {
@@ -17,6 +17,7 @@ import {
 } from '../../utils/strategyTesterFields'
 import AddFieldMenu from './AddFieldMenu'
 import FieldCell from './FieldCell'
+import { EASE_OUT } from './motionBits'
 import SelectOptionsPopup from './SelectOptionsPopup'
 import WeekdayFilterPopup from './WeekdayFilterPopup'
 
@@ -121,7 +122,7 @@ function ColResizer({ colId, onCommit, onReset }) {
   )
 }
 
-function StrategyGroupHeader({ strategy, isOnly }) {
+function StrategyGroupHeader({ strategy, isOnly, isNew }) {
   const colSpan = strategy.fields.length || 1
 
   const handleRemove = () => {
@@ -132,7 +133,7 @@ function StrategyGroupHeader({ strategy, isOnly }) {
   const handleHide = () => useStrategyTesterStore.getState().toggleStrategyHidden(strategy.id)
 
   return (
-    <th colSpan={colSpan} className="st-th-group px-1.5 text-left align-middle">
+    <th colSpan={colSpan} className={`st-th-group px-1.5 text-left align-middle ${isNew ? 'st-col-new' : ''}`}>
       <div className="flex items-center gap-1">
         <EditableLabel
           value={strategy.name}
@@ -179,35 +180,54 @@ function StrategyGroupHeader({ strategy, isOnly }) {
 // Small restore bar for hidden strategies — shown above the table so a
 // hidden panel is never permanently lost, just tucked away.
 function HiddenStrategiesBar({ hiddenStrategies }) {
-  if (hiddenStrategies.length === 0) return null
   return (
-    <div
-      className="mb-1 flex shrink-0 flex-wrap items-center gap-1 rounded-lg border px-1.5 py-1"
-      style={{ borderColor: 'var(--tad-border-strong)', backgroundColor: 'var(--ta-surface)' }}
-    >
-      <span className="text-[8px] font-semibold uppercase tracking-wide opacity-60" style={{ color: 'var(--ta-ink)' }}>
-        Hidden:
-      </span>
-      {hiddenStrategies.map((st) => (
-        <motion.button
-          key={st.id}
-          type="button"
-          whileHover={{ scale: 1.04 }}
-          whileTap={{ scale: 0.96 }}
-          title={`Show "${st.name}" again`}
-          onClick={() => useStrategyTesterStore.getState().toggleStrategyHidden(st.id)}
-          className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold"
-          style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }}
+    <AnimatePresence initial={false}>
+      {hiddenStrategies.length > 0 && (
+        <motion.div
+          key="hidden-bar"
+          initial={{ height: 0, opacity: 0, marginBottom: 0 }}
+          animate={{ height: 'auto', opacity: 1, marginBottom: 4 }}
+          exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+          transition={{ duration: 0.22, ease: EASE_OUT }}
+          className="shrink-0 overflow-hidden"
         >
-          <Eye size={9} />
-          {st.name}
-        </motion.button>
-      ))}
-    </div>
+          <div
+            className="flex flex-wrap items-center gap-1 rounded-lg border px-1.5 py-1"
+            style={{ borderColor: 'var(--tad-border-strong)', backgroundColor: 'var(--ta-surface)' }}
+          >
+            <span className="text-[8px] font-semibold uppercase tracking-wide opacity-60" style={{ color: 'var(--ta-ink)' }}>
+              Hidden:
+            </span>
+            <AnimatePresence mode="popLayout" initial={false}>
+              {hiddenStrategies.map((st) => (
+                <motion.button
+                  key={st.id}
+                  layout
+                  type="button"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.12 } }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ type: 'spring', stiffness: 480, damping: 30 }}
+                  title={`Show "${st.name}" again`}
+                  onClick={() => useStrategyTesterStore.getState().toggleStrategyHidden(st.id)}
+                  className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold"
+                  style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }}
+                >
+                  <Eye size={9} />
+                  {st.name}
+                </motion.button>
+              ))}
+            </AnimatePresence>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }
 
-function FieldHeaderCell({ strategy, field }) {
+function FieldHeaderCell({ strategy, field, index = 0, isNew }) {
   const meta = FIELD_TYPE_MAP[field.type]
   const [menuAt, setMenuAt] = useState(null)
   const isSelect = ['select', 'multiselect', 'checkbox'].includes(field.type)
@@ -218,7 +238,7 @@ function FieldHeaderCell({ strategy, field }) {
   const showItems = items.length > 0
   return (
     <th
-      className="st-th-field group px-1 py-0.5 text-center align-middle"
+      className={`st-th-field group px-1 py-0.5 text-center align-middle ${isNew ? 'st-col-new' : ''}`}
       style={{ minWidth: meta?.width ?? 50 }}
       onContextMenu={
         isSelect
@@ -229,9 +249,11 @@ function FieldHeaderCell({ strategy, field }) {
           : undefined
       }
     >
-      {menuAt && (
-        <SelectOptionsPopup strategyId={strategy.id} fieldId={field.id} x={menuAt.x} y={menuAt.y} onClose={() => setMenuAt(null)} />
-      )}
+      <AnimatePresence>
+        {menuAt && (
+          <SelectOptionsPopup strategyId={strategy.id} fieldId={field.id} x={menuAt.x} y={menuAt.y} onClose={() => setMenuAt(null)} />
+        )}
+      </AnimatePresence>
       <ColResizer
         colId={field.id}
         onCommit={(w) => useStrategyTesterStore.getState().setFieldWidth(strategy.id, field.id, w)}
@@ -245,11 +267,12 @@ function FieldHeaderCell({ strategy, field }) {
         <EditableLabel
           value={field.label}
           onCommit={(label) => useStrategyTesterStore.getState().renameField(strategy.id, field.id, label)}
-          className={showItems ? 'flex min-w-0 flex-wrap items-center justify-center gap-0.5' : 'st-hd-chip text-[8px] uppercase'}
+          className={showItems ? 'flex min-w-0 flex-wrap items-center justify-center gap-0.5' : 'st-hd-chip st-hd-in text-[8px] uppercase'}
           style={
             showItems
               ? undefined
               : {
+                  '--i': index,
                   '--c1': (FIELD_HEADER_COLORS[field.type] || DATE_HEADER_COLORS)[0],
                   '--c2': (FIELD_HEADER_COLORS[field.type] || DATE_HEADER_COLORS)[1],
                 }
@@ -259,8 +282,9 @@ function FieldHeaderCell({ strategy, field }) {
               ? items.map((o) => (
                   <span
                     key={o.id}
-                    className="st-hd-chip text-[8px] uppercase"
+                    className="st-hd-chip st-hd-in text-[8px] uppercase"
                     style={{
+                      '--i': index,
                       '--c1': o.color,
                       '--c2': `color-mix(in srgb, ${o.color} 65%, black)`,
                       ...optionTextStyle(o),
@@ -277,7 +301,7 @@ function FieldHeaderCell({ strategy, field }) {
           type="button"
           title={`Remove ${field.label}`}
           onClick={() => useStrategyTesterStore.getState().removeField(strategy.id, field.id)}
-          className="shrink-0 opacity-0 transition-opacity group-hover:opacity-60 hover:!opacity-100"
+          className="shrink-0 scale-75 opacity-0 transition-[opacity,transform] duration-150 group-hover:scale-100 group-hover:opacity-60 hover:!opacity-100 active:!scale-90"
           style={{ color: 'var(--ta-slate)' }}
         >
           ×
@@ -285,6 +309,29 @@ function FieldHeaderCell({ strategy, field }) {
       </div>
     </th>
   )
+}
+
+// Tracks which strategies / fields were just added (or just un-hidden) so
+// their header + cells can play a short reveal instead of popping in. The
+// very first render is never "new" — only changes after mount are.
+function useFreshIds(ids) {
+  const prev = useRef(null)
+  const [fresh, setFresh] = useState(() => new Set())
+  const sig = ids.join('|')
+  useEffect(() => {
+    let t
+    if (prev.current) {
+      const added = ids.filter((id) => !prev.current.has(id))
+      if (added.length) {
+        setFresh(new Set(added))
+        t = setTimeout(() => setFresh(new Set()), 900)
+      }
+    }
+    prev.current = new Set(ids)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sig])
+  return fresh
 }
 
 export default function StrategyTesterTable() {
@@ -296,6 +343,7 @@ export default function StrategyTesterTable() {
   const visibleWeekdays = useStrategyTesterStore((s) => s.visibleWeekdays) || [0, 1, 2, 3, 4, 5, 6]
   const [dateMenuAt, setDateMenuAt] = useState(null)
   const dateColWidth = useStrategyTesterStore((s) => s.dateColWidth) || DEFAULT_DATE_WIDTH
+  const scrollerRef = useRef(null)
 
   const numDays = daysInMonth(year, month)
   const rows = Array.from({ length: numDays }, (_, i) => i + 1).filter((d) =>
@@ -308,10 +356,34 @@ export default function StrategyTesterTable() {
   const visibleStrategies = strategies.filter((st) => !st.hidden)
   const hiddenStrategies = strategies.filter((st) => st.hidden)
 
+  const fresh = useFreshIds(visibleStrategies.flatMap((st) => [st.id, ...st.fields.map((f) => f.id)]))
+
+  // Soft shadow under the sticky header / beside the sticky date column
+  // once content is scrolled beneath them. Toggles data attributes only
+  // when the state actually flips — no React re-render per scroll event.
+  const onScroll = (e) => {
+    const el = e.currentTarget
+    const y = el.scrollTop > 2 ? '1' : '0'
+    const x = el.scrollLeft > 2 ? '1' : '0'
+    if (el.dataset.stY !== y) el.dataset.stY = y
+    if (el.dataset.stX !== x) el.dataset.stX = x
+  }
+
+  // Re-keying the body replays the row cascade whenever the month or the
+  // weekday filter changes.
+  const bodyKey = `${year}-${month}-${visibleWeekdays.join('')}`
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <HiddenStrategiesBar hiddenStrategies={hiddenStrategies} />
-      <div className="ta-scroll min-h-0 flex-1 overflow-auto rounded-lg border" style={{ borderColor: 'var(--tad-border-strong)' }}>
+      <div
+        ref={scrollerRef}
+        onScroll={onScroll}
+        data-st-x="0"
+        data-st-y="0"
+        className="st-scroller ta-scroll min-h-0 flex-1 overflow-auto rounded-lg border"
+        style={{ borderColor: 'var(--tad-border-strong)' }}
+      >
       <table className="st-table">
         <colgroup>
           <col data-col="date" style={{ width: dateColWidth }} />
@@ -337,15 +409,27 @@ export default function StrategyTesterTable() {
               title="Right-click to choose which days to show"
               className="st-th-corner min-w-[64px] px-1.5 text-left text-[9px] font-bold uppercase tracking-wide"
             >
-              <span className="st-hd-chip text-[9px]" style={{ '--c1': DATE_HEADER_COLORS[0], '--c2': DATE_HEADER_COLORS[1] }}>
+              <span className="st-hd-chip st-hd-in text-[9px]" style={{ '--i': 0, '--c1': DATE_HEADER_COLORS[0], '--c2': DATE_HEADER_COLORS[1] }}>
                 Date
               </span>
-              {dayFilterActive && (
-                <span className="ml-1 rounded-full px-1 text-[7px] font-bold normal-case" style={{ backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }}>
-                  {visibleWeekdays.length}/7
-                </span>
-              )}
-              {dateMenuAt && <WeekdayFilterPopup x={dateMenuAt.x} y={dateMenuAt.y} onClose={() => setDateMenuAt(null)} />}
+              <AnimatePresence initial={false}>
+                {dayFilterActive && (
+                  <motion.span
+                    key="day-filter-badge"
+                    initial={{ opacity: 0, scale: 0.6 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.6, transition: { duration: 0.1 } }}
+                    transition={{ type: 'spring', stiffness: 520, damping: 26 }}
+                    className="ml-1 inline-block rounded-full px-1 text-[7px] font-bold normal-case"
+                    style={{ backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }}
+                  >
+                    {visibleWeekdays.length}/7
+                  </motion.span>
+                )}
+              </AnimatePresence>
+              <AnimatePresence>
+                {dateMenuAt && <WeekdayFilterPopup x={dateMenuAt.x} y={dateMenuAt.y} onClose={() => setDateMenuAt(null)} />}
+              </AnimatePresence>
               <ColResizer
                 colId="date"
                 onCommit={(w) => useStrategyTesterStore.getState().setDateColWidth(w)}
@@ -357,7 +441,7 @@ export default function StrategyTesterTable() {
               />
             </th>
             {visibleStrategies.map((st) => (
-              <StrategyGroupHeader key={st.id} strategy={st} isOnly={strategies.length === 1} />
+              <StrategyGroupHeader key={st.id} strategy={st} isOnly={strategies.length === 1} isNew={fresh.has(st.id)} />
             ))}
             {showAddStrategy && (
               <th rowSpan={2} className="st-th-group px-1 text-center align-middle">
@@ -365,6 +449,7 @@ export default function StrategyTesterTable() {
                   type="button"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.94 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 24 }}
                   onClick={() => useStrategyTesterStore.getState().addStrategy()}
                   title="Add another strategy to test"
                   className="whitespace-nowrap rounded-full px-2 py-0.5 text-[9px] font-semibold"
@@ -377,25 +462,30 @@ export default function StrategyTesterTable() {
             <th rowSpan={2} className="st-th-group" />
           </tr>
           <tr>
-            {visibleStrategies.map((st) =>
-              st.fields.length > 0 ? (
-                st.fields.map((f) => <FieldHeaderCell key={f.id} strategy={st} field={f} />)
+            {visibleStrategies.map((st) => {
+              // running column index across strategies → header stagger
+              const base = visibleStrategies.slice(0, visibleStrategies.indexOf(st)).reduce((n, x) => n + Math.max(1, x.fields.length), 1)
+              return st.fields.length > 0 ? (
+                st.fields.map((f, fi) => (
+                  <FieldHeaderCell key={f.id} strategy={st} field={f} index={base + fi} isNew={fresh.has(f.id) || fresh.has(st.id)} />
+                ))
               ) : (
-                <th key={st.id} className="st-th-field px-1 py-0.5 text-center">
+                <th key={st.id} className={`st-th-field px-1 py-0.5 text-center ${fresh.has(st.id) ? 'st-col-new' : ''}`}>
                   <span className="text-[8px] italic" style={{ color: 'var(--ta-slate)', opacity: 0.7 }}>
                     add a field →
                   </span>
                 </th>
               )
-            )}
+            })}
           </tr>
         </thead>
-        <tbody>
-          {rows.map((day) => {
+        <tbody key={bodyKey}>
+          {rows.map((day, rowIdx) => {
             const dk = dateKey(year, month, day)
             const isToday = isCurrentMonth && today.getDate() === day
+            const rowLabel = `${day} ${weekdayFor(year, month, day)}`
             return (
-              <tr key={day} className={isToday ? 'st-today' : ''}>
+              <tr key={day} className={`st-row-in ${isToday ? 'st-today' : ''}`} style={{ '--i': rowIdx }}>
                 <td className="st-td-date px-1.5 text-[9px] font-semibold">
                   <div className="flex items-baseline gap-1">
                     <span>{day}</span>
@@ -405,13 +495,13 @@ export default function StrategyTesterTable() {
                 {visibleStrategies.map((st) =>
                   st.fields.length > 0 ? (
                     st.fields.map((f) => (
-                      <td key={f.id} className="text-center">
+                      <td key={f.id} className={`text-center ${fresh.has(f.id) || fresh.has(st.id) ? 'st-col-new' : ''}`}>
                         <FieldCell
                           strategyId={st.id}
                           field={f}
-                          rowLabel={`${day} ${weekdayFor(year, month, day)}`}
+                          dk={dk}
+                          rowLabel={rowLabel}
                           value={entries?.[st.id]?.[dk]?.[f.id]}
-                          onChange={(v) => useStrategyTesterStore.getState().setCellValue(st.id, dk, f.id, v)}
                         />
                       </td>
                     ))

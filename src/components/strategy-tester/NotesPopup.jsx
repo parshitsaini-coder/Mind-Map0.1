@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { StickyNote, X } from 'lucide-react'
 
 // Small centered popup for a Notes cell — opened by clicking the cell.
@@ -13,8 +13,11 @@ export default function NotesPopup({ title, value, onSave, onClose }) {
     onClose()
   }
 
+  // The parent (FieldCell) owns the <AnimatePresence>, so this component's
+  // `exit` actually plays — it used to wrap itself, which meant it was
+  // unmounted before the exit could run.
   return (
-    <AnimatePresence>
+    <>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -25,7 +28,7 @@ export default function NotesPopup({ title, value, onSave, onClose }) {
         <motion.div
           initial={{ opacity: 0, scale: 0.94, y: 8 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.96, y: 6 }}
+          exit={{ opacity: 0, scale: 0.96, y: 6, transition: { duration: 0.14, ease: [0.23, 1, 0.32, 1] } }}
           transition={{ type: 'spring', stiffness: 380, damping: 28 }}
           onClick={(e) => e.stopPropagation()}
           className="flex w-full max-w-sm flex-col gap-2 rounded-xl border p-3 shadow-2xl"
@@ -70,6 +73,6 @@ export default function NotesPopup({ title, value, onSave, onClose }) {
           </div>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </>
   )
 }

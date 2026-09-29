@@ -134,7 +134,7 @@ function DayDetailPopup({ strategy, day, row, onClose }) {
       <motion.div
         initial={{ opacity: 0, scale: 0.94, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 6 }}
+        exit={{ opacity: 0, scale: 0.96, y: 6, transition: { duration: 0.14, ease: EASE } }}
         transition={{ type: 'spring', stiffness: 380, damping: 28 }}
         onClick={(e) => e.stopPropagation()}
         className="flex w-full max-w-xs flex-col gap-2 rounded-xl border p-3 shadow-2xl"
@@ -156,14 +156,14 @@ function DayDetailPopup({ strategy, day, row, onClose }) {
           </p>
         ) : (
           <div className="flex flex-col gap-1">
-            {filled.map((f) => {
+            {filled.map((f, idx) => {
               const Icon = FIELD_ICON[f.type] || Hash
               return (
                 <motion.div
                   key={f.id}
                   initial={{ opacity: 0, x: -6 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.15 }}
+                  transition={{ duration: 0.18, delay: 0.06 + Math.min(idx, 8) * 0.035, ease: EASE }}
                   className="flex items-center justify-between gap-2 rounded-md px-1.5 py-1"
                   style={{ backgroundColor: 'var(--ta-bg)' }}
                 >
@@ -302,7 +302,7 @@ export default function StrategyCalendar({ strategy, entries }) {
                     whileTap={{ scale: 0.94 }}
                     onClick={() => setOpenDay({ n: cell.day, ymd: [year, month] })}
                     title={cell.row ? `${cell.day} ${MONTH_NAMES[month]} — tap for details` : `${cell.day} ${MONTH_NAMES[month]}`}
-                    className="relative flex aspect-square flex-col items-center justify-center gap-0 rounded-[5px]"
+                    className="st-day relative flex aspect-square flex-col items-center justify-center gap-0 rounded-[5px]"
                     style={{
                       backgroundColor: style ? style.bg : 'transparent',
                       outline: isToday ? '1.5px solid var(--ta-accent)' : 'none',

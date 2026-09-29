@@ -219,13 +219,15 @@ export default function SelectOptionsPopup({ strategyId, fieldId, x, y, onClose 
         e.preventDefault()
         e.stopPropagation()
       }}
-      initial={{ opacity: 0, scale: 0.96 }}
+      initial={{ opacity: 0, scale: 0.94 }}
       animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.12, ease: [0.23, 1, 0.32, 1] } }}
       transition={{ type: 'spring', stiffness: 500, damping: 32 }}
       className="ta-glass-popover fixed z-[100] flex w-56 flex-col gap-2 rounded-lg border p-2 shadow-xl"
       style={{
         left: pos?.left ?? -9999,
         top: pos?.top ?? -9999,
+        transformOrigin: 'top left',
         backgroundColor: 'var(--ta-surface)',
         borderColor: 'var(--ta-slate)',
         color: 'var(--ta-ink)',
@@ -260,8 +262,10 @@ export default function SelectOptionsPopup({ strategyId, fieldId, x, y, onClose 
               : 'No options yet — add your first one below.'}
           </p>
         )}
-        {options.map((o) => (
-          <OptionRow key={o.id} strategyId={strategyId} fieldId={fieldId} option={o} />
+        {options.map((o, i) => (
+          <div key={o.id} className="st-item-in" style={{ '--i': i }}>
+            <OptionRow strategyId={strategyId} fieldId={fieldId} option={o} />
+          </div>
         ))}
       </div>
 
