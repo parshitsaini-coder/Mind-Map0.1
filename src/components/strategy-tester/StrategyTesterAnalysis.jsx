@@ -166,7 +166,7 @@ export default function StrategyTesterAnalysis() {
       {!hasAnyMetric && (
         <div className="mt-3">
           <EmptyHint>
-            Add a Win Rate, RRR, Buy/Sell or P&amp;L field to "{strategy.name}" in the Table view to see it analysed here.
+            Add a Result, RRR, Buy/Sell or P&amp;L field to "{strategy.name}" in the Table view to see it analysed here.
           </EmptyHint>
         </div>
       )}

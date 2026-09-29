@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Check, ChevronDown, Plus, X } from 'lucide-react'
 import { useStrategyTesterStore } from '../../store/strategyTesterStore'
-import { SELECT_COLORS } from '../../utils/strategyTesterFields'
+import SelectOptionsPopup from './SelectOptionsPopup'
+import { SELECT_COLORS, optionTextStyle } from '../../utils/strategyTesterFields'
 
 const chipStyle = (color) => ({ backgroundColor: `${color}26`, color })
 
@@ -11,7 +12,7 @@ function Chip({ option, className = '' }) {
   return (
     <span
       className={`inline-flex max-w-full items-center truncate rounded-[4px] px-1.5 py-[1px] text-[9px] font-semibold ${className}`}
-      style={chipStyle(option.color)}
+      style={{ ...chipStyle(option.color), ...optionTextStyle(option) }}
     >
       <span className="truncate">{option.label}</span>
     </span>
@@ -24,11 +25,15 @@ function Chip({ option, className = '' }) {
 // click a tag to select it, click its dot to change colour, × to delete.
 export default function SelectCell({ strategyId, field, value, onChange }) {
   const options = field.options || []
-  const selected = options.find((o) => o.id === value) || null
+  const multi = field.type === 'multiselect'
+  const ids = multi ? (Array.isArray(value) ? value : []) : value ? [value] : []
+  const selectedOpts = options.filter((o) => ids.includes(o.id))
+  const selected = selectedOpts[0] || null
 
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [pos, setPos] = useState(null)
+  const [menuAt, setMenuAt] = useState(null) // right-click options manager
   const btnRef = useRef(null)
   const popRef = useRef(null)
   const inputRef = useRef(null)
@@ -91,6 +96,13 @@ export default function SelectCell({ strategyId, field, value, onChange }) {
   const exact = options.some((o) => o.label.toLowerCase() === q.toLowerCase())
 
   const pick = (id) => {
+    if (multi) {
+      // Multi-select stays open so several tags can be ticked in a row.
+      if (id == null) onChange([])
+      else onChange(ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id])
+      setQuery('')
+      return
+    }
     onChange(id)
     setOpen(false)
     setQuery('')
@@ -114,17 +126,40 @@ export default function SelectCell({ strategyId, field, value, onChange }) {
         type="button"
         whileTap={{ scale: 0.96 }}
         onClick={() => setOpen((o) => !o)}
-        title={field.label}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          setOpen(false)
+          setMenuAt({ x: e.clientX, y: e.clientY })
+        }}
+        title={`${field.label} — right-click to manage options`}
         className="flex h-full w-full items-center justify-center gap-0.5 px-1"
       >
-        {selected ? (
-          <Chip option={selected} />
+        {selectedOpts.length > 0 ? (
+          multi ? (
+            <span className="flex flex-wrap items-center justify-center gap-0.5 py-0.5">
+              {selectedOpts.map((o) => (
+                <Chip key={o.id} option={o} />
+              ))}
+            </span>
+          ) : (
+            <Chip option={selected} />
+          )
         ) : (
           <span className="flex items-center gap-0.5 text-[9px]" style={{ color: 'var(--ta-slate)', opacity: 0.55 }}>
             —<ChevronDown size={9} />
           </span>
         )}
       </motion.button>
+
+      {menuAt && (
+        <SelectOptionsPopup
+          strategyId={strategyId}
+          fieldId={field.id}
+          x={menuAt.x}
+          y={menuAt.y}
+          onClose={() => setMenuAt(null)}
+        />
+      )}
 
       {createPortal(
         <AnimatePresence>
@@ -164,11 +199,11 @@ export default function SelectCell({ strategyId, field, value, onChange }) {
               />
 
               <p className="px-1 pt-0.5 text-[8px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ta-slate)' }}>
-                Select an option
+                {multi ? 'Pick one or more' : 'Select an option'} · right-click cell to manage
               </p>
 
               <div className="ta-scroll flex max-h-40 flex-col gap-0.5 overflow-y-auto">
-                {value && (
+                {ids.length > 0 && (
                   <button
                     type="button"
                     onClick={() => pick(null)}
@@ -189,7 +224,7 @@ export default function SelectCell({ strategyId, field, value, onChange }) {
                     />
                     <button type="button" onClick={() => pick(o.id)} className="flex min-w-0 flex-1 items-center gap-1 text-left">
                       <Chip option={o} />
-                      {value === o.id && <Check size={9} style={{ color: 'var(--ta-accent)' }} />}
+                      {ids.includes(o.id) && <Check size={9} style={{ color: 'var(--ta-accent)' }} />}
                     </button>
                     <button
                       type="button"

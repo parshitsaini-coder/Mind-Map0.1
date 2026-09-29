@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
-import { SELECT_COLORS } from '../utils/strategyTesterFields'
+import { SELECT_COLORS, migrateStrategies } from '../utils/strategyTesterFields'
 
 // Section — Strategy Tester. A separate full-screen feature (own overlay,
 // own top bar), inspired by a classic backtest "strategy tester" grid:
@@ -18,7 +18,7 @@ const uid = () => crypto.randomUUID()
 
 const seedFields = () => [
   { id: uid(), type: 'buysell', label: 'Buy/Sell' },
-  { id: uid(), type: 'outcome', label: 'Win Rate' },
+  { id: uid(), type: 'outcome', label: 'Result' },
   { id: uid(), type: 'rrr', label: 'RRR' },
   { id: uid(), type: 'pnl', label: 'P&L' },
 ]
@@ -38,6 +38,10 @@ const initialState = {
   activeView: 'table', // 'table' | 'analysis'
   // Whether the "+ Strategy" column at the right edge of the table is shown.
   showAddStrategy: true,
+  // Weekdays shown as rows (JS getDay(): 0 = Sun … 6 = Sat). All by default.
+  visibleWeekdays: [0, 1, 2, 3, 4, 5, 6],
+  // Custom column widths (px). Date column here; field columns keep theirs on the field (`field.width`).
+  dateColWidth: 72,
   year: today.getFullYear(),
   month: today.getMonth(), // 0-11
   strategies: [makeStrategy('Strategy Tester', true), makeStrategy('Strategy :- 1')],
@@ -62,6 +66,23 @@ export const useStrategyTesterStore = create(
       close: () => set({ isOpen: false }),
       setActiveView: (activeView) => set({ activeView }),
       setTheme: (theme) => set({ theme }),
+      setDateColWidth: (dateColWidth) => set({ dateColWidth }),
+      setFieldWidth: (strategyId, fieldId, width) =>
+        set((s) => ({
+          strategies: s.strategies.map((st) =>
+            st.id !== strategyId
+              ? st
+              : { ...st, fields: st.fields.map((f) => (f.id === fieldId ? { ...f, width } : f)) }
+          ),
+        })),
+      setVisibleWeekdays: (days) => set({ visibleWeekdays: days.length ? days : [0, 1, 2, 3, 4, 5, 6] }),
+      // At least one weekday always stays visible so the table is never empty.
+      toggleWeekday: (idx) =>
+        set((s) => {
+          const has = s.visibleWeekdays.includes(idx)
+          if (has && s.visibleWeekdays.length === 1) return {}
+          return { visibleWeekdays: has ? s.visibleWeekdays.filter((d) => d !== idx) : [...s.visibleWeekdays, idx] }
+        }),
       toggleAddStrategyPanel: () => set((s) => ({ showAddStrategy: !s.showAddStrategy })),
       setAnalysisStrategyId: (analysisStrategyId) => set({ analysisStrategyId }),
 
@@ -111,7 +132,7 @@ export const useStrategyTesterStore = create(
         set((s) => ({
           strategies: s.strategies.map((st) =>
             st.id === strategyId
-              ? { ...st, fields: [...st.fields, { id: uid(), type, label, ...(type === 'select' ? { options: [] } : {}) }] }
+              ? { ...st, fields: [...st.fields, { id: uid(), type, label, ...(type === 'select' || type === 'multiselect' || type === 'checkbox' ? { options: [] } : {}) }] }
               : st
           ),
         })),
@@ -146,7 +167,7 @@ export const useStrategyTesterStore = create(
 
       // Select-field options: [{ id, label, color }] stored on the field itself;
       // cells only keep the chosen option's id.
-      addFieldOption: (strategyId, fieldId, label) => {
+      addFieldOption: (strategyId, fieldId, label, color) => {
         const id = uid()
         set((s) => ({
           strategies: s.strategies.map((st) =>
@@ -157,13 +178,22 @@ export const useStrategyTesterStore = create(
                   fields: st.fields.map((f) => {
                     if (f.id !== fieldId) return f
                     const opts = f.options || []
-                    return { ...f, options: [...opts, { id, label, color: SELECT_COLORS[(opts.length + 1) % SELECT_COLORS.length] }] }
+                    return { ...f, options: [...opts, { id, label, color: color || SELECT_COLORS[(opts.length + 1) % SELECT_COLORS.length] }] }
                   }),
                 }
           ),
         }))
         return id
       },
+      // Box colour of a plain (single) checkbox column.
+      setFieldColor: (strategyId, fieldId, color) =>
+        set((s) => ({
+          strategies: s.strategies.map((st) =>
+            st.id !== strategyId
+              ? st
+              : { ...st, fields: st.fields.map((f) => (f.id === fieldId ? { ...f, color } : f)) }
+          ),
+        })),
       updateFieldOption: (strategyId, fieldId, optionId, patch) =>
         set((s) => ({
           strategies: s.strategies.map((st) =>
@@ -234,7 +264,7 @@ export const useStrategyTesterStore = create(
         }
         if (cloudIsEmpty) return
 
-        set({ strategies: cloudStrategies, entries: cloudEntries })
+        set({ strategies: migrateStrategies(cloudStrategies), entries: cloudEntries })
       },
       saveToCloud: async (userId) => {
         if (!isSupabaseConfigured || !userId) return
@@ -251,11 +281,18 @@ export const useStrategyTesterStore = create(
     }),
     {
       name: 'mindmap-strategy-tester-storage',
+      merge: (persisted, current) => {
+        const merged = { ...current, ...(persisted || {}) }
+        merged.strategies = migrateStrategies(merged.strategies)
+        return merged
+      },
       partialize: (state) => ({
         isOpen: state.isOpen,
         theme: state.theme,
         activeView: state.activeView,
         showAddStrategy: state.showAddStrategy,
+        visibleWeekdays: state.visibleWeekdays,
+        dateColWidth: state.dateColWidth,
         year: state.year,
         month: state.month,
         strategies: state.strategies,

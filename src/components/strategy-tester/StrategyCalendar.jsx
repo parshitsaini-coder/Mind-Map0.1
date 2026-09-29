@@ -14,6 +14,11 @@ import {
   Hash,
   Check,
   Tag,
+  Tags,
+  Type,
+  Clock,
+  Star,
+  Link2,
 } from 'lucide-react'
 import { useStrategyTesterStore } from '../../store/strategyTesterStore'
 import { daysInMonth, dateKey, weekdayFor, MONTH_NAMES, WEEKDAY_SHORT } from '../../utils/strategyTesterFields'
@@ -41,6 +46,7 @@ function dayStatus(strategy, row) {
     const v = row[f.id]
     if (v == null) return false
     if (f.type === 'sltarget') return (v.sl ?? '') !== '' || (v.target ?? '') !== ''
+    if (Array.isArray(v)) return v.length > 0
     return v !== ''
   })
 
@@ -72,6 +78,11 @@ const FIELD_ICON = {
   number: Hash,
   checkbox: Check,
   select: Tag,
+  multiselect: Tags,
+  text: Type,
+  time: Clock,
+  rating: Star,
+  link: Link2,
 }
 
 // Renders one field's value for the day-detail popup, in the same
@@ -86,7 +97,18 @@ function fieldValueLabel(field, value) {
   }
   if (field.type === 'buysell') return value === 'buy' ? 'Buy' : value === 'sell' ? 'Sell' : '—'
   if (field.type === 'outcome') return value === 'win' ? 'Win' : value === 'loss' ? 'Loss' : value === 'be' ? 'Breakeven' : '—'
-  if (field.type === 'checkbox') return value ? 'Yes' : 'No'
+  if (field.type === 'checkbox') {
+    if ((field.options || []).length > 0) {
+      const names = (field.options || []).filter((o) => Array.isArray(value) && value.includes(o.id)).map((o) => o.label)
+      return names.length ? names.join(', ') : '—'
+    }
+    return value ? 'Yes' : 'No'
+  }
+  if (field.type === 'multiselect') {
+    const names = (field.options || []).filter((o) => Array.isArray(value) && value.includes(o.id)).map((o) => o.label)
+    return names.length ? names.join(', ') : '—'
+  }
+  if (field.type === 'rating') return value ? `${value}/5 ★` : '—'
   if (field.type === 'select') return (field.options || []).find((o) => o.id === value)?.label || '—'
   if (value == null || value === '') return '—'
   return String(value)
@@ -97,6 +119,7 @@ function DayDetailPopup({ strategy, day, row, onClose }) {
     const v = row?.[f.id]
     if (v == null) return false
     if (f.type === 'sltarget') return (v.sl ?? '') !== '' || (v.target ?? '') !== ''
+    if (Array.isArray(v)) return v.length > 0
     return v !== ''
   })
 

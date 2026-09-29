@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Check, StickyNote } from 'lucide-react'
+import { ExternalLink, Star, StickyNote } from 'lucide-react'
 import NotesPopup from './NotesPopup'
 import RRRSelect from './RRRSelect'
 import ImageCell from './ImageCell'
 import SelectCell from './SelectCell'
+import CheckboxCell from './CheckboxCell'
 
 const inputCls = 'st-cell-input'
 
@@ -12,24 +13,7 @@ export default function FieldCell({ strategyId, field, value, onChange, rowLabel
 
   switch (field.type) {
     case 'checkbox':
-      return (
-        <button
-          type="button"
-          onClick={() => onChange(!value)}
-          className="flex h-full w-full items-center justify-center"
-          title={field.label}
-        >
-          <span
-            className="flex h-3 w-3 items-center justify-center rounded-[3px] border transition-colors"
-            style={{
-              borderColor: value ? 'var(--ta-accent)' : 'var(--ta-slate)',
-              backgroundColor: value ? 'var(--ta-accent)' : 'transparent',
-            }}
-          >
-            {value && <Check size={8} color="#fffcf2" strokeWidth={3} />}
-          </span>
-        </button>
-      )
+      return <CheckboxCell strategyId={strategyId} field={field} value={value} onChange={onChange} />
 
     case 'buysell':
       return (
@@ -175,6 +159,88 @@ export default function FieldCell({ strategyId, field, value, onChange, rowLabel
 
     case 'image':
       return <ImageCell value={value} onChange={onChange} />
+
+    case 'multiselect':
+      return <SelectCell strategyId={strategyId} field={field} value={value} onChange={onChange} />
+
+    case 'text':
+      return (
+        <input
+          type="text"
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+          className={inputCls}
+          style={{ textAlign: 'left', paddingLeft: 4, paddingRight: 4 }}
+          placeholder="—"
+          title={value || field.label}
+        />
+      )
+
+    case 'time':
+      return (
+        <input
+          type="time"
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+          className={inputCls}
+          style={{ fontVariantNumeric: 'tabular-nums' }}
+        />
+      )
+
+    case 'rating': {
+      const n = Number(value) || 0
+      return (
+        <div className="flex items-center justify-center gap-[1px]" title={n ? `${n}/5` : field.label}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => onChange(n === i ? null : i)}
+              className="flex"
+            >
+              <Star
+                size={9}
+                strokeWidth={2}
+                style={{
+                  color: i <= n ? '#f59e0b' : 'var(--ta-slate)',
+                  fill: i <= n ? '#f59e0b' : 'transparent',
+                  opacity: i <= n ? 1 : 0.4,
+                }}
+              />
+            </button>
+          ))}
+        </div>
+      )
+    }
+
+    case 'link': {
+      const href = value ? (/^https?:\/\//i.test(value) ? value : `https://${value}`) : ''
+      return (
+        <div className="flex items-center gap-0.5 px-0.5">
+          <input
+            type="text"
+            value={value ?? ''}
+            onChange={(e) => onChange(e.target.value)}
+            className={inputCls}
+            style={{ textAlign: 'left', paddingLeft: 2 }}
+            placeholder="https://…"
+            title={value || field.label}
+          />
+          {href && (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open link"
+              className="flex shrink-0"
+              style={{ color: 'var(--ta-accent)' }}
+            >
+              <ExternalLink size={9} />
+            </a>
+          )}
+        </div>
+      )
+    }
 
     case 'select':
       return <SelectCell strategyId={strategyId} field={field} value={value} onChange={onChange} />
