@@ -6,6 +6,7 @@ import {
   FIELD_TYPE_MAP,
   FIELD_HEADER_COLORS,
   DATE_HEADER_COLORS,
+  optionTextStyle,
   defaultFieldWidth,
   DEFAULT_DATE_WIDTH,
   MIN_COL_WIDTH,
@@ -21,7 +22,7 @@ import WeekdayFilterPopup from './WeekdayFilterPopup'
 
 // Inline-editable label shared by strategy names and field labels — click
 // the text to turn it into a small input, Enter/blur commits, Esc cancels.
-function EditableLabel({ value, onCommit, className, inputClassName, placeholder, style }) {
+function EditableLabel({ value, onCommit, className, inputClassName, placeholder, style, display }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
   const ref = useRef(null)
@@ -63,7 +64,7 @@ function EditableLabel({ value, onCommit, className, inputClassName, placeholder
       className={className}
       style={style}
     >
-      {value || placeholder}
+      {display || value || placeholder}
     </button>
   )
 }
@@ -210,6 +211,11 @@ function FieldHeaderCell({ strategy, field }) {
   const meta = FIELD_TYPE_MAP[field.type]
   const [menuAt, setMenuAt] = useState(null)
   const isSelect = ['select', 'multiselect', 'checkbox'].includes(field.type)
+  // A Checkbox column with named checkboxes shows those names (with their
+  // colours / text styles) in the header instead of the generic "Checkbox"
+  // label. Rename the column to anything else and that name is shown instead.
+  const items = field.type === 'checkbox' && field.label === 'Checkbox' ? field.options || [] : []
+  const showItems = items.length > 0
   return (
     <th
       className="st-th-field group px-1 py-0.5 text-center align-middle"
@@ -239,11 +245,32 @@ function FieldHeaderCell({ strategy, field }) {
         <EditableLabel
           value={field.label}
           onCommit={(label) => useStrategyTesterStore.getState().renameField(strategy.id, field.id, label)}
-          className="st-hd-chip text-[8px] uppercase"
-          style={{
-            '--c1': (FIELD_HEADER_COLORS[field.type] || DATE_HEADER_COLORS)[0],
-            '--c2': (FIELD_HEADER_COLORS[field.type] || DATE_HEADER_COLORS)[1],
-          }}
+          className={showItems ? 'flex min-w-0 flex-wrap items-center justify-center gap-0.5' : 'st-hd-chip text-[8px] uppercase'}
+          style={
+            showItems
+              ? undefined
+              : {
+                  '--c1': (FIELD_HEADER_COLORS[field.type] || DATE_HEADER_COLORS)[0],
+                  '--c2': (FIELD_HEADER_COLORS[field.type] || DATE_HEADER_COLORS)[1],
+                }
+          }
+          display={
+            showItems
+              ? items.map((o) => (
+                  <span
+                    key={o.id}
+                    className="st-hd-chip text-[8px] uppercase"
+                    style={{
+                      '--c1': o.color,
+                      '--c2': `color-mix(in srgb, ${o.color} 65%, black)`,
+                      ...optionTextStyle(o),
+                    }}
+                  >
+                    {o.label}
+                  </span>
+                ))
+              : undefined
+          }
           inputClassName="w-full rounded border bg-transparent px-0.5 text-center text-[8px] font-semibold outline-none"
         />
         <button
