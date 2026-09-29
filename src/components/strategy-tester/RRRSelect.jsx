@@ -36,13 +36,13 @@ export default function RRRSelect({ value, onChange, label }) {
     <div ref={rootRef} className="relative flex h-full w-full items-center justify-center">
       <motion.button
         type="button"
-        whileTap={{ scale: 0.94 }}
+        whileTap={{ transform: 'scale(0.94)' }}
         onClick={() => setOpen((o) => !o)}
         title={label}
         className="flex h-full w-full items-center justify-center gap-0.5 px-0.5"
         style={{ color: value ? 'var(--ta-ink)' : 'var(--ta-slate)', opacity: value ? 1 : 0.55 }}
       >
-        <span className="text-[9px] font-semibold tabular-nums">{value || '—'}</span>
+        <span key={value || 'none'} className={`text-[9px] font-semibold tabular-nums ${value ? 'st-val-in' : ''}`}>{value || '—'}</span>
         <motion.span
           animate={{ rotate: open ? 180 : 0 }}
           transition={{ type: 'spring', stiffness: 420, damping: 26 }}

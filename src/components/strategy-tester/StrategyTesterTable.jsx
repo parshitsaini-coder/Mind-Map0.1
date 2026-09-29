@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CalendarDays, GripVertical, Trash2, Eye, EyeOff } from 'lucide-react'
+import { CalendarDays, GripVertical, Trash2, Eye, EyeOff, Pencil } from 'lucide-react'
 import { useStrategyTesterStore } from '../../store/strategyTesterStore'
 import {
   FIELD_TYPE_MAP,
@@ -22,6 +22,7 @@ import { beginColumnDrag } from './columnDrag'
 import { EASE_OUT } from './motionBits'
 import SelectOptionsPopup from './SelectOptionsPopup'
 import WeekdayFilterPopup from './WeekdayFilterPopup'
+import StrategyRenamePopup from './StrategyRenamePopup'
 
 // Inline-editable label shared by strategy names and field labels — click
 // the text to turn it into a small input, Enter/blur commits, Esc cancels.
@@ -124,6 +125,63 @@ function ColResizer({ colId, onCommit, onReset }) {
   )
 }
 
+// Strategy title pill. Right-click (or double-click, or the pencil that fades
+// in on hover) opens the rename popup. Letters rise in with a short stagger on
+// mount and again whenever the name changes (keyed on the value).
+function StrategyName({ strategy }) {
+  const [menuAt, setMenuAt] = useState(null)
+  const name = strategy.name || 'Strategy name'
+  const open = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setMenuAt({ x: e.clientX, y: e.clientY })
+  }
+  const openFromPencil = (e) => {
+    e.stopPropagation()
+    const r = e.currentTarget.getBoundingClientRect()
+    setMenuAt({ x: r.left, y: r.bottom + 4 })
+  }
+  return (
+    <div className="flex min-w-0 flex-1 items-center" onContextMenu={open}>
+      <button
+        type="button"
+        onDoubleClick={open}
+        title="Right-click to rename"
+        className="st-name group/name min-w-0"
+      >
+        <span className="st-name-dot" aria-hidden="true" />
+        <span key={name} className="st-name-text truncate" aria-label={name}>
+          {Array.from(name).map((ch, i) => (
+            <span key={i} className="st-name-ch" style={{ '--i': Math.min(i, 24) }} aria-hidden="true">
+              {ch === ' ' ? '\u00A0' : ch}
+            </span>
+          ))}
+        </span>
+        <span
+          role="button"
+          tabIndex={-1}
+          title="Rename"
+          onClick={openFromPencil}
+          className="st-name-edit"
+        >
+          <Pencil size={8} />
+        </span>
+      </button>
+      <AnimatePresence>
+        {menuAt && (
+          <StrategyRenamePopup
+            value={strategy.name}
+            x={menuAt.x}
+            y={menuAt.y}
+            onSave={(name) => useStrategyTesterStore.getState().renameStrategy(strategy.id, name)}
+            onClose={() => setMenuAt(null)}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 function StrategyGroupHeader({ strategy, isOnly, isNew }) {
   const colSpan = strategy.fields.length || 1
 
@@ -137,13 +195,7 @@ function StrategyGroupHeader({ strategy, isOnly, isNew }) {
   return (
     <th colSpan={colSpan} className={`st-th-group px-1.5 text-left align-middle ${isNew ? 'st-col-new' : ''}`}>
       <div className="flex items-center gap-1">
-        <EditableLabel
-          value={strategy.name}
-          onCommit={(name) => useStrategyTesterStore.getState().renameStrategy(strategy.id, name)}
-          placeholder="Strategy name"
-          className="min-w-0 flex-1 truncate text-left text-[10px] font-bold hover:underline"
-          inputClassName="min-w-0 flex-1 rounded border bg-transparent px-1 text-[10px] font-bold outline-none"
-        />
+        <StrategyName strategy={strategy} />
         <span style={{ color: 'var(--ta-ink)' }}>
           <AddFieldMenu
             compact

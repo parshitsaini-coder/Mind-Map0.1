@@ -42,10 +42,10 @@ export default function CheckboxCell({ strategyId, field, value, onChange }) {
           title={`${field.label} — right-click to add checkbox names / colours`}
         >
           <span
-            className={`st-box flex h-3 w-3 items-center justify-center rounded-[3px] border ${on ? 'is-on' : ''}`}
+            className={`st-box relative flex h-3 w-3 items-center justify-center rounded-[3px] border ${on ? 'is-on' : ''}`}
             style={{ borderColor: boxColor || 'var(--ta-slate)', backgroundColor: on ? c : 'transparent' }}
           >
-            {on && <Tick />}
+            <Tick on={on} />
           </span>
         </button>
         {manager}
@@ -73,10 +73,10 @@ export default function CheckboxCell({ strategyId, field, value, onChange }) {
             className="st-cb flex h-3 w-3 shrink-0 items-center justify-center"
           >
             <span
-              className={`st-box flex h-3 w-3 items-center justify-center rounded-[3px] border ${on ? 'is-on' : ''}`}
+              className={`st-box relative flex h-3 w-3 items-center justify-center rounded-[3px] border ${on ? 'is-on' : ''}`}
               style={{ borderColor: o.color, backgroundColor: on ? o.color : 'transparent' }}
             >
-              {on && <Tick />}
+              <Tick on={on} />
             </span>
           </button>
         )

@@ -6,11 +6,11 @@ import { useRef } from 'react'
 
 // A check mark that draws itself (stroke-dashoffset) when it mounts. Pair
 // with `.st-box.is-on` on the box for the pop.
-export function Tick({ size = 8, color = '#fffcf2', strokeWidth = 3 }) {
+export function Tick({ size = 8, color = '#fffcf2', strokeWidth = 3, on = true }) {
   return (
     <svg width={size} height={size} viewBox="0 0 12 12" fill="none" aria-hidden="true">
       <polyline
-        className="st-tick"
+        className={`st-tick ${on ? 'is-on' : 'is-off'}`}
         points="2 6.4 4.9 9.2 10 3"
         stroke={color}
         strokeWidth={strokeWidth}

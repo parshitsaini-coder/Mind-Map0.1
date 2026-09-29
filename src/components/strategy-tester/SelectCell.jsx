@@ -124,7 +124,7 @@ export default function SelectCell({ strategyId, field, value, onChange }) {
       <motion.button
         ref={btnRef}
         type="button"
-        whileTap={{ scale: 0.96 }}
+        whileTap={{ transform: 'scale(0.96)' }}
         onClick={() => setOpen((o) => !o)}
         onContextMenu={(e) => {
           e.preventDefault()
@@ -146,7 +146,7 @@ export default function SelectCell({ strategyId, field, value, onChange }) {
           )
         ) : (
           <span className="flex items-center gap-0.5 text-[9px]" style={{ color: 'var(--ta-slate)', opacity: 0.55 }}>
-            —<ChevronDown size={9} />
+            —<ChevronDown size={9} className="st-chev" data-open={open ? '1' : '0'} />
           </span>
         )}
       </motion.button>
