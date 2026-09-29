@@ -33,6 +33,7 @@ export default function App() {
   const themeName = useUiStore((s) => s.themeName)
   const toastMessage = useUiStore((s) => s.toastMessage)
   const user = useAuthStore((s) => s.user)
+  const userId = user?.id ?? null
   const authInitialized = useAuthStore((s) => s.initialized)
   const tradeSaveTimeout = useRef(null)
   const hasLoadedTradesForUser = useRef(null)
@@ -286,24 +287,40 @@ export default function App() {
   // save above.
   useEffect(() => {
     if (!authInitialized) return
-    if (user && hasLoadedStrategyTesterForUser.current !== user.id) {
-      hasLoadedStrategyTesterForUser.current = user.id
-      useStrategyTesterStore.getState().loadFromCloud(user.id)
+    if (userId && hasLoadedStrategyTesterForUser.current !== userId) {
+      hasLoadedStrategyTesterForUser.current = userId
+      useStrategyTesterStore.getState().loadFromCloud(userId)
     }
-    if (!user) hasLoadedStrategyTesterForUser.current = null
+    if (!userId) hasLoadedStrategyTesterForUser.current = null
 
-    const unsubscribeStrategyTester = useStrategyTesterStore.subscribe(() => {
-      if (!user) return
+    // Only real data edits (strategies / entries) schedule a save. Before,
+    // ANY store change did — including saveToCloud's own cloudStatus
+    // updates — so it re-saved to the cloud every ~1.2s forever.
+    const unsubscribeStrategyTester = useStrategyTesterStore.subscribe((state, prev) => {
+      if (!userId) return
+      if (state.strategies === prev.strategies && state.entries === prev.entries) return
       clearTimeout(strategyTesterSaveTimeout.current)
       strategyTesterSaveTimeout.current = setTimeout(() => {
-        useStrategyTesterStore.getState().saveToCloud(user.id)
+        useStrategyTesterStore.getState().saveToCloud(userId)
       }, 1200)
     })
+
+    // Don't lose a pending save if the tab is hidden / closed / refreshed.
+    const flush = () => {
+      if (document.visibilityState === 'hidden' && strategyTesterSaveTimeout.current) {
+        clearTimeout(strategyTesterSaveTimeout.current)
+        strategyTesterSaveTimeout.current = null
+        if (userId) useStrategyTesterStore.getState().saveToCloud(userId)
+      }
+    }
+    document.addEventListener('visibilitychange', flush)
+    window.addEventListener('pagehide', flush)
     return () => {
-      clearTimeout(strategyTesterSaveTimeout.current)
+      document.removeEventListener('visibilitychange', flush)
+      window.removeEventListener('pagehide', flush)
       unsubscribeStrategyTester()
     }
-  }, [user, authInitialized])
+  }, [userId, authInitialized])
 
   // Section 4.3 — themes/skins. Swaps the live CSS custom properties so the
   // whole UI (canvas bg, sidebar, cards, node fills) repaints instantly.
