@@ -3,10 +3,11 @@ import { Check, StickyNote } from 'lucide-react'
 import NotesPopup from './NotesPopup'
 import RRRSelect from './RRRSelect'
 import ImageCell from './ImageCell'
+import SelectCell from './SelectCell'
 
 const inputCls = 'st-cell-input'
 
-export default function FieldCell({ field, value, onChange, rowLabel }) {
+export default function FieldCell({ strategyId, field, value, onChange, rowLabel }) {
   const [notesOpen, setNotesOpen] = useState(false)
 
   switch (field.type) {
@@ -174,6 +175,9 @@ export default function FieldCell({ field, value, onChange, rowLabel }) {
 
     case 'image':
       return <ImageCell value={value} onChange={onChange} />
+
+    case 'select':
+      return <SelectCell strategyId={strategyId} field={field} value={value} onChange={onChange} />
 
     default:
       return null

@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ChevronLeft, ChevronRight, LineChart, Table2 } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, LineChart, PanelRightClose, PanelRightOpen, Table2 } from 'lucide-react'
 import { useEffect } from 'react'
 import { useStrategyTesterStore } from '../../store/strategyTesterStore'
 import { tradeThemeCssVars, isGlassTheme, isClayTheme } from '../../theme/tradeAnalysisThemes'
@@ -95,6 +95,7 @@ export default function StrategyTester() {
   const isOpen = useStrategyTesterStore((s) => s.isOpen)
   const theme = useStrategyTesterStore((s) => s.theme)
   const activeView = useStrategyTesterStore((s) => s.activeView)
+  const showAddStrategy = useStrategyTesterStore((s) => s.showAddStrategy)
   const isGlass = isGlassTheme(theme)
   const isClay = isClayTheme(theme)
 
@@ -102,6 +103,8 @@ export default function StrategyTester() {
     if (!isOpen) return
     const onKeyDown = (e) => {
       if (e.key === 'Escape') {
+        // An open select popover handles Esc itself (closes just the popover).
+        if (document.querySelector('[data-st-popover]')) return
         e.stopPropagation()
         useStrategyTesterStore.getState().close()
       }
@@ -153,9 +156,29 @@ export default function StrategyTester() {
 
             {activeView === 'table' && <MonthNav />}
 
-            <div className="ml-auto hidden shrink-0 text-[9px] sm:block" style={{ color: 'var(--ta-slate)' }}>
-              One row per day — click a strategy's <span style={{ color: 'var(--ta-accent)', fontWeight: 700 }}>+</span> to add a
-              field
+            <div className="ml-auto flex shrink-0 items-center gap-1.5">
+              {activeView === 'table' && (
+                <motion.button
+                  type="button"
+                  whileHover={{ scale: 1.12 }}
+                  whileTap={{ scale: 0.9 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 24 }}
+                  onClick={() => useStrategyTesterStore.getState().toggleAddStrategyPanel()}
+                  title={showAddStrategy ? 'Hide "+ Strategy" panel' : 'Show "+ Strategy" panel'}
+                  aria-pressed={showAddStrategy}
+                  className="flex shrink-0 items-center justify-center rounded-full p-1"
+                  style={{
+                    backgroundColor: showAddStrategy ? 'var(--ta-accent)' : 'var(--ta-bg)',
+                    color: showAddStrategy ? '#fffcf2' : 'var(--ta-ink)',
+                  }}
+                >
+                  {showAddStrategy ? <PanelRightClose size={12} /> : <PanelRightOpen size={12} />}
+                </motion.button>
+              )}
+              <div className="hidden text-[9px] sm:block" style={{ color: 'var(--ta-slate)' }}>
+                One row per day — click a strategy's <span style={{ color: 'var(--ta-accent)', fontWeight: 700 }}>+</span> to add
+                a field
+              </div>
             </div>
           </div>
 

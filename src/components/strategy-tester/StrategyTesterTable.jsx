@@ -170,6 +170,7 @@ export default function StrategyTesterTable() {
   const entries = useStrategyTesterStore((s) => s.entries)
   const year = useStrategyTesterStore((s) => s.year)
   const month = useStrategyTesterStore((s) => s.month)
+  const showAddStrategy = useStrategyTesterStore((s) => s.showAddStrategy)
 
   const numDays = daysInMonth(year, month)
   const rows = Array.from({ length: numDays }, (_, i) => i + 1)
@@ -192,19 +193,21 @@ export default function StrategyTesterTable() {
             {visibleStrategies.map((st) => (
               <StrategyGroupHeader key={st.id} strategy={st} isOnly={strategies.length === 1} />
             ))}
-            <th rowSpan={2} className="st-th-group px-1 text-center align-middle">
-              <motion.button
-                type="button"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.94 }}
-                onClick={() => useStrategyTesterStore.getState().addStrategy()}
-                title="Add another strategy to test"
-                className="whitespace-nowrap rounded-full px-2 py-0.5 text-[9px] font-semibold"
-                style={{ backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }}
-              >
-                + Strategy
-              </motion.button>
-            </th>
+            {showAddStrategy && (
+              <th rowSpan={2} className="st-th-group px-1 text-center align-middle">
+                <motion.button
+                  type="button"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.94 }}
+                  onClick={() => useStrategyTesterStore.getState().addStrategy()}
+                  title="Add another strategy to test"
+                  className="whitespace-nowrap rounded-full px-2 py-0.5 text-[9px] font-semibold"
+                  style={{ backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }}
+                >
+                  + Strategy
+                </motion.button>
+              </th>
+            )}
           </tr>
           <tr>
             {visibleStrategies.map((st) =>
@@ -237,6 +240,7 @@ export default function StrategyTesterTable() {
                     st.fields.map((f) => (
                       <td key={f.id} className="text-center">
                         <FieldCell
+                          strategyId={st.id}
                           field={f}
                           rowLabel={`${day} ${weekdayFor(year, month, day)}`}
                           value={entries?.[st.id]?.[dk]?.[f.id]}
@@ -248,7 +252,7 @@ export default function StrategyTesterTable() {
                     <td key={st.id} />
                   )
                 )}
-                <td />
+                {showAddStrategy && <td />}
               </tr>
             )
           })}

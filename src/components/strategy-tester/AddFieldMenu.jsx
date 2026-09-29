@@ -11,6 +11,7 @@ import {
   Trophy,
   Scale,
   IndianRupee,
+  Tag,
 } from 'lucide-react'
 import { FIELD_TYPES } from '../../utils/strategyTesterFields'
 
@@ -24,6 +25,7 @@ const ICONS = {
   Trophy,
   Scale,
   IndianRupee,
+  Tag,
 }
 
 // The "+" on a strategy's header — click it, pick what that row needs

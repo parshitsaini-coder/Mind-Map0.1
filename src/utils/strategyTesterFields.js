@@ -16,9 +16,13 @@ export const FIELD_TYPES = [
   { type: 'outcome', label: 'Win Rate', icon: 'Trophy', width: 58, hint: 'Win / Loss / Breakeven' },
   { type: 'rrr', label: 'RRR', icon: 'Scale', width: 58, hint: 'Reward:Risk ratio' },
   { type: 'pnl', label: 'P&L', icon: 'IndianRupee', width: 66, hint: 'Profit / loss for that entry' },
+  { type: 'select', label: 'Select', icon: 'Tag', width: 84, hint: 'Your own options — create tags and pick one (like Notion)' },
 ]
 
 export const FIELD_TYPE_MAP = Object.fromEntries(FIELD_TYPES.map((f) => [f.type, f]))
+
+// Palette for Select-field option tags (cycled when creating / recolouring).
+export const SELECT_COLORS = ['#6b7280', '#d97706', '#16a34a', '#2563eb', '#7c3aed', '#db2777', '#dc2626', '#0d9488']
 
 export const RRR_OPTIONS = ['1:2', '1:3', '1:5', '1:6', '1:8', '1:10', '1:10+']
 

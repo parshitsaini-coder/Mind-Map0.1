@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
+import { SELECT_COLORS } from '../utils/strategyTesterFields'
 
 // Section — Strategy Tester. A separate full-screen feature (own overlay,
 // own top bar), inspired by a classic backtest "strategy tester" grid:
@@ -35,6 +36,8 @@ const initialState = {
   isOpen: false,
   theme: 'classic',
   activeView: 'table', // 'table' | 'analysis'
+  // Whether the "+ Strategy" column at the right edge of the table is shown.
+  showAddStrategy: true,
   year: today.getFullYear(),
   month: today.getMonth(), // 0-11
   strategies: [makeStrategy('Strategy Tester', true), makeStrategy('Strategy :- 1')],
@@ -59,6 +62,7 @@ export const useStrategyTesterStore = create(
       close: () => set({ isOpen: false }),
       setActiveView: (activeView) => set({ activeView }),
       setTheme: (theme) => set({ theme }),
+      toggleAddStrategyPanel: () => set((s) => ({ showAddStrategy: !s.showAddStrategy })),
       setAnalysisStrategyId: (analysisStrategyId) => set({ analysisStrategyId }),
 
       goToMonth: (delta) =>
@@ -106,7 +110,9 @@ export const useStrategyTesterStore = create(
       addField: (strategyId, type, label) =>
         set((s) => ({
           strategies: s.strategies.map((st) =>
-            st.id === strategyId ? { ...st, fields: [...st.fields, { id: uid(), type, label }] } : st
+            st.id === strategyId
+              ? { ...st, fields: [...st.fields, { id: uid(), type, label, ...(type === 'select' ? { options: [] } : {}) }] }
+              : st
           ),
         })),
       removeField: (strategyId, fieldId) =>
@@ -135,6 +141,53 @@ export const useStrategyTesterStore = create(
             st.id === strategyId
               ? { ...st, fields: st.fields.map((f) => (f.id === fieldId ? { ...f, label } : f)) }
               : st
+          ),
+        })),
+
+      // Select-field options: [{ id, label, color }] stored on the field itself;
+      // cells only keep the chosen option's id.
+      addFieldOption: (strategyId, fieldId, label) => {
+        const id = uid()
+        set((s) => ({
+          strategies: s.strategies.map((st) =>
+            st.id !== strategyId
+              ? st
+              : {
+                  ...st,
+                  fields: st.fields.map((f) => {
+                    if (f.id !== fieldId) return f
+                    const opts = f.options || []
+                    return { ...f, options: [...opts, { id, label, color: SELECT_COLORS[(opts.length + 1) % SELECT_COLORS.length] }] }
+                  }),
+                }
+          ),
+        }))
+        return id
+      },
+      updateFieldOption: (strategyId, fieldId, optionId, patch) =>
+        set((s) => ({
+          strategies: s.strategies.map((st) =>
+            st.id !== strategyId
+              ? st
+              : {
+                  ...st,
+                  fields: st.fields.map((f) =>
+                    f.id !== fieldId ? f : { ...f, options: (f.options || []).map((o) => (o.id === optionId ? { ...o, ...patch } : o)) }
+                  ),
+                }
+          ),
+        })),
+      removeFieldOption: (strategyId, fieldId, optionId) =>
+        set((s) => ({
+          strategies: s.strategies.map((st) =>
+            st.id !== strategyId
+              ? st
+              : {
+                  ...st,
+                  fields: st.fields.map((f) =>
+                    f.id !== fieldId ? f : { ...f, options: (f.options || []).filter((o) => o.id !== optionId) }
+                  ),
+                }
           ),
         })),
 
@@ -202,6 +255,7 @@ export const useStrategyTesterStore = create(
         isOpen: state.isOpen,
         theme: state.theme,
         activeView: state.activeView,
+        showAddStrategy: state.showAddStrategy,
         year: state.year,
         month: state.month,
         strategies: state.strategies,

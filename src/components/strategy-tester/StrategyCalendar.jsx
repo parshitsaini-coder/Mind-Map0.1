@@ -13,6 +13,7 @@ import {
   StickyNote,
   Hash,
   Check,
+  Tag,
 } from 'lucide-react'
 import { useStrategyTesterStore } from '../../store/strategyTesterStore'
 import { daysInMonth, dateKey, weekdayFor, MONTH_NAMES, WEEKDAY_SHORT } from '../../utils/strategyTesterFields'
@@ -70,6 +71,7 @@ const FIELD_ICON = {
   notes: StickyNote,
   number: Hash,
   checkbox: Check,
+  select: Tag,
 }
 
 // Renders one field's value for the day-detail popup, in the same
@@ -85,6 +87,7 @@ function fieldValueLabel(field, value) {
   if (field.type === 'buysell') return value === 'buy' ? 'Buy' : value === 'sell' ? 'Sell' : '—'
   if (field.type === 'outcome') return value === 'win' ? 'Win' : value === 'loss' ? 'Loss' : value === 'be' ? 'Breakeven' : '—'
   if (field.type === 'checkbox') return value ? 'Yes' : 'No'
+  if (field.type === 'select') return (field.options || []).find((o) => o.id === value)?.label || '—'
   if (value == null || value === '') return '—'
   return String(value)
 }
