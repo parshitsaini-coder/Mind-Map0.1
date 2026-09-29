@@ -36,7 +36,7 @@ export default function RRRSelect({ value, onChange, label }) {
     <div ref={rootRef} className="relative flex h-full w-full items-center justify-center">
       <motion.button
         type="button"
-        whileTap={{ transform: 'scale(0.94)' }}
+        whileTap={{ scale: 0.94 }}
         onClick={() => setOpen((o) => !o)}
         title={label}
         className="flex h-full w-full items-center justify-center gap-0.5 px-0.5"

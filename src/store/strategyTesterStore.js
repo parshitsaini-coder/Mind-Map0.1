@@ -55,27 +55,11 @@ const initialState = {
   // pill in TopToolbar/StrategyTester the same way tradeAnalysisStore's
   // cloudStatus is, not persisted (see partialize below).
   cloudStatus: 'idle',
-  // Timestamp (ms) of the last LOCAL edit to strategies/entries. Persisted, so
-  // on the next page load loadFromCloud can tell whether this browser has
-  // newer data than the cloud row (and must not be overwritten by it).
-  localUpdatedAt: 0,
 }
 
 export const useStrategyTesterStore = create(
   persist(
-    (rawSet, get) => {
-      // Every user edit goes through this `set`, which stamps localUpdatedAt
-      // whenever strategies/entries change. Cloud-apply uses rawSet directly
-      // so pulling from the cloud never counts as a local edit.
-      const set = (arg, ...rest) =>
-        rawSet((state) => {
-          const patch = typeof arg === 'function' ? arg(state) : arg
-          if (patch && ('strategies' in patch || 'entries' in patch)) {
-            return { ...patch, localUpdatedAt: Date.now() }
-          }
-          return patch
-        }, ...rest)
-      return {
+    (set, get) => ({
       ...initialState,
 
       open: () => set({ isOpen: true }),
@@ -271,37 +255,28 @@ export const useStrategyTesterStore = create(
       // when Supabase isn't configured or nobody's signed in.
       loadFromCloud: async (userId) => {
         if (!isSupabaseConfigured || !userId) return
-        // Snapshot BEFORE the network round-trip: if the user edits anything
-        // while we wait, the cloud copy is already stale and must not replace it.
-        const before = get()
         const { data, error } = await supabase
           .from('strategy_tester')
-          .select('strategies, entries, updated_at')
+          .select('strategies, entries')
           .eq('user_id', userId)
           .maybeSingle()
         if (error) return
 
         const cloudStrategies = data?.strategies || []
         const cloudEntries = data?.entries || {}
-        const { strategies: localStrategies, entries: localEntries, localUpdatedAt } = get()
+        const { strategies: localStrategies, entries: localEntries } = get()
         const cloudIsEmpty = cloudStrategies.length === 0
         const localHasData = localStrategies.length > 0 && Object.keys(localEntries).length > 0
 
-        const editedWhileLoading = before.entries !== localEntries || before.strategies !== localStrategies
-        const cloudTime = data?.updated_at ? new Date(data.updated_at).getTime() : 0
-        const localIsNewer = (localUpdatedAt || 0) > cloudTime
-
-        // Empty cloud row, or this browser has edits the cloud hasn't seen
-        // yet (picked a value then refreshed / edited during the fetch):
-        // keep local and push it up instead of overwriting it.
-        if ((cloudIsEmpty && localHasData) || editedWhileLoading || (localIsNewer && localHasData)) {
+        // First sync (or the cloud row doesn't exist yet): don't let an
+        // empty cloud row stomp real local data — push local up instead.
+        if (cloudIsEmpty && localHasData) {
           get().saveToCloud(userId)
           return
         }
         if (cloudIsEmpty) return
 
-        // Apply with rawSet so this doesn't stamp localUpdatedAt.
-        rawSet({ strategies: migrateStrategies(cloudStrategies), entries: cloudEntries, localUpdatedAt: cloudTime })
+        set({ strategies: migrateStrategies(cloudStrategies), entries: cloudEntries })
       },
       saveToCloud: async (userId) => {
         if (!isSupabaseConfigured || !userId) return
@@ -315,8 +290,7 @@ export const useStrategyTesterStore = create(
         })
         set({ cloudStatus: error ? 'error' : 'saved' })
       },
-      }
-    },
+    }),
     {
       name: 'mindmap-strategy-tester-storage',
       merge: (persisted, current) => {
@@ -336,7 +310,6 @@ export const useStrategyTesterStore = create(
         strategies: state.strategies,
         analysisStrategyId: state.analysisStrategyId,
         entries: state.entries,
-        localUpdatedAt: state.localUpdatedAt,
       }),
     }
   )

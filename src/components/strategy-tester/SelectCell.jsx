@@ -124,7 +124,7 @@ export default function SelectCell({ strategyId, field, value, onChange }) {
       <motion.button
         ref={btnRef}
         type="button"
-        whileTap={{ transform: 'scale(0.96)' }}
+        whileTap={{ scale: 0.96 }}
         onClick={() => setOpen((o) => !o)}
         onContextMenu={(e) => {
           e.preventDefault()
