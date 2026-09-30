@@ -61,33 +61,71 @@ export default function StrategyTesterCards() {
   return (
     <div className="flex h-full min-h-0 flex-col gap-1.5">
       <div className="flex shrink-0 items-center justify-between gap-2 px-0.5">
-        <span className="text-[10px] font-semibold" style={{ color: 'var(--ta-slate)' }}>
-          {filledCount} of {days.length} days filled
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-semibold" style={{ color: 'var(--ta-slate)' }}>
+            <motion.span
+              key={filledCount}
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2 }}
+              className="inline-block font-extrabold"
+              style={{ color: 'var(--ta-ink)' }}
+            >
+              {filledCount}
+            </motion.span>{' '}
+            of {days.length} days filled
+          </span>
+          <div className="h-1 w-24 overflow-hidden rounded-full" style={{ backgroundColor: 'var(--ta-bg)' }}>
+            <motion.div
+              className="h-full rounded-full"
+              style={{ backgroundColor: 'var(--ta-accent)' }}
+              initial={false}
+              animate={{ width: `${days.length ? (filledCount / days.length) * 100 : 0}%` }}
+              transition={{ type: 'spring', stiffness: 160, damping: 22 }}
+            />
+          </div>
+        </div>
         <div className="flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={() => setAdjustOpen(true)}
-          className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-          style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }}
-          title="Move and resize the fields inside each card"
-        >
-          <SlidersHorizontal size={10} />
-          Adjust card
-        </button>
-        <button
-          type="button"
-          onClick={() => setHideEmpty((v) => !v)}
-          aria-pressed={hideEmpty}
-          className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-          style={{
-            backgroundColor: hideEmpty ? 'var(--ta-accent)' : 'var(--ta-bg)',
-            color: hideEmpty ? '#fffcf2' : 'var(--ta-ink)',
-          }}
-        >
-          {hideEmpty ? <EyeOff size={10} /> : <Eye size={10} />}
-          {hideEmpty ? 'Showing filled days' : 'Hide empty days'}
-        </button>
+          <motion.button
+            type="button"
+            onClick={() => setAdjustOpen(true)}
+            whileHover={{ scale: 1.06 }}
+            whileTap={{ scale: 0.94 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 24 }}
+            className="group flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+            style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }}
+            title="Move and resize the fields inside each card"
+          >
+            <SlidersHorizontal size={10} className="transition-transform duration-300 group-hover:rotate-90" />
+            Adjust card
+          </motion.button>
+          <motion.button
+            type="button"
+            onClick={() => setHideEmpty((v) => !v)}
+            aria-pressed={hideEmpty}
+            whileHover={{ scale: 1.06 }}
+            whileTap={{ scale: 0.94 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 24 }}
+            className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+            style={{
+              backgroundColor: hideEmpty ? 'var(--ta-accent)' : 'var(--ta-bg)',
+              color: hideEmpty ? '#fffcf2' : 'var(--ta-ink)',
+            }}
+          >
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span
+                key={hideEmpty ? 'off' : 'on'}
+                initial={{ opacity: 0, rotate: -40, scale: 0.6 }}
+                animate={{ opacity: 1, rotate: 0, scale: 1 }}
+                exit={{ opacity: 0, rotate: 40, scale: 0.6 }}
+                transition={{ duration: 0.14 }}
+                className="flex"
+              >
+                {hideEmpty ? <EyeOff size={10} /> : <Eye size={10} />}
+              </motion.span>
+            </AnimatePresence>
+            {hideEmpty ? 'Showing filled days' : 'Hide empty days'}
+          </motion.button>
         </div>
       </div>
 
@@ -109,54 +147,47 @@ export default function StrategyTesterCards() {
             {shown.map(({ day, dk, wd, filled }, i) => {
               const isToday = isCurrentMonth && today.getDate() === day
               const rowLabel = `${day} ${WEEKDAY_SHORT[wd]}`
+              const weekend = wd === 0 || wd === 6
               return (
-                <motion.div
+                <div
                   key={dk}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.22, delay: Math.min(i, 10) * 0.02 }}
-                  className="flex flex-col gap-1.5 rounded-xl border p-2"
-                  style={{
-                    backgroundColor: 'var(--ta-surface)',
-                    borderColor: isToday ? 'var(--ta-accent)' : 'var(--ta-slate)',
-                    boxShadow: isToday ? '0 0 0 1px var(--ta-accent)' : undefined,
-                  }}
+                  className={`st-card flex flex-col gap-1.5 rounded-xl border p-2 ${isToday ? 'st-today' : ''} ${weekend ? 'st-weekend' : ''}`}
+                  style={{ '--i': i, '--wk': WEEKDAY_COLORS[wd], backgroundColor: 'var(--ta-surface)' }}
                 >
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[15px] font-extrabold leading-none" style={{ color: 'var(--ta-ink)' }}>
-                      {day}
-                    </span>
-                    <span
-                      className="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase"
-                      style={{ backgroundColor: `color-mix(in srgb, ${WEEKDAY_COLORS[wd]} 20%, transparent)`, color: WEEKDAY_COLORS[wd] }}
-                    >
-                      {WEEKDAY_SHORT[wd]}
-                    </span>
-                    {isToday && (
-                      <span className="rounded-full px-1.5 py-0.5 text-[8px] font-bold" style={{ backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }}>
-                        Today
-                      </span>
-                    )}
-                    <span className="ml-auto text-[8px] font-semibold" style={{ color: filled ? '#16a34a' : 'var(--ta-slate)', opacity: filled ? 1 : 0.6 }}>
-                      {filled ? '● filled' : '○ empty'}
+                    <span className="st-date-num">{day}</span>
+                    <span className="st-wk">{WEEKDAY_SHORT[wd]}</span>
+                    {isToday && <span className="st-today-tag">Today</span>}
+                    <span key={filled ? 'f' : 'e'} className={`st-status ${filled ? 'is-filled' : ''}`}>
+                      {filled ? 'filled' : 'empty'}
                     </span>
                   </div>
 
                   {visibleStrategies.map((st) => (
-                    <div key={st.id} className="rounded-lg border p-1.5" style={{ borderColor: 'var(--tad-border)' }}>
-                      <div className="mb-1 truncate text-[10px] font-bold" style={{ color: 'var(--ta-ink)' }}>
-                        {st.name}
+                    <div key={st.id} className="st-card-strat rounded-lg border p-1.5" style={{ borderColor: 'var(--tad-border)' }}>
+                      <div className="mb-1">
+                        <span className="st-name" style={{ fontSize: 10 }}>
+                          <span className="st-name-dot" aria-hidden="true" />
+                          <span className="st-name-text">
+                            {Array.from(st.name).map((ch, ci) => (
+                              <span key={ci} className="st-name-ch" style={{ '--i': Math.min(ci, 24) }} aria-hidden="true">
+                                {ch === ' ' ? '\u00a0' : ch}
+                              </span>
+                            ))}
+                          </span>
+                        </span>
                       </div>
                       <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${CARD_GRID_COLS}, minmax(0, 1fr))` }}>
-                        {resolveCardFields(st).map(({ field: f, w, h }) => {
+                        {resolveCardFields(st).map(({ field: f, w, h }, ti) => {
                           const [c1] = FIELD_HEADER_COLORS[f.type] || ['#64748b']
+                          const has = isValueFilled(f.type, entries?.[st.id]?.[dk]?.[f.id])
                           return (
                             <div
                               key={f.id}
-                              className="flex min-h-[38px] flex-col items-stretch rounded-md border px-1 pb-0.5 pt-0.5"
-                              style={{ borderColor: 'var(--tad-border)', gridColumn: `span ${w}`, height: h || undefined }}
+                              className={`st-tile flex min-h-[38px] flex-col items-stretch rounded-md border px-1 pb-0.5 pt-0.5 ${has ? 'is-filled' : ''}`}
+                              style={{ '--ti': ti, '--tc': c1, borderColor: 'var(--tad-border)', gridColumn: `span ${w}`, height: h || undefined }}
                             >
-                              <span className="truncate text-center text-[7.5px] font-bold uppercase tracking-wide" style={{ color: c1 }}>
+                              <span className="st-tile-label truncate text-center text-[7.5px] font-bold uppercase tracking-wide" style={{ color: c1 }}>
                                 {f.label}
                               </span>
                               <div className="flex min-h-[22px] flex-1 items-center justify-center">
@@ -174,7 +205,7 @@ export default function StrategyTesterCards() {
                       </div>
                     </div>
                   ))}
-                </motion.div>
+                </div>
               )
             })}
           </div>

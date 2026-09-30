@@ -1825,3 +1825,204 @@ body {
     transition-duration: 1ms;
   }
 }
+
+/* ==========================================================================
+   Strategy Tester — Cards view effects. Mirrors the List view's day cell
+   (number badge + weekday pill, today ring, weekend tint, hover lift) and
+   adds card-level touches. Deliberately NO transform on the card while
+   hovered / focused: cell popups are position:fixed descendants, and a
+   transformed ancestor would become their containing block and misplace
+   them. Hover uses colour + shadow only; entrances are `backwards`-filled so
+   no transform lingers after they end.
+   ========================================================================== */
+.st-card {
+  position: relative;
+  isolation: isolate;
+  border-color: var(--ta-slate);
+  transition: box-shadow 0.22s ease, border-color 0.22s ease, background-color 0.22s ease;
+  animation: st-row-in 340ms var(--ease-out) backwards;
+  animation-delay: calc(min(var(--i, 0), 12) * 30ms);
+}
+.st-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--wk) 9%, transparent), transparent 46%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+.st-card.st-weekend::before {
+  opacity: 1;
+}
+.st-card:focus-within {
+  border-color: var(--ta-accent);
+  box-shadow: 0 0 0 1px var(--ta-accent);
+}
+.st-card.st-today {
+  border-color: var(--ta-accent);
+  animation: st-row-in 340ms var(--ease-out) backwards, st-card-ring 2.8s ease-in-out 800ms infinite;
+  animation-delay: calc(min(var(--i, 0), 12) * 30ms), 800ms;
+}
+.st-card.st-today::before {
+  opacity: 1;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ta-accent) 13%, transparent), transparent 55%);
+}
+@keyframes st-card-ring {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ta-accent) 40%, transparent);
+  }
+  55% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--ta-accent) 0%, transparent);
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  .st-card:hover {
+    border-color: color-mix(in srgb, var(--ta-accent) 60%, var(--ta-slate));
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--ta-ink) 16%, transparent), 0 0 0 1px color-mix(in srgb, var(--ta-accent) 30%, transparent);
+  }
+  .st-card:hover .st-date-num {
+    transform: scale(1.14);
+  }
+  .st-card:hover .st-wk {
+    transform: translateY(-1px) scale(1.06);
+    background: var(--wk);
+    color: #fff;
+    box-shadow: 0 2px 6px color-mix(in srgb, var(--wk) 50%, transparent);
+  }
+}
+.st-card .st-date-num {
+  font-size: 15px;
+  line-height: 1.25;
+  min-width: 1.9em;
+}
+.st-card.st-weekend .st-date-num {
+  color: color-mix(in srgb, var(--wk) 80%, var(--ta-ink));
+}
+.st-card.st-today .st-date-num {
+  background: var(--ta-accent);
+  color: #fffcf2;
+  animation: st-date-in 340ms var(--ease-out) backwards, st-today-ring 2.4s ease-in-out 600ms infinite;
+  animation-delay: calc(min(var(--i, 0), 12) * 30ms + 40ms), 600ms;
+}
+.st-card.st-today .st-wk {
+  background: var(--ta-accent);
+  color: #fffcf2;
+  box-shadow: none;
+}
+.st-card .st-date-num,
+.st-card .st-wk {
+  animation-delay: calc(min(var(--i, 0), 12) * 30ms + 60ms);
+}
+.st-today-tag {
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--ta-accent) 18%, transparent);
+  color: var(--ta-accent);
+  animation: st-pop 380ms var(--ease-out) backwards;
+  animation-delay: calc(min(var(--i, 0), 12) * 30ms + 220ms);
+}
+
+/* filled / empty status badge — re-keyed in React so it pops when it flips */
+.st-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--ta-slate);
+  opacity: 0.65;
+  animation: st-pop 320ms var(--ease-out) backwards;
+}
+.st-status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  border: 1.5px solid currentColor;
+  box-sizing: border-box;
+}
+.st-status.is-filled {
+  color: #16a34a;
+  opacity: 1;
+}
+.st-status.is-filled::before {
+  background: currentColor;
+  border-color: currentColor;
+  animation: st-status-pulse 2.2s ease-in-out infinite;
+}
+@keyframes st-status-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, #16a34a 45%, transparent);
+  }
+  55% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, #16a34a 0%, transparent);
+  }
+}
+
+/* strategy box inside a card */
+.st-card-strat {
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .st-card-strat:hover {
+    border-color: color-mix(in srgb, var(--ta-accent) 35%, var(--tad-border));
+    background-color: color-mix(in srgb, var(--ta-accent) 3%, transparent);
+  }
+}
+
+/* field tiles */
+.st-tile {
+  transition: border-color 0.16s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+  animation: st-item-in 240ms var(--ease-out) backwards;
+  animation-delay: calc(min(var(--ti, 0), 14) * 22ms + 140ms + min(var(--i, 0), 12) * 30ms);
+}
+.st-tile.is-filled {
+  border-color: color-mix(in srgb, var(--tc) 48%, var(--tad-border));
+  background-color: color-mix(in srgb, var(--tc) 6%, transparent);
+}
+.st-tile:focus-within {
+  border-color: var(--ta-accent);
+  box-shadow: inset 0 -2px 0 0 var(--ta-accent);
+  background-color: color-mix(in srgb, var(--ta-accent) 8%, transparent);
+}
+@media (hover: hover) and (pointer: fine) {
+  .st-tile:hover {
+    border-color: color-mix(in srgb, var(--ta-accent) 55%, var(--tad-border));
+    background-color: color-mix(in srgb, var(--ta-accent) 7%, transparent);
+  }
+}
+.st-tile-label {
+  transition: letter-spacing 0.2s var(--ease-out), opacity 0.2s ease;
+  opacity: 0.85;
+}
+.st-tile:hover .st-tile-label,
+.st-tile:focus-within .st-tile-label,
+.st-tile.is-filled .st-tile-label {
+  opacity: 1;
+  letter-spacing: 0.06em;
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-card,
+  .st-card.st-today,
+  .st-card.st-today .st-date-num,
+  .st-tile,
+  .st-status,
+  .st-status.is-filled::before,
+  .st-today-tag {
+    animation: none;
+  }
+  .st-card:hover .st-date-num,
+  .st-card:hover .st-wk {
+    transform: none;
+  }
+}
