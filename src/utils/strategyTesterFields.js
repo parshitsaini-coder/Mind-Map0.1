@@ -117,3 +117,38 @@ export const optionTextStyle = (o) => {
     color: o?.textColor || undefined,
   }
 }
+
+// ---- Cards view layout ------------------------------------------------------
+// Inside a day card each strategy's fields sit on a CARD_GRID_COLS-column grid.
+// A field tile spans `w` columns (1..CARD_GRID_COLS) and is either auto-height
+// or a fixed `h` px. Order, widths and heights are per strategy and live on
+// `strategy.cardLayout = { order: [fieldId…], dims: { [fieldId]: { w, h } } }`,
+// so they ride along with the strategies to the cloud. Table column order is
+// untouched — this only shapes the cards.
+export const CARD_GRID_COLS = 6
+export const CARD_MIN_H = 34
+export const CARD_MAX_H = 240
+export const DEFAULT_CARD_W = {
+  image: 2, checkbox: 2, notes: 2, number: 2, buysell: 2, sltarget: 2, outcome: 2, rrr: 2,
+  pnl: 2, multiselect: 3, text: 3, time: 2, rating: 2, link: 3, select: 3,
+}
+
+// Fields in card order with their resolved size. Unknown / deleted ids in the
+// saved order are dropped, and fields added later are appended at the end.
+export const resolveCardFields = (strategy, layoutOverride) => {
+  const layout = layoutOverride || strategy.cardLayout || {}
+  const byId = new Map((strategy.fields || []).map((f) => [f.id, f]))
+  const ids = []
+  ;(layout.order || []).forEach((id) => {
+    if (byId.has(id) && !ids.includes(id)) ids.push(id)
+  })
+  ;(strategy.fields || []).forEach((f) => {
+    if (!ids.includes(f.id)) ids.push(f.id)
+  })
+  return ids.map((id) => {
+    const field = byId.get(id)
+    const d = layout.dims?.[id] || {}
+    const w = Math.max(1, Math.min(CARD_GRID_COLS, d.w || DEFAULT_CARD_W[field.type] || 2))
+    return { field, w, h: d.h || null }
+  })
+}

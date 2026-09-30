@@ -38,6 +38,8 @@ const initialState = {
   activeView: 'table', // 'table' | 'analysis'
   // How the Table tab lays out the days: 'list' = the grid, 'cards' = one card per day.
   entriesView: 'list', // 'list' | 'cards'
+  // Day cards per row in the Cards view. 0 = automatic (responsive).
+  cardCols: 0,
   // Whether the "+ Strategy" column at the right edge of the table is shown.
   showAddStrategy: true,
   // Weekdays shown as rows (JS getDay(): 0 = Sun … 6 = Sat). All by default.
@@ -68,6 +70,21 @@ export const useStrategyTesterStore = create(
       close: () => set({ isOpen: false }),
       setActiveView: (activeView) => set({ activeView }),
       setEntriesView: (entriesView) => set({ entriesView }),
+      setCardCols: (cardCols) => set({ cardCols }),
+      // Cards-view layout of one strategy: { order, dims } (see strategyTesterFields.js).
+      setCardLayout: (strategyId, cardLayout) =>
+        set((s) => ({
+          strategies: s.strategies.map((st) => (st.id === strategyId ? { ...st, cardLayout } : st)),
+        })),
+      resetCardLayout: (strategyId) =>
+        set((s) => ({
+          strategies: s.strategies.map((st) => {
+            if (st.id !== strategyId) return st
+            const rest = { ...st }
+            delete rest.cardLayout
+            return rest
+          }),
+        })),
       setTheme: (theme) => set({ theme }),
       setDateColWidth: (dateColWidth) => set({ dateColWidth }),
       setFieldWidth: (strategyId, fieldId, width) =>
@@ -306,6 +323,7 @@ export const useStrategyTesterStore = create(
         theme: state.theme,
         activeView: state.activeView,
         entriesView: state.entriesView,
+        cardCols: state.cardCols,
         showAddStrategy: state.showAddStrategy,
         visibleWeekdays: state.visibleWeekdays,
         dateColWidth: state.dateColWidth,

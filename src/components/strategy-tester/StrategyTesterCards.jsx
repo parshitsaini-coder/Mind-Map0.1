@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
-import { motion } from 'framer-motion'
-import { Eye, EyeOff } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Eye, EyeOff, SlidersHorizontal } from 'lucide-react'
 import { useStrategyTesterStore } from '../../store/strategyTesterStore'
 import {
   FIELD_HEADER_COLORS,
+  CARD_GRID_COLS,
+  resolveCardFields,
   daysInMonth,
   dateKey,
   isValueFilled,
@@ -11,6 +13,7 @@ import {
   WEEKDAY_COLORS,
 } from '../../utils/strategyTesterFields'
 import FieldCell from './FieldCell'
+import CardAdjustPopup from './CardAdjustPopup'
 
 // Card alternative to StrategyTesterTable — same data, same store actions and
 // the very same editable FieldCell widgets, laid out as one card per day
@@ -27,7 +30,9 @@ export default function StrategyTesterCards() {
   const year = useStrategyTesterStore((s) => s.year)
   const month = useStrategyTesterStore((s) => s.month)
   const visibleWeekdays = useStrategyTesterStore((s) => s.visibleWeekdays) || [0, 1, 2, 3, 4, 5, 6]
+  const cardCols = useStrategyTesterStore((s) => s.cardCols) || 0
   const [hideEmpty, setHideEmpty] = useState(false)
+  const [adjustOpen, setAdjustOpen] = useState(false)
 
   const visibleStrategies = useMemo(
     () => strategies.filter((st) => !st.hidden && st.fields.length > 0),
@@ -59,6 +64,17 @@ export default function StrategyTesterCards() {
         <span className="text-[10px] font-semibold" style={{ color: 'var(--ta-slate)' }}>
           {filledCount} of {days.length} days filled
         </span>
+        <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => setAdjustOpen(true)}
+          className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+          style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }}
+          title="Move and resize the fields inside each card"
+        >
+          <SlidersHorizontal size={10} />
+          Adjust card
+        </button>
         <button
           type="button"
           onClick={() => setHideEmpty((v) => !v)}
@@ -72,6 +88,7 @@ export default function StrategyTesterCards() {
           {hideEmpty ? <EyeOff size={10} /> : <Eye size={10} />}
           {hideEmpty ? 'Showing filled days' : 'Hide empty days'}
         </button>
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
@@ -84,7 +101,11 @@ export default function StrategyTesterCards() {
             No filled days this month.
           </p>
         ) : (
-          <div key={`${year}-${month}-${hideEmpty}`} className="grid grid-cols-1 gap-2 pb-2 md:grid-cols-2 xl:grid-cols-3">
+          <div
+            key={`${year}-${month}-${hideEmpty}`}
+            className={`grid gap-2 pb-2 ${cardCols ? '' : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'}`}
+            style={cardCols ? { gridTemplateColumns: `repeat(${cardCols}, minmax(0, 1fr))` } : undefined}
+          >
             {shown.map(({ day, dk, wd, filled }, i) => {
               const isToday = isCurrentMonth && today.getDate() === day
               const rowLabel = `${day} ${WEEKDAY_SHORT[wd]}`
@@ -126,15 +147,14 @@ export default function StrategyTesterCards() {
                       <div className="mb-1 truncate text-[10px] font-bold" style={{ color: 'var(--ta-ink)' }}>
                         {st.name}
                       </div>
-                      <div className="grid grid-cols-[repeat(auto-fill,minmax(84px,1fr))] gap-1">
-                        {st.fields.map((f) => {
+                      <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${CARD_GRID_COLS}, minmax(0, 1fr))` }}>
+                        {resolveCardFields(st).map(({ field: f, w, h }) => {
                           const [c1] = FIELD_HEADER_COLORS[f.type] || ['#64748b']
-                          const wide = f.type === 'multiselect' || f.type === 'select' || f.type === 'text' || f.type === 'link'
                           return (
                             <div
                               key={f.id}
-                              className={`flex min-h-[38px] flex-col items-stretch rounded-md border px-1 pb-0.5 pt-0.5 ${wide ? 'col-span-2' : ''}`}
-                              style={{ borderColor: 'var(--tad-border)' }}
+                              className="flex min-h-[38px] flex-col items-stretch rounded-md border px-1 pb-0.5 pt-0.5"
+                              style={{ borderColor: 'var(--tad-border)', gridColumn: `span ${w}`, height: h || undefined }}
                             >
                               <span className="truncate text-center text-[7.5px] font-bold uppercase tracking-wide" style={{ color: c1 }}>
                                 {f.label}
@@ -160,6 +180,9 @@ export default function StrategyTesterCards() {
           </div>
         )}
       </div>
+      <AnimatePresence>
+        {adjustOpen && <CardAdjustPopup strategies={visibleStrategies} onClose={() => setAdjustOpen(false)} />}
+      </AnimatePresence>
     </div>
   )
 }
