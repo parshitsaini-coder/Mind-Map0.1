@@ -1,11 +1,12 @@
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
-import { ArrowLeft, ChevronLeft, ChevronRight, LineChart, PanelRightClose, PanelRightOpen, Table2 } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, LayoutGrid, LineChart, List, PanelRightClose, PanelRightOpen, Table2 } from 'lucide-react'
 import { useEffect } from 'react'
 import { useStrategyTesterStore } from '../../store/strategyTesterStore'
 import { tradeThemeCssVars, tradeHeaderCssVars, isGlassTheme, isClayTheme } from '../../theme/tradeAnalysisThemes'
 import { MONTH_NAMES } from '../../utils/strategyTesterFields'
 import StrategyTesterThemePicker from './StrategyTesterThemePicker'
 import StrategyTesterTable from './StrategyTesterTable'
+import StrategyTesterCards from './StrategyTesterCards'
 import StrategyTesterAnalysis from './StrategyTesterAnalysis'
 import { EASE_OUT, useNavDirection } from './motionBits'
 
@@ -41,6 +42,46 @@ function ViewSwitch({ activeView, onChange }) {
             {active && (
               <motion.span
                 layoutId="st-view-switch-pill"
+                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                className="absolute inset-0 rounded-full"
+                style={{ backgroundColor: 'var(--ta-accent)' }}
+              />
+            )}
+            <span className="relative flex">
+              <tab.icon size={10} />
+            </span>
+            <span className="relative">{tab.label}</span>
+          </motion.button>
+        )
+      })}
+    </div>
+  )
+}
+
+// List | Cards switch for the Table tab — same idea as Trade Analysis's
+// List/Cards toggle. 'list' is the spreadsheet grid, 'cards' one card per day.
+function EntriesViewSwitch({ view, onChange }) {
+  const tabs = [
+    { id: 'list', label: 'List', icon: List },
+    { id: 'cards', label: 'Cards', icon: LayoutGrid },
+  ]
+  return (
+    <div className="ml-1 flex shrink-0 items-center gap-0.5 rounded-full p-0.5" style={{ backgroundColor: 'var(--ta-bg)' }}>
+      {tabs.map((tab) => {
+        const active = view === tab.id
+        return (
+          <motion.button
+            key={tab.id}
+            onClick={() => onChange(tab.id)}
+            whileHover={{ scale: 1.06 }}
+            whileTap={{ scale: 0.92 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 24 }}
+            className="relative flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+            style={{ color: active ? '#fffcf2' : 'var(--ta-ink)' }}
+          >
+            {active && (
+              <motion.span
+                layoutId="st-entries-view-pill"
                 transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                 className="absolute inset-0 rounded-full"
                 style={{ backgroundColor: 'var(--ta-accent)' }}
@@ -126,6 +167,7 @@ export default function StrategyTester() {
   const isOpen = useStrategyTesterStore((s) => s.isOpen)
   const theme = useStrategyTesterStore((s) => s.theme)
   const activeView = useStrategyTesterStore((s) => s.activeView)
+  const entriesView = useStrategyTesterStore((s) => s.entriesView) || 'list'
   const showAddStrategy = useStrategyTesterStore((s) => s.showAddStrategy)
   const isGlass = isGlassTheme(theme)
   const isClay = isClayTheme(theme)
@@ -200,8 +242,12 @@ export default function StrategyTester() {
 
             {activeView === 'table' && <MonthNav />}
 
+            {activeView === 'table' && (
+              <EntriesViewSwitch view={entriesView} onChange={(v) => useStrategyTesterStore.getState().setEntriesView(v)} />
+            )}
+
             <div className="ml-auto flex shrink-0 items-center gap-1.5">
-              {activeView === 'table' && (
+              {activeView === 'table' && entriesView === 'list' && (
                 <motion.button
                   type="button"
                   whileHover={{ scale: 1.12 }}
@@ -255,7 +301,11 @@ export default function StrategyTester() {
                 transition={{ duration: 0.16, ease: EASE_OUT }}
                 className="h-full"
               >
-                {activeView === 'table' ? <StrategyTesterTable /> : <StrategyTesterAnalysis />}
+                {activeView === 'table' ? (
+                  entriesView === 'cards' ? <StrategyTesterCards /> : <StrategyTesterTable />
+                ) : (
+                  <StrategyTesterAnalysis />
+                )}
               </motion.div>
             </AnimatePresence>
           </motion.div>

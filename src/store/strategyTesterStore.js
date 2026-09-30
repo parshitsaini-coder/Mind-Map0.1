@@ -36,6 +36,8 @@ const initialState = {
   isOpen: false,
   theme: 'classic',
   activeView: 'table', // 'table' | 'analysis'
+  // How the Table tab lays out the days: 'list' = the grid, 'cards' = one card per day.
+  entriesView: 'list', // 'list' | 'cards'
   // Whether the "+ Strategy" column at the right edge of the table is shown.
   showAddStrategy: true,
   // Weekdays shown as rows (JS getDay(): 0 = Sun … 6 = Sat). All by default.
@@ -65,6 +67,7 @@ export const useStrategyTesterStore = create(
       open: () => set({ isOpen: true }),
       close: () => set({ isOpen: false }),
       setActiveView: (activeView) => set({ activeView }),
+      setEntriesView: (entriesView) => set({ entriesView }),
       setTheme: (theme) => set({ theme }),
       setDateColWidth: (dateColWidth) => set({ dateColWidth }),
       setFieldWidth: (strategyId, fieldId, width) =>
@@ -302,6 +305,7 @@ export const useStrategyTesterStore = create(
         isOpen: state.isOpen,
         theme: state.theme,
         activeView: state.activeView,
+        entriesView: state.entriesView,
         showAddStrategy: state.showAddStrategy,
         visibleWeekdays: state.visibleWeekdays,
         dateColWidth: state.dateColWidth,
