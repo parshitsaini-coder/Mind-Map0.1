@@ -111,7 +111,7 @@ export function useCurrencyGroups() {
   const { inr, usd } = useScopedTrades()
   return useMemo(() => {
     const groups = []
-    if (inr.length) groups.push({ id: 'INR', label: 'Equity', symbol: '₹', trades: inr })
+    if (inr.length) groups.push({ id: 'INR', label: 'Equity & Index', symbol: '₹', trades: inr })
     if (usd.length) groups.push({ id: 'USD', label: 'Forex & Commodity', symbol: '$', trades: usd })
     return groups
   }, [inr, usd])

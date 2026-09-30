@@ -13,6 +13,7 @@ export const CURRENCY_BY_TYPE = {
   Equity: 'INR',
   Forex: 'USD',
   Commodity: 'USD',
+  Index: 'INR', // Nifty / Sensex etc. settle in ₹, same group as Equity
 }
 
 export const CURRENCY_SYMBOL = {
@@ -39,7 +40,7 @@ export const splitTradesByCurrency = (trades) => ({
 
 // Display label for each currency group's P&L widgets.
 export const CURRENCY_GROUP_LABEL = {
-  INR: 'Equity',
+  INR: 'Equity & Index',
   USD: 'Forex & Commodity',
 }
 

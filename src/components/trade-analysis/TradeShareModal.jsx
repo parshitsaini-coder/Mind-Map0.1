@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { X, Share2, Link2, Copy, Square, SlidersHorizontal, Layers, Clock3, ArrowLeftRight, CheckCircle2, ShieldCheck, Eraser, ChevronDown, Check, Loader2, Eye, EyeOff } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { INDIAN_STOCKS, FOREX_PAIRS, COMMODITIES } from '../../data/instruments'
+import { INDIAN_STOCKS, FOREX_PAIRS, COMMODITIES, INDICES } from '../../data/instruments'
 import { applyFilters } from '../../utils/tradeFilters'
 import { isoDate, daysAgoIso, DATE_RANGE_PRESETS } from '../../utils/dateRangePresets'
 import AnimatedSelect from './AnimatedSelect'
@@ -13,10 +13,10 @@ import { useTradeShareStore } from '../../store/tradeShareStore'
 import { tradeShareUrl, LIVE_EXPIRY_OPTIONS } from '../../lib/tradeShare'
 import { isSupabaseConfigured } from '../../lib/supabaseClient'
 
-const INSTRUMENT_TYPES = ['Equity', 'Forex', 'Commodity']
+const INSTRUMENT_TYPES = ['Equity', 'Forex', 'Commodity', 'Index']
 const TIMEFRAMES = ['1m', '3m', '5m', '15m', '30m', '60m', '75m', '2h', '3h', '4h', '1D', '1W', '1M']
 const STATUS_OPTIONS = ['Pending', 'Target Hit', 'SL Hit']
-const ALL_PAIRS = [...INDIAN_STOCKS, ...FOREX_PAIRS, ...COMMODITIES]
+const ALL_PAIRS = [...INDIAN_STOCKS, ...FOREX_PAIRS, ...COMMODITIES, ...INDICES]
 
 async function copyToClipboard(url) {
   try {
@@ -308,7 +308,7 @@ export default function TradeShareModal({ open, onClose }) {
             {/* Instrument type */}
             <div className="flex flex-col gap-1">
               <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Type</span>
-              <div className="grid grid-cols-4 gap-1">
+              <div className="grid grid-cols-5 gap-1">
                 {['All', ...INSTRUMENT_TYPES].map((t) => {
                   const isAll = t === 'All'
                   const active = isAll ? types.length === 0 : types.includes(t)

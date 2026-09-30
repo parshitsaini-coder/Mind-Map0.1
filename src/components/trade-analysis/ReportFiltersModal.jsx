@@ -15,15 +15,15 @@ import {
   ChevronDown,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { INDIAN_STOCKS, FOREX_PAIRS, COMMODITIES } from '../../data/instruments'
+import { INDIAN_STOCKS, FOREX_PAIRS, COMMODITIES, INDICES } from '../../data/instruments'
 import { applyFilters } from '../../utils/tradeFilters'
 import { isoDate, daysAgoIso, DATE_RANGE_PRESETS } from '../../utils/dateRangePresets'
 import AnimatedMultiSelect from './AnimatedMultiSelect'
 
-const INSTRUMENT_TYPES = ['Equity', 'Forex', 'Commodity']
+const INSTRUMENT_TYPES = ['Equity', 'Forex', 'Commodity', 'Index']
 const TIMEFRAMES = ['1m', '3m', '5m', '15m', '30m', '60m', '75m', '2h', '3h', '4h', '1D', '1W', '1M']
 const STATUS_OPTIONS = ['Pending', 'Target Hit', 'SL Hit']
-const ALL_PAIRS = [...INDIAN_STOCKS, ...FOREX_PAIRS, ...COMMODITIES]
+const ALL_PAIRS = [...INDIAN_STOCKS, ...FOREX_PAIRS, ...COMMODITIES, ...INDICES]
 
 // PDF quality presets — how far screenshots get downscaled/compressed
 // before being embedded (see generateTradeReport.js's QUALITY_PRESETS,
@@ -222,7 +222,7 @@ export default function ReportFiltersModal({ open, onClose, trades, busy, onGene
               {/* Instrument type */}
               <div className="flex flex-col gap-1">
                 <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Type</span>
-                <div className="grid grid-cols-4 gap-1">
+                <div className="grid grid-cols-5 gap-1">
                   {['All', ...INSTRUMENT_TYPES].map((t) => {
                     const isAll = t === 'All'
                     const active = isAll ? types.length === 0 : types.includes(t)

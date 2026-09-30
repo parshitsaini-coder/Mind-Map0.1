@@ -1158,7 +1158,7 @@ export function csvToTrades(text) {
       date,
       pair: get('pair') || get('instrumentName') || 'Imported',
       instrumentName: get('instrumentName') || get('pair') || 'Imported',
-      instrumentType: ['Equity', 'Forex', 'Commodity'].includes(type) ? type : 'Equity',
+      instrumentType: ['Equity', 'Forex', 'Commodity', 'Index'].includes(type) ? type : 'Equity',
       timeframe: get('timeframe') || '15m',
       direction: get('direction') === 'Sell' ? 'Sell' : 'Buy',
       price: priceRaw === '' ? null : num(priceRaw),

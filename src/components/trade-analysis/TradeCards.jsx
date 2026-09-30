@@ -6,6 +6,7 @@ import { useUiStore } from '../../store/uiStore'
 import { uploadTradeImage } from '../../lib/imageUpload'
 import StatusDropdown from './StatusDropdown'
 import ApplyValidationModal from './ApplyValidationModal'
+import PasteImageMenu from './PasteImageMenu'
 import { TYPE_BADGE_STYLE, TIMEFRAME_BADGE_STYLE, TIMEFRAME_DEFAULT_STYLE } from './TradesTable'
 import { symbolForType } from '../../utils/currency'
 import { applyFilters } from '../../utils/tradeFilters'
@@ -26,6 +27,8 @@ export default function TradeCards() {
   const [editingPnlId, setEditingPnlId] = useState(null)
   const [pnlDraft, setPnlDraft] = useState('')
   const [dragOverResultId, setDragOverResultId] = useState(null)
+  // Right-click "Paste image" popup for an empty Result box: { x, y, trade }
+  const [pasteMenu, setPasteMenu] = useState(null)
   const [celebrateId, setCelebrateId] = useState(null)
   // Card whose validation checklist popup is open (ApplyValidationModal),
   // opened via the small ListChecks button in the card header — lets a
@@ -386,6 +389,10 @@ export default function TradeCards() {
                         <motion.button
                           whileTap={{ scale: 0.9 }}
                           onClick={() => resultInputRefs.current[trade.id]?.click()}
+                          onContextMenu={(e) => {
+                            e.preventDefault()
+                            setPasteMenu({ x: e.clientX, y: e.clientY, trade })
+                          }}
                           onDragOver={(e) => {
                             e.preventDefault()
                             setDragOverResultId(trade.id)
@@ -398,7 +405,7 @@ export default function TradeCards() {
                             if (file) handleResultImagePick(trade, file)
                           }}
                           disabled={uploadingResultId === trade.id}
-                          title="Attach result / P&L image — click or drag & drop"
+                          title="Attach result / P&L image — click, drag & drop, or right-click to paste"
                           animate={{
                             scale: dragOverResultId === trade.id ? 1.12 : 1,
                             borderColor: dragOverResultId === trade.id ? 'var(--ta-accent)' : 'var(--ta-slate)',
@@ -493,6 +500,12 @@ export default function TradeCards() {
         onClose={() => setValidationCardId(null)}
         checkedIds={validationCardTrade?.validationRuleIds || []}
         onToggle={(ruleId) => useTradeAnalysisStore.getState().toggleTradeValidationRule(validationCardId, ruleId)}
+      />
+
+      <PasteImageMenu
+        pos={pasteMenu ? { x: pasteMenu.x, y: pasteMenu.y } : null}
+        onClose={() => setPasteMenu(null)}
+        onFile={(file) => pasteMenu && handleResultImagePick(pasteMenu.trade, file)}
       />
     </div>
   )

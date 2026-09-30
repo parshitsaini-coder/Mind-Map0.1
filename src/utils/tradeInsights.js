@@ -521,7 +521,7 @@ export function getInsights(trades, validationRules = [], validationCategories =
 
   const { INR, USD } = splitTradesByCurrency(trades)
   const insights = [
-    ...currencyInsights(INR, '₹', 'Equity'),
+    ...currencyInsights(INR, '₹', 'Equity & Index'),
     ...currencyInsights(USD, '$', 'Forex & Commodity'),
     ...behaviourInsights(trades, validationRules, validationCategories),
   ]

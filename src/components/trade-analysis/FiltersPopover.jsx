@@ -1,18 +1,18 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
-import { INDIAN_STOCKS, FOREX_PAIRS, COMMODITIES } from '../../data/instruments'
+import { INDIAN_STOCKS, FOREX_PAIRS, COMMODITIES, INDICES } from '../../data/instruments'
 import AnimatedMultiSelect from './AnimatedMultiSelect'
 import DatePicker from './DatePicker'
 
-const INSTRUMENT_TYPES = ['Equity', 'Forex', 'Commodity']
+const INSTRUMENT_TYPES = ['Equity', 'Forex', 'Commodity', 'Index']
 const TIMEFRAMES = ['1m', '3m', '5m', '15m', '30m', '60m', '75m', '2h', '3h', '4h', '1D', '1W', '1M']
 const STATUS_OPTIONS = ['Pending', 'Target Hit', 'SL Hit']
 
 // Every instrument across all three lists, for the pair filter's select —
 // deliberately not filtered by the type filter above it, since a user
 // might want to isolate one pair regardless of type.
-const ALL_PAIRS = [...INDIAN_STOCKS, ...FOREX_PAIRS, ...COMMODITIES]
+const ALL_PAIRS = [...INDIAN_STOCKS, ...FOREX_PAIRS, ...COMMODITIES, ...INDICES]
 
 // Number of filters currently set — drives the badge on the Filters
 // button in TradeAnalysis.jsx's top bar. Multi-select fields (arrays)
@@ -101,7 +101,7 @@ export default function FiltersPopover({ open, onClose }) {
             {/* Type */}
             <div className="flex flex-col gap-1">
               <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>Type</span>
-              <div className="grid grid-cols-4 gap-1">
+              <div className="grid grid-cols-5 gap-1">
                 {['All', ...INSTRUMENT_TYPES].map((t) => {
                   const isAll = t === 'All'
                   const active = isAll ? (filters.instrumentType || []).length === 0 : (filters.instrumentType || []).includes(t)

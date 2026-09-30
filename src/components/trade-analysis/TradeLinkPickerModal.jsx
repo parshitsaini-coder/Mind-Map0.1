@@ -9,6 +9,7 @@ const TYPE_BADGE_STYLE = {
   Equity: { bg: 'rgba(235,94,40,0.18)', text: '#c1450f' },
   Forex: { bg: 'rgba(37,99,235,0.16)', text: '#1d4ed8' },
   Commodity: { bg: 'rgba(217,119,6,0.18)', text: '#b45309' },
+  Index: { bg: 'rgba(147,51,234,0.16)', text: '#7e22ce' }, // purple
 }
 
 // Right-click a node → "Add trade" opens this. It lists every trade already

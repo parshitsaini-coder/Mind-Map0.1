@@ -20,15 +20,20 @@ import {
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useUiStore } from '../../store/uiStore'
 import { uploadTradeImage } from '../../lib/imageUpload'
-import { INDIAN_STOCKS, FOREX_PAIRS, COMMODITIES } from '../../data/instruments'
+import { INDIAN_STOCKS, FOREX_PAIRS, COMMODITIES, INDICES } from '../../data/instruments'
 import { symbolForType } from '../../utils/currency'
 import DatePicker from './DatePicker'
 import ApplyValidationModal from './ApplyValidationModal'
+import PasteImageMenu from './PasteImageMenu'
 
-const INSTRUMENT_TYPES = ['Equity', 'Forex', 'Commodity']
+const INSTRUMENT_TYPES = ['Equity', 'Forex', 'Commodity', 'Index']
 const TIMEFRAMES = ['1m', '3m', '5m', '15m', '30m', '60m', '75m', '2h', '3h', '4h', '1D', '1W', '1M']
 
-const listForType = (type) => (type === 'Equity' ? INDIAN_STOCKS : type === 'Forex' ? FOREX_PAIRS : COMMODITIES)
+const listForType = (type) =>
+  type === 'Equity' ? INDIAN_STOCKS : type === 'Forex' ? FOREX_PAIRS : type === 'Index' ? INDICES : COMMODITIES
+
+// Equity and Index both settle in Rupees (see utils/currency.js).
+const isRupeeType = (type) => type === 'Equity' || type === 'Index'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
@@ -127,6 +132,7 @@ export default function TradeForm({ mode = 'sidebar' }) {
   }, [editingTradeId])
 
   const fileInputRef = useRef(null)
+  const [pasteMenuPos, setPasteMenuPos] = useState(null)
   const dropZoneRef = useRef(null)
   const pulseControls = useAnimationControls()
   const lastSavedSnapshotRef = useRef(null)
@@ -380,7 +386,7 @@ export default function TradeForm({ mode = 'sidebar' }) {
           <Tag size={10} style={{ color: 'var(--ta-accent)' }} />
           Type
         </span>
-        <div className="grid grid-cols-3 gap-1">
+        <div className="grid grid-cols-4 gap-1">
           {INSTRUMENT_TYPES.map((t) => (
             <motion.button
               key={t}
@@ -390,7 +396,7 @@ export default function TradeForm({ mode = 'sidebar' }) {
                 patch({ instrumentType: t, pair: '' })
                 setPairQuery('')
               }}
-              className="rounded-md border py-0.5 text-[9px] font-medium transition-colors"
+              className="whitespace-nowrap rounded-md border px-0 py-0.5 text-[9px] font-medium transition-colors"
               style={
                 form.instrumentType === t
                   ? { backgroundColor: 'var(--ta-accent)', borderColor: 'var(--ta-accent)', color: '#fffcf2' }
@@ -407,7 +413,7 @@ export default function TradeForm({ mode = 'sidebar' }) {
       <motion.div variants={itemVariants} className="relative flex flex-col gap-1">
         <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>
           <Search size={10} style={{ color: 'var(--ta-accent)' }} />
-          {form.instrumentType === 'Commodity' ? 'Commodity' : form.instrumentType === 'Forex' ? 'Forex pair' : 'Stock'}
+          {form.instrumentType === 'Commodity' ? 'Commodity' : form.instrumentType === 'Forex' ? 'Forex pair' : form.instrumentType === 'Index' ? 'Index' : 'Stock'}
         </span>
         <div className="relative">
           <input
@@ -539,7 +545,7 @@ export default function TradeForm({ mode = 'sidebar' }) {
           here all settle in US Dollars (see utils/currency.js). */}
       <label className="flex flex-col gap-1">
         <span className={fieldLabelCls} style={{ color: 'var(--ta-slate)' }}>
-          {form.instrumentType === 'Equity' ? (
+          {isRupeeType(form.instrumentType) ? (
             <IndianRupee size={10} style={{ color: 'var(--ta-accent)' }} />
           ) : (
             <DollarSign size={10} style={{ color: 'var(--ta-accent)' }} />
@@ -602,7 +608,7 @@ export default function TradeForm({ mode = 'sidebar' }) {
           Border/text tint still flips green/red live so the sign is
           obvious while typing, same convention as the Result column's
           colors elsewhere in this feature. */}
-      {form.instrumentType === 'Equity' ? (
+      {isRupeeType(form.instrumentType) ? (
         <EquityPnlWidget key="equity-pnl" value={form.pnl} onChange={(v) => patch({ pnl: v })} />
       ) : (
         <ForexPnlWidget
@@ -738,6 +744,7 @@ export default function TradeForm({ mode = 'sidebar' }) {
           <motion.div
             ref={dropZoneRef}
             onClick={() => fileInputRef.current?.click()}
+            onContextMenu={(e) => { e.preventDefault(); setPasteMenuPos({ x: e.clientX, y: e.clientY }) }}
             onDragOver={(e) => { e.preventDefault(); setDragActive(true) }}
             onDragLeave={() => setDragActive(false)}
             onDrop={handleDrop}
@@ -753,7 +760,7 @@ export default function TradeForm({ mode = 'sidebar' }) {
               <ImagePlus size={16} style={{ color: dragActive ? 'var(--ta-accent)' : 'var(--ta-slate)' }} />
             </motion.span>
             <p className="text-[8px]" style={{ color: 'var(--ta-slate)' }}>
-              Drop, click to browse, or paste (Ctrl+V)
+              Drop, click to browse, right-click or Ctrl+V to paste
             </p>
           </motion.div>
         )}
@@ -768,6 +775,7 @@ export default function TradeForm({ mode = 'sidebar' }) {
             if (file) attachFile(file)
           }}
         />
+        <PasteImageMenu pos={pasteMenuPos} onClose={() => setPasteMenuPos(null)} onFile={attachFile} />
       </motion.div>
 
       <AnimatePresence>
