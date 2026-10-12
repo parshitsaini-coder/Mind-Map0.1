@@ -1,0 +1,532 @@
+# Online accounts + cloud save — Supabase setup
+
+This app can save each user's mind map online (real email + password login,
+with email confirmation) using [Supabase](https://supabase.com) — a free,
+open-source backend (no Firebase). Without this setup, the app still works
+fine locally (saved in the browser's localStorage) — it just won't sync
+across devices or log anyone in.
+
+## 1. Create a free Supabase project
+
+1. Go to https://supabase.com → sign up → **New Project**.
+2. Pick any name/region, set a database password (you won't need it again;
+   Supabase manages this for you), and wait ~2 minutes for it to spin up.
+
+## 2. Keep email confirmation on (recommended)
+
+People sign up with their **real email + password**, so Supabase should send
+them a confirmation link before they can log in — this is the default:
+
+1. In your project: **Authentication → Providers → Email**.
+2. Make sure **"Confirm email"** is **ON** (it is by default — no change
+   needed unless someone turned it off).
+
+That's it for a quick start — Supabase's built-in email sender works out of
+the box for testing, but it's rate-limited and emails can land in spam. For a
+real launch, set up a custom SMTP provider so confirmation/reset emails are
+reliable:
+
+1. **Project Settings → Auth → SMTP Settings**.
+2. Enable **Custom SMTP** and enter the credentials from any provider (e.g.
+   Resend, Postmark, SendGrid, Amazon SES — most have a free tier).
+3. Save, then send yourself a test signup to confirm it arrives.
+
+You can also customize the confirmation email's subject/body under
+**Authentication → Email Templates → Confirm signup**.
+
+## 3. Create the `maps` table
+
+Go to **SQL Editor** in your Supabase project, paste this in, and run it:
+
+```sql
+create table public.maps (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  nodes jsonb not null default '[]',
+  edges jsonb not null default '[]',
+  updated_at timestamptz not null default now()
+);
+
+alter table public.maps enable row level security;
+
+create policy "Users can view own map"
+  on public.maps for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own map"
+  on public.maps for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own map"
+  on public.maps for update
+  using (auth.uid() = user_id);
+```
+
+This gives every signed-up user exactly one row for their map, and Row Level
+Security makes sure nobody can read or write anyone else's row — even though
+the same public API key is shared by the whole app.
+
+## 3b. Create the `trade_analysis` table (optional — Trade Analysis feature)
+
+The Trade Analysis feature works entirely offline (localStorage) without
+this — this table just adds the same cross-device cloud sync the mind map
+gets above. Same idea, its own table:
+
+```sql
+create table public.trade_analysis (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  trades jsonb not null default '[]',
+  validation_rules jsonb not null default '[]',
+  validation_categories jsonb not null default '[]',
+  updated_at timestamptz not null default now()
+);
+
+alter table public.trade_analysis enable row level security;
+
+create policy "Users can view own trade data"
+  on public.trade_analysis for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own trade data"
+  on public.trade_analysis for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own trade data"
+  on public.trade_analysis for update
+  using (auth.uid() = user_id);
+```
+
+Already created this table before the Validation Settings categories feature?
+Just add the new column instead of recreating the table:
+
+```sql
+alter table public.trade_analysis
+  add column if not exists validation_categories jsonb not null default '[]';
+```
+
+Want the Trade Analysis **theme and list/cards view** to follow your account to
+every device you sign in on? Add this one column (safe to run any time — the
+app keeps working without it, it just won't sync those preferences):
+
+```sql
+alter table public.trade_analysis
+  add column if not exists preferences jsonb not null default '{}';
+```
+
+## 3c. Create the `live_shares` table (optional — Live share links)
+
+The toolbar's Share button offers two kinds of link: **One-time** (the
+existing behaviour — the whole map is encoded into the URL itself, works
+without this table) and **Live** (a short link backed by this table — the
+owner keeps editing, and anyone with the link sees the latest version on
+their next refresh, until it expires or the owner ends it).
+
+```sql
+create table public.live_shares (
+  id text primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  project_id text not null,
+  nodes jsonb not null default '[]',
+  edges jsonb not null default '[]',
+  checklists jsonb not null default '[]',
+  trades jsonb not null default '[]',
+  validation_rules jsonb not null default '[]',
+  theme_name text,
+  expires_at timestamptz,
+  ended_at timestamptz,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  unique (user_id, project_id)
+);
+
+alter table public.live_shares enable row level security;
+
+create policy "Owner manages own live shares"
+  on public.live_shares for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Visitors never get a direct SELECT policy on this table — that would let
+-- anyone with the anon key list/dump every user's live shares. Instead they
+-- read through this function, which only ever returns the one row whose id
+-- they already have (and hides it once expired/ended).
+create or replace function public.get_live_share(share_id text)
+returns table (
+  nodes jsonb, edges jsonb, checklists jsonb, trades jsonb,
+  validation_rules jsonb, theme_name text, expires_at timestamptz, ended_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select nodes, edges, checklists, trades, validation_rules, theme_name, expires_at, ended_at
+  from public.live_shares
+  where id = share_id;
+$$;
+
+grant execute on function public.get_live_share(text) to anon, authenticated;
+```
+
+> **Already created this table before?** (e.g. you ran this section previously
+> and only just added the `theme_name` column above.) Just run these
+> statements instead of the full block — they add the new column and
+> replace the function to return it, without touching your existing rows.
+> Note the `drop function` before `create` — Postgres won't let you change
+> a function's return columns with `create or replace`, only add a brand
+> new one after dropping the old:
+>
+> ```sql
+> alter table public.live_shares add column if not exists theme_name text;
+>
+> drop function if exists public.get_live_share(text);
+>
+> create function public.get_live_share(share_id text)
+> returns table (
+>   nodes jsonb, edges jsonb, checklists jsonb, trades jsonb,
+>   validation_rules jsonb, theme_name text, expires_at timestamptz, ended_at timestamptz
+> )
+> language sql
+> security definer
+> set search_path = public
+> as $$
+>   select nodes, edges, checklists, trades, validation_rules, theme_name, expires_at, ended_at
+>   from public.live_shares
+>   where id = share_id;
+> $$;
+>
+> grant execute on function public.get_live_share(text) to anon, authenticated;
+> ```
+
+Creating a live link requires being signed in (it needs somewhere to write
+to), so the Live Link tab in the share modal prompts sign-in if needed. The
+One-time tab keeps working for anyone with no login and no setup at all.
+
+## 3c-1. Create the `trade_shares` table (optional — Trade Analysis's own Share button)
+
+Separate from the `live_shares` table above (which shares the whole mind
+map), this backs the **Share** button inside Trade Analysis itself — it
+lets someone pick a date range/type/pair/etc. filter, then generate a
+view-only link that shows just that filtered set of trades as a vertical,
+read-only card list, in whatever color theme they had selected. A person
+can have several of these links alive at once (e.g. one scoped to this
+month for one group, another scoped to a single pair for someone else),
+unlike `live_shares`'s one-per-project model.
+
+```sql
+create table public.trade_shares (
+  id text primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  trades jsonb not null default '[]',
+  validation_rules jsonb not null default '[]',
+  filters jsonb not null default '{}',
+  theme_name text,
+  expires_at timestamptz,
+  ended_at timestamptz,
+  view_count integer not null default 0,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+alter table public.trade_shares enable row level security;
+
+create policy "Owner manages own trade shares"
+  on public.trade_shares for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Same reasoning as get_live_share above — visitors read through this
+-- function (only ever the one row whose id they already have) instead of
+-- a direct SELECT policy, so the anon key can never list/dump every
+-- user's share links.
+create or replace function public.get_trade_share(share_id text)
+returns table (
+  trades jsonb, validation_rules jsonb, filters jsonb, theme_name text,
+  expires_at timestamptz, ended_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select trades, validation_rules, filters, theme_name, expires_at, ended_at
+  from public.trade_shares
+  where id = share_id;
+$$;
+
+grant execute on function public.get_trade_share(text) to anon, authenticated;
+
+-- Powers the "N views" counter a visitor sees on the shared page, and the
+-- per-link view count the owner sees in the Share popup. SECURITY DEFINER
+-- + its own function (rather than folding this into get_trade_share) so
+-- the anon key can only ever increment the one row it already has the id
+-- for, atomically, without needing any UPDATE policy on the table.
+create or replace function public.increment_trade_share_view(share_id text)
+returns integer
+language sql
+security definer
+set search_path = public
+as $$
+  update public.trade_shares
+  set view_count = view_count + 1
+  where id = share_id
+  returning view_count;
+$$;
+
+grant execute on function public.increment_trade_share_view(text) to anon, authenticated;
+```
+
+> **Already created this table before?** (i.e. you ran this section
+> previously and are only just adding view tracking.) Just run this instead
+> of the full block — it adds the new column and the counting function
+> without touching your existing rows or links:
+>
+> ```sql
+> alter table public.trade_shares add column if not exists view_count integer not null default 0;
+>
+> create or replace function public.increment_trade_share_view(share_id text)
+> returns integer
+> language sql
+> security definer
+> set search_path = public
+> as $$
+>   update public.trade_shares
+>   set view_count = view_count + 1
+>   where id = share_id
+>   returning view_count;
+> $$;
+>
+> grant execute on function public.increment_trade_share_view(text) to anon, authenticated;
+> ```
+
+Creating a trade-share link requires being signed in (same as a live mind-
+map link), so the Share popup inside Trade Analysis prompts sign-in if
+needed. Every time someone opens the link (once per page-load — refreshing
+or reopening the same tab doesn't count again), it's counted server-side:
+the visitor sees a small "N views" badge next to the trade count at the top
+of the page, and the owner sees the same number next to each link under
+"Your active links" in the Share popup.
+
+## 3c-2. Create the `project_maps` table (recommended — backs up every project, not just one)
+
+The `maps` table above only ever holds **one** map per user — whatever's
+currently on the canvas. The dashboard's "My Mind Maps" list (every project
+you've made) lives only in that browser's local storage unless this table
+exists too. **Without it, clearing your browser's site data — or switching
+devices — permanently deletes every project except whichever one happened to
+be open at the time.** This table is what makes the whole dashboard, not
+just the current tab, survive that:
+
+```sql
+create table public.project_maps (
+  project_id text primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null default 'Untitled Mind Map',
+  nodes jsonb not null default '[]',
+  edges jsonb not null default '[]',
+  groups jsonb not null default '[]',
+  activity_log jsonb not null default '[]',
+  updated_at timestamptz not null default now()
+);
+
+alter table public.project_maps enable row level security;
+
+create policy "Users can view own projects"
+  on public.project_maps for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own projects"
+  on public.project_maps for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own projects"
+  on public.project_maps for update
+  using (auth.uid() = user_id);
+
+create policy "Users can delete own projects"
+  on public.project_maps for delete
+  using (auth.uid() = user_id);
+```
+
+Once this exists, every project auto-backs-up to its own row (debounced,
+same as the rest of the app) while you're signed in, and signing in on any
+browser/device pulls down every project that's ever synced — not just one.
+
+## 3d. Enable Google sign-in (optional — "Continue with Google" button)
+
+The login panel's Google button calls Supabase's built-in Google OAuth
+provider — no extra code needed, just flip it on:
+
+1. **Authentication → Providers → Google** in the Supabase dashboard, toggle
+   it on.
+2. You'll need a Google OAuth Client ID + secret from the
+   [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+   (OAuth consent screen + "Web application" credentials). Supabase's
+   provider page shows you the exact **Authorized redirect URI** to paste
+   into the Google Cloud credentials — copy it from there.
+3. Paste the Google Client ID and Client Secret into the Supabase provider
+   settings and save.
+
+Until this is turned on, clicking "Continue with Google" will show a
+Supabase error toast (e.g. "provider is not enabled") — email/password
+login and signup keep working either way.
+
+## 3e. Create the `strategy_tester` table (optional — Strategy Tester cross-device sync)
+
+The Strategy Tester (Table + Analysis, inside the mind map's toolbar) works
+entirely offline (localStorage) without this — this table just adds the
+same cross-device cloud sync the mind map and Trade Analysis get above.
+Screenshots attached to a strategy's Image column are already uploaded to
+Cloudinary/Supabase Storage (see step 3 above) and stored as plain URLs, so
+once this table exists the whole grid — images included — shows up on any
+device you sign into:
+
+```sql
+create table public.strategy_tester (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  strategies jsonb not null default '[]',
+  entries jsonb not null default '{}',
+  updated_at timestamptz not null default now()
+);
+
+alter table public.strategy_tester enable row level security;
+
+create policy "Users can view own strategy tester data"
+  on public.strategy_tester for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own strategy tester data"
+  on public.strategy_tester for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own strategy tester data"
+  on public.strategy_tester for update
+  using (auth.uid() = user_id);
+```
+
+## 3f. Create the `terminal_accounts` table (optional — Demo Terminal cloud sync)
+
+The Demo Terminal works entirely offline (localStorage) without this. Run the SQL below **once**
+(SQL Editor → New query → paste → Run) and the virtual account — balance, open positions, pending
+orders, closed-trade history, deposits/withdrawals, chart drawings, indicators and terminal settings —
+follows you to every device you sign in on. Until the table exists the terminal shows a small
+"Cloud not set up (saved on this device only)" note and keeps working locally.
+
+```sql
+create table public.terminal_accounts (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  account jsonb not null default '{}',
+  positions jsonb not null default '[]',
+  orders jsonb not null default '[]',
+  history jsonb not null default '[]',
+  drawings jsonb not null default '{}',
+  settings jsonb not null default '{}',
+  updated_at timestamptz not null default now()
+);
+
+alter table public.terminal_accounts enable row level security;
+
+create policy "own select" on public.terminal_accounts
+  for select using (auth.uid() = user_id);
+create policy "own insert" on public.terminal_accounts
+  for insert with check (auth.uid() = user_id);
+create policy "own update" on public.terminal_accounts
+  for update using (auth.uid() = user_id);
+```
+
+**Recommended hardening (run it too — it's a second, separate block):**
+
+```sql
+-- 1. updated_at is stamped by the SERVER on every write. Conflict handling compares
+--    updated_at values, so this keeps two devices with different clocks from
+--    confusing each other.
+create or replace function public.terminal_accounts_touch()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists terminal_accounts_touch on public.terminal_accounts;
+create trigger terminal_accounts_touch
+  before insert or update on public.terminal_accounts
+  for each row execute function public.terminal_accounts_touch();
+
+-- 2. The columns must have the right JSON shape, and no single column may be huge.
+--    (RLS already stops anyone touching someone else's row; this stops a bug or a
+--    tampered client from stuffing garbage or megabytes into their own.)
+alter table public.terminal_accounts
+  add constraint terminal_accounts_shape check (
+    jsonb_typeof(account)   = 'object' and
+    jsonb_typeof(positions) = 'array'  and
+    jsonb_typeof(orders)    = 'array'  and
+    jsonb_typeof(drawings)  = 'object' and
+    jsonb_typeof(settings)  = 'object' and
+    jsonb_typeof(history) in ('array', 'object')
+  ),
+  add constraint terminal_accounts_size check (
+    pg_column_size(history)   < 6000000 and
+    pg_column_size(drawings)  < 2000000 and
+    pg_column_size(positions) < 1000000 and
+    pg_column_size(orders)    < 1000000
+  );
+```
+
+How the sync behaves (all in `src/lib/terminal/`):
+
+- **On sign-in** the terminal loads the cloud account. A device with an *empty* local account
+  (new browser/phone) always adopts the cloud one — an empty local copy never overwrites a
+  non-empty cloud account.
+- **Saves** are debounced (about 2 s after your last change, never held back more than ~20 s),
+  and also flushed when the tab is hidden or closed.
+- **Two devices edited the same account:** the write is a compare-and-swap on `updated_at`, so a
+  stale device can never silently overwrite a newer one. On a real conflict the **newer `updated_at`
+  wins** and the other device is told ("Demo account updated from another device").
+- **Resetting the demo account / "Clear all data"** is a deliberate action and does reach the cloud
+  (other devices then adopt the reset instead of resurrecting the old data).
+- **Positions and pending orders loaded from another device** are replayed against price action since
+  the time they were last saved (the same approximate offline catch-up as Phase 4).
+- **History size:** at most 2,000 closed trades are kept (same as the local copy). Above 300 trades
+  they are stored column-wise (~40% of the size). If a row would still exceed ~4 MB the oldest trades
+  are left out of the cloud copy.
+- **Not synced (per device):** whether the position panel is open, notification permission.
+- Signing out, or signing in as someone else, wipes this browser's local demo account first, so one
+  person's account is never uploaded into another's.
+
+## 4. Get your API keys
+
+**Project Settings → API**. You need two values:
+- **Project URL** (looks like `https://xxxxx.supabase.co`)
+- **anon public** key (a long JWT-looking string — this one is *meant* to be
+  public, it's safe to ship in the frontend; the row-level-security policies
+  above are what actually keep data private)
+
+## 5. Add the keys to the app
+
+**Local development:** copy `.env.example` to `.env` in the project root and
+fill in the two values:
+
+```
+VITE_SUPABASE_URL=https://xxxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJ...
+```
+
+**Vercel (production):** Project → **Settings → Environment Variables** →
+add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` with the same values,
+then redeploy (or just push — it'll pick them up on the next build).
+
+## That's it
+
+Once the keys are set, the **account icon** in the top-right of the toolbar
+lets people sign up with **name + email + password**. After signing up they
+see a "check your inbox" screen, click the confirmation link Supabase
+emailed them, then come back and log in with their email + password. Their
+map auto-saves to Supabase a second or two after every edit, and loads back
+automatically the next time they log in on any device/browser. If you also
+created the `trade_analysis` table from step 3b, their trade log and
+validation rules sync the same way.
+
+If the keys are missing, the app doesn't break — the account button just
+shows a note that cloud save isn't connected yet, and everything keeps
+working locally.

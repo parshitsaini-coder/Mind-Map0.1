@@ -1,0 +1,144 @@
+import { memo } from 'react'
+import {
+  BaseEdge,
+  EdgeLabelRenderer,
+  getBezierPath,
+  getStraightPath,
+  getSmoothStepPath,
+  getSimpleBezierPath,
+  useInternalNode,
+} from '@xyflow/react'
+import { ICONS } from '../../theme/iconSet'
+import { getFloatingEdgeParams } from '../../utils/floatingEdgeUtils'
+import { CALC_OPERATOR_ICON } from '../../utils/calcOperators'
+
+// Section 4.8 — connector styles showcase. One component handles every row
+// of the demo map; `data.pathType` picks which React Flow path algorithm to
+// draw, everything else (dash pattern, width, color, animation, arrows,
+// icon-in-middle) comes from `data` too.
+function resolvePath(pathType, params) {
+  switch (pathType) {
+    case 'straight':
+      return getStraightPath(params)
+    case 'smoothstep':
+      return getSmoothStepPath({ ...params, borderRadius: 10 })
+    case 'step':
+      return getSmoothStepPath({ ...params, borderRadius: 0 })
+    case 'simplebezier':
+      return getSimpleBezierPath(params)
+    case 'bezier':
+    default:
+      return getBezierPath(params)
+  }
+}
+
+// Section 14 — perf pass: memoized like the other edge/node components.
+// Section — floating connectors: picking a style from the Connector
+// Styles panel switches an edge's `type` to this component (see
+// applyLineStyleToSelectedEdges in mapStore.js), so it needs the same
+// live-position re-projection as CustomEdge/CrossEdge — otherwise a
+// styled connector reverts to the fixed left/right handle and cuts
+// straight through the node the moment either end has been dragged
+// somewhere that fixed handle doesn't face.
+function ConnectorDemoEdge({
+  id,
+  source,
+  target,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  data,
+  markerEnd,
+  markerStart,
+  selected,
+}) {
+  const sourceNode = useInternalNode(source)
+  const targetNode = useInternalNode(target)
+  const floating = getFloatingEdgeParams(sourceNode, targetNode)
+
+  const [edgePath, labelX, labelY] = resolvePath(data?.pathType, {
+    sourceX: floating?.sx ?? sourceX,
+    sourceY: floating?.sy ?? sourceY,
+    sourcePosition: floating?.sourcePos ?? sourcePosition,
+    targetX: floating?.tx ?? targetX,
+    targetY: floating?.ty ?? targetY,
+    targetPosition: floating?.targetPos ?? targetPosition,
+  })
+
+  // Section — Connector Calculations. A styled connector (this component
+  // is what an edge switches to once a line style is applied — see
+  // applyLineStyleToSelectedEdges in mapStore.js) can still carry a calc
+  // operator; its badge takes priority over a plain decorative iconMid at
+  // the same midpoint slot.
+  const calcOp = data?.calcOp
+  const IconComp = calcOp ? CALC_OPERATOR_ICON[calcOp] : data?.iconMid ? ICONS[data.iconMid] : null
+
+  // Section — Connector "Effects": a two-stop gradient stroke needs its own
+  // <linearGradient>, scoped to this edge's id so multiple gradient
+  // connectors on the same map don't collide over one shared def.
+  const gradientId = data?.gradient ? `edge-gradient-${id}` : null
+  const baseColor = selected ? 'var(--color-accent)' : data?.color || 'var(--color-slate)'
+  const strokeColor = gradientId ? `url(#${gradientId})` : baseColor
+  const glowColor = data?.color || 'var(--color-accent)'
+  const effectClass = [data?.glow && !selected ? 'connector-glow-pulse' : '', data?.pulseWidth ? 'connector-width-pulse' : '']
+    .filter(Boolean)
+    .join(' ')
+  const baseWidth = (data?.strokeWidth || 2) + (selected ? 1.5 : 0)
+
+  return (
+    <>
+      {gradientId && (
+        <defs>
+          <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor={data.gradient[0]} />
+            <stop offset="100%" stopColor={data.gradient[1]} />
+          </linearGradient>
+        </defs>
+      )}
+      <BaseEdge
+        path={edgePath}
+        markerEnd={markerEnd}
+        markerStart={markerStart}
+        interactionWidth={24}
+        className={effectClass}
+        style={{
+          stroke: strokeColor,
+          strokeWidth: baseWidth,
+          strokeDasharray: data?.dash || undefined,
+          strokeLinecap: data?.cap || undefined,
+          animation: data?.animated ? 'dashdraw 0.9s linear infinite' : undefined,
+          filter: selected
+            ? 'drop-shadow(0 0 2px var(--color-accent))'
+            : data?.glow
+            ? 'drop-shadow(0 0 4px ' + glowColor + ')'
+            : undefined,
+          '--glow-color': glowColor,
+          '--pulse-min': Math.max(1, baseWidth - 1.5) + 'px',
+          '--pulse-max': baseWidth + 3 + 'px',
+        }}
+      />
+      {IconComp && (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: 'absolute',
+              pointerEvents: 'none',
+              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+              backgroundColor: calcOp === '=' ? 'var(--color-accent)' : 'var(--color-cream)',
+              borderColor: data?.color || 'var(--color-slate)',
+            }}
+            className="flex h-5 w-5 items-center justify-center rounded-full border shadow"
+            title={calcOp ? `Connector calculation: ${calcOp}` : undefined}
+          >
+            <IconComp size={11} color={calcOp === '=' ? 'var(--color-cream)' : 'var(--color-ink)'} />
+          </div>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  )
+}
+
+export default memo(ConnectorDemoEdge)
