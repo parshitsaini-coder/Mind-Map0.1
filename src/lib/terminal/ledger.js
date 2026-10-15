@@ -159,6 +159,11 @@ export function modifyPosition(ledger, id, patch, quotes) {
     if (err) return { error: err }
     if (has(patch, 'sl')) next.sl = sl
     if (has(patch, 'tp')) next.tp = tp
+    // small per-position event log (the chart shows "SL moved …"; the journal can read it later)
+    const note = []
+    if (has(patch, 'sl') && sl !== pos.sl) note.push({ ev: 'sl', from: pos.sl ?? null, to: sl })
+    if (has(patch, 'tp') && tp !== pos.tp) note.push({ ev: 'tp', from: pos.tp ?? null, to: tp })
+    if (note.length) next.log = [...(pos.log || []), ...note.map((n) => ({ ...n, t: nowSec() }))].slice(-30)
   }
   if (has(patch, 'trail')) {
     if (patch.trail != null && !(patch.trail > 0)) return { error: 'Trailing distance must be above 0 pips' }

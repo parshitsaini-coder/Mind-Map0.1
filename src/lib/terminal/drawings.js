@@ -1,298 +1,134 @@
-// Chart drawing tools — PURE geometry (no DOM, no chart library), so it can be unit-tested.
+// Chart drawings — schema, migration and pure editing helpers (Phase 11).
 //
 // A drawing is stored in DATA space so it stays put when you zoom, scroll or switch timeframe:
-//   { id, type, points: [{ t: unixSeconds (UTC), p: price }], color, width, dash, locked,
-//     text?, offset?, extend? }
-//
-// To draw it, a "projector" turns data space into pixels:
-//   proj = { x(t) -> px|null, y(price) -> px|null, t(px) -> time, p(px) -> price, l(px) -> logicalIndex }
-// layoutOf() turns a drawing + projector into plain shapes (segments, fills, labels, handles) that the
-// canvas renderer paints and that hitTest() tests the pointer against — one geometry for both.
+//   { id, type, points:[{t: unixSeconds(UTC), p: price}], color, width,
+//     style:{opacity,lineStyle,extendLeft,extendRight,arrowStart,arrowEnd,fill,fillColor,fillOpacity,labels,stats,fib*},
+//     textStyle:{size,bold,italic,color,align,bg,border}, levels?:[{v,on,color,style}], text?, offset?, extend?, dir?,
+//     visibility:{tfMin,tfMax}, z, locked, hidden, createdAt, name }
+// Tool geometry lives in drawingTools.js (registry), generic geometry in drawingGeom.js. Everything is
+// re-exported from here so older imports keep working. No DOM, no chart library.
+import { TIMEFRAMES } from './instruments.js'
+import { TOOLS, DRAW_ORDER, BASE_STYLE, BASE_TEXT, LINE_STYLES, ARROW_ENDS, defaultFibLevels, layoutTool } from './drawingTools.js'
+import { channelOffset } from './drawingGeom.js'
 
-export const DRAW_TYPES = {
-  trend: { name: 'Trend line', points: 2, clicks: 2 },
-  ray: { name: 'Ray', points: 2, clicks: 2 },
-  hline: { name: 'Horizontal line', points: 1, clicks: 1 },
-  vline: { name: 'Vertical line', points: 1, clicks: 1 },
-  rect: { name: 'Rectangle', points: 2, clicks: 2 },
-  fib: { name: 'Fib retracement', points: 2, clicks: 2 },
-  channel: { name: 'Parallel channel', points: 2, clicks: 3 }, // 2 points + a third click for the width
-  text: { name: 'Text note', points: 1, clicks: 1 },
-  measure: { name: 'Measure', points: 2, clicks: 2, transient: true },
-}
-export const DRAW_ORDER = ['trend', 'ray', 'hline', 'vline', 'rect', 'fib', 'channel', 'text', 'measure']
+export * from './drawingGeom.js'
+export { TOOLS, DRAW_ORDER, BASE_STYLE, BASE_TEXT, LINE_STYLES, ARROW_ENDS, defaultFibLevels, FIB_LEVELS, FIBEXT_LEVELS, TEXT_H, CATEGORIES, positionStats, buildPosition, specOf } from './drawingTools.js'
+
+export const DRAWING_SCHEMA = 2
+export const DRAW_TYPES = Object.fromEntries(Object.entries(TOOLS).map(([id, t]) => [id, { name: t.name, points: t.points, clicks: t.clicks, ...(t.transient ? { transient: true } : {}) }]))
 export const DRAW_COLORS = ['#38bdf8', '#22c55e', '#ef4444', '#f59e0b', '#a78bfa', '#f472b6', '#e5e7eb', '#14b8a6']
-export const FIB_LEVELS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1]
 export const MAX_DRAWINGS_PER_SYMBOL = 300
+export const TF_IDS = TIMEFRAMES.map((t) => t.id)
 
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v)
+const HEX = /^#[0-9a-f]{6}$/i
 let seq = 0
 export const newId = () => `d${Date.now().toString(36)}${(++seq).toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`
 
-export function newDrawing(type, points, extra = {}) {
+const toolColor = (type) => (type === 'fib' || type === 'fibext' ? '#f59e0b' : type === 'text' || type === 'callout' ? '#e5e7eb' : type === 'arrowmark' ? '#22c55e' : '#38bdf8')
+
+// ── cleaning (every field falls back to its default; unknown keys are dropped) ──
+export function cleanStyle(raw, toolStyle = {}) {
+  const base = { ...BASE_STYLE, ...toolStyle }
+  const r = raw && typeof raw === 'object' ? raw : {}
+  const out = {}
+  for (const [k, d] of Object.entries(base)) {
+    const v = r[k]
+    if (typeof d === 'boolean') out[k] = typeof v === 'boolean' ? v : d
+    else if (k === 'lineStyle') out[k] = LINE_STYLES.includes(v) ? v : d
+    else if (k === 'arrowStart' || k === 'arrowEnd') out[k] = ARROW_ENDS.includes(v) ? v : d
+    else if (k === 'fillColor') out[k] = typeof v === 'string' && HEX.test(v) ? v.toLowerCase() : ''
+    else if (k === 'opacity') out[k] = isNum(v) ? Math.min(1, Math.max(0.1, v)) : d
+    else if (k === 'fillOpacity') out[k] = isNum(v) ? Math.min(1, Math.max(0.02, v)) : d
+    else out[k] = d
+  }
+  return out
+}
+export function cleanTextStyle(raw) {
+  const r = raw && typeof raw === 'object' ? raw : {}
   return {
-    id: newId(), type, points,
-    color: type === 'fib' ? '#f59e0b' : type === 'text' ? '#e5e7eb' : '#38bdf8',
-    width: 2, dash: false, locked: false,
-    ...(type === 'text' ? { text: 'Note' } : {}),
-    ...(type === 'channel' ? { offset: 0 } : {}),
-    ...(type === 'fib' ? { extend: true } : {}),
-    ...extra,
+    size: isNum(r.size) ? Math.min(40, Math.max(8, Math.round(r.size))) : BASE_TEXT.size,
+    bold: typeof r.bold === 'boolean' ? r.bold : BASE_TEXT.bold,
+    italic: typeof r.italic === 'boolean' ? r.italic : BASE_TEXT.italic,
+    color: typeof r.color === 'string' && HEX.test(r.color) ? r.color.toLowerCase() : '',
+    align: ['left', 'center', 'right'].includes(r.align) ? r.align : BASE_TEXT.align,
+    bg: typeof r.bg === 'boolean' ? r.bg : BASE_TEXT.bg,
+    border: typeof r.border === 'boolean' ? r.border : BASE_TEXT.border,
   }
 }
+export function cleanLevels(raw, ext) {
+  if (!Array.isArray(raw)) return defaultFibLevels(ext)
+  const out = raw.filter((l) => l && isNum(l.v) && Math.abs(l.v) <= 50).slice(0, 24).map((l) => ({
+    v: l.v, on: l.on !== false, color: typeof l.color === 'string' && HEX.test(l.color) ? l.color.toLowerCase() : '', style: LINE_STYLES.includes(l.style) ? l.style : 'solid',
+  }))
+  return out.length ? out : defaultFibLevels(ext)
+}
+export function cleanVisibility(raw) {
+  const r = raw && typeof raw === 'object' ? raw : {}
+  let lo = TF_IDS.indexOf(r.tfMin), hi = TF_IDS.indexOf(r.tfMax)
+  if (lo < 0) lo = 0
+  if (hi < 0) hi = TF_IDS.length - 1
+  if (lo > hi) [lo, hi] = [hi, lo]
+  return { tfMin: TF_IDS[lo], tfMax: TF_IDS[hi] }
+}
+export const visibleOn = (d, tfId) => {
+  const v = d.visibility || cleanVisibility()
+  const i = TF_IDS.indexOf(tfId)
+  return i < 0 || (i >= TF_IDS.indexOf(v.tfMin) && i <= TF_IDS.indexOf(v.tfMax))
+}
 
-// Drop anything malformed (hand-edited / corrupted saved data must never crash the chart).
-export function sanitizeDrawings(list) {
+export function newDrawing(type, points, extra = {}) {
+  const spec = TOOLS[type]
+  const d = {
+    id: newId(), type, points, color: toolColor(type), width: 2,
+    style: cleanStyle(extra.style, spec?.style), textStyle: cleanTextStyle(extra.textStyle),
+    visibility: cleanVisibility(extra.visibility), z: 0, locked: false, hidden: false, createdAt: Math.floor(Date.now() / 1000), name: '',
+    ...(type === 'text' || type === 'callout' ? { text: type === 'text' ? 'Note' : 'Callout' } : {}),
+    ...(type === 'channel' ? { offset: 0 } : {}),
+    ...(type === 'fib' ? { extend: true } : {}),
+    ...(spec?.levels ? { levels: defaultFibLevels(spec.levels === 'ext') } : {}),
+    ...(type === 'arrowmark' ? { dir: 'up' } : {}),
+    ...extra,
+  }
+  d.style = cleanStyle(extra.style, spec?.style)
+  d.textStyle = cleanTextStyle(extra.textStyle)
+  d.visibility = cleanVisibility(extra.visibility)
+  return d
+}
+
+// Old (schema 1) records and anything hand-edited come in; only valid, fully-populated records come out.
+export function cleanDrawings(list) {
   if (!Array.isArray(list)) return []
   const out = []
   for (const d of list) {
-    const spec = d && DRAW_TYPES[d.type]
+    const spec = d && TOOLS[d.type]
     if (!spec || spec.transient || typeof d.id !== 'string') continue
     if (!Array.isArray(d.points) || d.points.length < spec.points || !d.points.every((q) => q && isNum(q.t) && isNum(q.p))) continue
+    const legacyDash = d.dash === true && !(d.style && d.style.lineStyle)
+    const style = cleanStyle({ ...(d.style || {}), ...(legacyDash ? { lineStyle: 'dashed' } : {}) }, spec.style)
     out.push({
       id: d.id, type: d.type, points: d.points.slice(0, spec.points).map((q) => ({ t: q.t, p: q.p })),
-      color: typeof d.color === 'string' ? d.color : '#38bdf8',
-      width: [1, 2, 3, 4].includes(d.width) ? d.width : 2, dash: !!d.dash, locked: !!d.locked,
-      ...(d.type === 'text' ? { text: String(d.text ?? 'Note').slice(0, 200) } : {}),
+      color: typeof d.color === 'string' && HEX.test(d.color) ? d.color.toLowerCase() : toolColor(d.type),
+      width: Number.isInteger(d.width) && d.width >= 1 && d.width <= 8 ? d.width : 2,
+      style, textStyle: cleanTextStyle(d.textStyle),
+      visibility: cleanVisibility(d.visibility),
+      z: isNum(d.z) ? d.z : out.length, locked: !!d.locked, hidden: !!d.hidden,
+      createdAt: isNum(d.createdAt) ? d.createdAt : 0, name: typeof d.name === 'string' ? d.name.slice(0, 40) : '',
+      ...(d.type === 'text' || d.type === 'callout' ? { text: String(d.text ?? 'Note').slice(0, 200) } : {}),
       ...(d.type === 'channel' ? { offset: isNum(d.offset) ? d.offset : 0 } : {}),
       ...(d.type === 'fib' ? { extend: d.extend !== false } : {}),
+      ...(spec.levels ? { levels: cleanLevels(d.levels, spec.levels === 'ext') } : {}),
+      ...(d.type === 'arrowmark' ? { dir: d.dir === 'down' ? 'down' : 'up' } : {}),
     })
     if (out.length >= MAX_DRAWINGS_PER_SYMBOL) break
   }
   return out
 }
+export const sanitizeDrawings = cleanDrawings
 
-// ── time <-> logical bar index ─────────────────────────────────────────────
-// `times` = sorted candle open times (UTC seconds). Fractional logical = position between bars.
-// Outside the data it extrapolates with one timeframe step per bar.
-export function makeTimeMap(times, tfSec) {
-  const n = times.length
-  const toLogical = (t) => {
-    if (n === 0) return 0
-    if (t >= times[n - 1]) return n - 1 + (t - times[n - 1]) / tfSec
-    if (t <= times[0]) return (t - times[0]) / tfSec
-    let lo = 0
-    let hi = n - 1
-    while (hi - lo > 1) {
-      const mid = (lo + hi) >> 1
-      if (times[mid] <= t) lo = mid
-      else hi = mid
-    }
-    return lo + (t - times[lo]) / (times[lo + 1] - times[lo])
-  }
-  const toTime = (l) => {
-    if (n === 0) return 0
-    if (l >= n - 1) return times[n - 1] + (l - (n - 1)) * tfSec
-    if (l <= 0) return times[0] + l * tfSec
-    const i = Math.floor(l)
-    return times[i] + (l - i) * (times[i + 1] - times[i])
-  }
-  return { toLogical, toTime, n, tfSec }
-}
+export const layoutOf = layoutTool
 
-// Builds a projector from a time map plus the chart's own coordinate converters.
-export function makeProjector(timeMap, conv) {
-  return {
-    x: (t) => conv.logicalToX(timeMap.toLogical(t)),
-    y: (p) => conv.priceToY(p),
-    t: (x) => { const l = conv.xToLogical(x); return l == null ? null : timeMap.toTime(l) },
-    p: (y) => conv.yToPrice(y),
-    l: (x) => conv.xToLogical(x),
-  }
-}
-
-// ── geometry helpers ───────────────────────────────────────────────────────
-export function distToSeg(px, py, x1, y1, x2, y2) {
-  const dx = x2 - x1
-  const dy = y2 - y1
-  const len2 = dx * dx + dy * dy
-  let t = len2 === 0 ? 0 : ((px - x1) * dx + (py - y1) * dy) / len2
-  t = Math.max(0, Math.min(1, t))
-  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy))
-}
-
-// Extend the ray (x1,y1)->(x2,y2) until it leaves the view box (with a margin).
-export function extendRay(x1, y1, x2, y2, w, h) {
-  const dx = x2 - x1
-  const dy = y2 - y1
-  if (dx === 0 && dy === 0) return { x: x2, y: y2 }
-  const M = 60
-  const tx = dx > 0 ? (w + M - x1) / dx : dx < 0 ? (-M - x1) / dx : Infinity
-  const ty = dy > 0 ? (h + M - y1) / dy : dy < 0 ? (-M - y1) / dy : Infinity
-  const t = Math.max(1, Math.min(tx, ty))
-  return { x: x1 + dx * t, y: y1 + dy * t }
-}
-
-const pointInPoly = (px, py, poly) => {
-  let inside = false
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [xi, yi] = poly[i]
-    const [xj, yj] = poly[j]
-    if (yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) inside = !inside
-  }
-  return inside
-}
-
-// Price on the channel's base line at logical position l.
-export function lineAt(p1, p2, l1, l2, l) {
-  return l2 === l1 ? p1.p : p1.p + ((p2.p - p1.p) * (l - l1)) / (l2 - l1)
-}
-
-// Price offset of a channel's parallel, from a third click at (logical l3, price p3).
-export function channelOffset(d, timeMap, l3, p3) {
-  const [a, b] = d.points
-  return p3 - lineAt(a, b, timeMap.toLogical(a.t), timeMap.toLogical(b.t), l3)
-}
-
-export function formatDuration(sec) {
-  const s = Math.abs(Math.round(sec))
-  const d = Math.floor(s / 86400)
-  const h = Math.floor((s % 86400) / 3600)
-  const m = Math.floor((s % 3600) / 60)
-  if (d) return `${d}d ${h}h`
-  if (h) return `${h}h ${m}m`
-  return `${m}m`
-}
-
-// Numbers shown by the Measure tool.
-export function measureInfo(a, b, inst, timeMap) {
-  const dp = b.p - a.p
-  return {
-    dp,
-    pips: inst?.pipSize ? dp / inst.pipSize : null,
-    pct: a.p ? (dp / a.p) * 100 : 0,
-    bars: Math.round(timeMap.toLogical(b.t) - timeMap.toLogical(a.t)),
-    secs: b.t - a.t,
-    up: dp >= 0,
-  }
-}
-
-const estimateWidth = (text, size = 12) => text.length * size * 0.56
-export const TEXT_H = 20
-
-// ── layout: drawing -> shapes ─────────────────────────────────────────────
-// view = { w, h, fmt(price)->string, measure?(text)->px, inst?, timeMap? }
-// Returns null when the drawing cannot be placed (e.g. coordinates unavailable).
-export function layoutOf(d, proj, view) {
-  const { w, h } = view
-  const fmt = view.fmt || ((v) => String(v))
-  const measure = view.measure || estimateWidth
-  const pt = d.points.map((q) => ({ x: proj.x(q.t), y: proj.y(q.p) }))
-  if (pt.some((q) => q.x == null || q.y == null)) return null
-  const lay = { segs: [], fills: [], labels: [], handles: [] }
-  const seg = (x1, y1, x2, y2, o = {}) => lay.segs.push({ x1, y1, x2, y2, ...o })
-  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v))
-
-  switch (d.type) {
-    case 'trend':
-      seg(pt[0].x, pt[0].y, pt[1].x, pt[1].y)
-      lay.handles.push({ ...pt[0], idx: 0 }, { ...pt[1], idx: 1 })
-      break
-    case 'ray': {
-      const e = extendRay(pt[0].x, pt[0].y, pt[1].x, pt[1].y, w, h)
-      seg(pt[0].x, pt[0].y, e.x, e.y)
-      lay.handles.push({ ...pt[0], idx: 0 }, { ...pt[1], idx: 1 })
-      break
-    }
-    case 'hline': {
-      const y = pt[0].y
-      seg(0, y, w, y)
-      lay.labels.push({ x: w - 6, y: y - 3, text: fmt(d.points[0].p), align: 'right', plain: true })
-      lay.handles.push({ x: clamp(pt[0].x, 14, w - 14), y, idx: 0 })
-      break
-    }
-    case 'vline': {
-      const x = pt[0].x
-      seg(x, 0, x, h)
-      lay.handles.push({ x, y: clamp(pt[0].y, 14, h - 14), idx: 0 })
-      break
-    }
-    case 'rect': {
-      const [a, b] = pt
-      lay.fills.push({ poly: [[a.x, a.y], [b.x, a.y], [b.x, b.y], [a.x, b.y]], alpha: 0.12, hit: true })
-      seg(a.x, a.y, b.x, a.y); seg(b.x, a.y, b.x, b.y); seg(b.x, b.y, a.x, b.y); seg(a.x, b.y, a.x, a.y)
-      lay.handles.push({ ...a, idx: 0 }, { ...b, idx: 1 }, { x: b.x, y: a.y, idx: 2 }, { x: a.x, y: b.y, idx: 3 })
-      break
-    }
-    case 'fib': {
-      const [a, b] = d.points
-      const xl = Math.min(pt[0].x, pt[1].x)
-      const xr = d.extend === false ? Math.max(pt[0].x, pt[1].x) : Math.max(w, pt[0].x, pt[1].x)
-      let prevY = null
-      FIB_LEVELS.forEach((lvl, i) => {
-        const price = b.p + (a.p - b.p) * lvl // 0 at the 2nd anchor, 1 at the 1st
-        const y = proj.y(price)
-        if (y == null) return
-        seg(xl, y, xr, y, { alpha: lvl === 0 || lvl === 1 ? 1 : 0.8, fibLevel: lvl })
-        lay.labels.push({ x: xl + 4, y: y - 3, text: `${lvl} (${fmt(price)})`, align: 'left', plain: true })
-        if (prevY != null && i % 2 === 1) lay.fills.push({ poly: [[xl, prevY], [xr, prevY], [xr, y], [xl, y]], alpha: 0.07 })
-        prevY = y
-      })
-      seg(pt[0].x, pt[0].y, pt[1].x, pt[1].y, { dash: true, alpha: 0.7 })
-      lay.handles.push({ ...pt[0], idx: 0 }, { ...pt[1], idx: 1 })
-      break
-    }
-    case 'channel': {
-      const [a, b] = d.points
-      const off = d.offset || 0
-      const y1 = proj.y(a.p + off)
-      const y2 = proj.y(b.p + off)
-      if (y1 == null || y2 == null) return null
-      seg(pt[0].x, pt[0].y, pt[1].x, pt[1].y)
-      seg(pt[0].x, y1, pt[1].x, y2)
-      seg(pt[0].x, (pt[0].y + y1) / 2, pt[1].x, (pt[1].y + y2) / 2, { dash: true, alpha: 0.6 })
-      lay.fills.push({ poly: [[pt[0].x, pt[0].y], [pt[1].x, pt[1].y], [pt[1].x, y2], [pt[0].x, y1]], alpha: 0.1 })
-      lay.handles.push({ ...pt[0], idx: 0 }, { ...pt[1], idx: 1 }, { x: (pt[0].x + pt[1].x) / 2, y: (y1 + y2) / 2, idx: 2 })
-      break
-    }
-    case 'text': {
-      const text = d.text || 'Note'
-      const tw = measure(text) + 14
-      lay.labels.push({ x: pt[0].x, y: pt[0].y, text, align: 'left', box: true, bw: tw, bh: TEXT_H })
-      lay.fills.push({ poly: [[pt[0].x, pt[0].y - TEXT_H / 2], [pt[0].x + tw, pt[0].y - TEXT_H / 2], [pt[0].x + tw, pt[0].y + TEXT_H / 2], [pt[0].x, pt[0].y + TEXT_H / 2]], alpha: 0, hit: true })
-      lay.handles.push({ ...pt[0], idx: 0 })
-      break
-    }
-    case 'measure': {
-      const [a, b] = pt
-      lay.fills.push({ poly: [[a.x, a.y], [b.x, a.y], [b.x, b.y], [a.x, b.y]], alpha: 0.12, hit: true })
-      seg(a.x, a.y, b.x, b.y, { arrow: true })
-      const m = view.timeMap && view.inst ? measureInfo(d.points[0], d.points[1], view.inst, view.timeMap) : null
-      if (m) {
-        const sign = m.dp >= 0 ? '+' : '−'
-        const lines = [
-          `${sign}${fmt(Math.abs(m.dp))}  (${sign}${Math.abs(m.pct).toFixed(2)}%)`,
-          `${m.pips == null ? '' : `${Math.abs(m.pips).toFixed(1)} pips · `}${Math.abs(m.bars)} bars · ${formatDuration(m.secs)}`,
-        ]
-        lay.labels.push({ x: (a.x + b.x) / 2, y: m.up ? Math.min(a.y, b.y) - 8 : Math.max(a.y, b.y) + 8, lines, align: 'center', box: true, up: m.up, bh: 36, bw: Math.max(...lines.map((s) => measure(s))) + 14 })
-      }
-      break
-    }
-    default:
-      return null
-  }
-  return lay
-}
-
-// ── hit testing ────────────────────────────────────────────────────────────
-// Returns { kind: 'handle', idx } | { kind: 'body' } | null.
-export function hitTest(lay, x, y, { tol = 6, handleTol = 10, selected = false } = {}) {
-  if (!lay) return null
-  if (selected) {
-    let best = null
-    for (const hd of lay.handles) {
-      const dist = Math.hypot(hd.x - x, hd.y - y)
-      if (dist <= handleTol && (!best || dist < best.dist)) best = { dist, idx: hd.idx }
-    }
-    if (best) return { kind: 'handle', idx: best.idx }
-  }
-  for (const s of lay.segs) if (distToSeg(x, y, s.x1, s.y1, s.x2, s.y2) <= tol) return { kind: 'body' }
-  for (const f of lay.fills) if (f.hit && pointInPoly(x, y, f.poly)) return { kind: 'body' }
-  return null
-}
-
-// ── editing ────────────────────────────────────────────────────────────────
-// Move the whole drawing by (dl bars, dp price).
+// ── editing ──
 export function movePoints(d, orig, dl, dp, timeMap) {
   const lockX = d.type === 'hline'
   const lockY = d.type === 'vline'
@@ -308,7 +144,7 @@ export function moveHandle(d, idx, t, p, timeMap) {
   switch (d.type) {
     case 'hline': pts[0].p = p; return { points: pts }
     case 'vline': pts[0].t = t; return { points: pts }
-    case 'rect':
+    case 'rect': case 'ellipse': case 'prange': case 'dprange':
       if (idx === 0) pts[0] = { t, p }
       else if (idx === 1) pts[1] = { t, p }
       else if (idx === 2) { pts[1].t = t; pts[0].p = p }
@@ -318,8 +154,125 @@ export function moveHandle(d, idx, t, p, timeMap) {
       if (idx === 2) return { offset: channelOffset(d, timeMap, timeMap.toLogical(t), p) }
       pts[idx] = { t, p }
       return { points: pts }
+    case 'long': case 'short':
+      if (idx === 0) { pts[0] = { t, p }; pts[1].p = p; pts[2].t = t; pts[3].t = t }
+      else if (idx === 1) pts[1] = { t, p: pts[0].p }
+      else pts[idx].p = p
+      return { points: pts }
     default:
       pts[idx] = { t, p }
       return { points: pts }
   }
 }
+
+// Which numbers of an anchor can be typed in the Coordinates tab.
+export function editableFields(d, idx) {
+  if (d.type === 'hline' || d.type === 'hray') return { t: d.type === 'hray', p: true }
+  if (d.type === 'vline') return { t: true, p: false }
+  if (d.type === 'long' || d.type === 'short') return idx === 0 ? { t: true, p: true } : idx === 1 ? { t: true, p: false } : { t: false, p: true }
+  return { t: true, p: true }
+}
+export const POINT_NAMES = {
+  long: ['Entry', 'Right edge', 'Stop', 'Target'], short: ['Entry', 'Right edge', 'Stop', 'Target'],
+  fibext: ['A', 'B', 'C'], triangle: ['Point 1', 'Point 2', 'Point 3'], callout: ['Anchor', 'Label'],
+}
+export const pointName = (d, i) => POINT_NAMES[d.type]?.[i] || (d.points.length === 1 ? 'Point' : `Point ${i + 1}`)
+
+// Type a price / time into one anchor (price snapped to the tick, position tools kept consistent).
+export function setAnchor(d, idx, { t, p }, inst) {
+  const pts = d.points.map((q) => ({ ...q }))
+  const f = editableFields(d, idx)
+  if (isNum(t) && f.t) pts[idx].t = Math.round(t)
+  if (isNum(p) && f.p && p > 0) pts[idx].p = Number(p.toFixed(inst.digits))
+  if (d.type === 'long' || d.type === 'short') {
+    pts[1].p = pts[0].p
+    if (idx === 0) { pts[2].t = pts[0].t; pts[3].t = pts[0].t }
+  }
+  return { points: pts }
+}
+
+// "YYYY-MM-DD HH:MM" in the chart's time zone <-> unix seconds
+const pad = (n) => String(n).padStart(2, '0')
+export function fmtDT(t, offsetSec = 0) {
+  const x = new Date((t + offsetSec) * 1000)
+  return `${x.getUTCFullYear()}-${pad(x.getUTCMonth() + 1)}-${pad(x.getUTCDate())} ${pad(x.getUTCHours())}:${pad(x.getUTCMinutes())}`
+}
+export function parseDT(str, offsetSec = 0) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/.exec(String(str).trim())
+  if (!m) return null
+  const [y, mo, da, h, mi] = m.slice(1).map(Number)
+  const ms = Date.UTC(y, mo - 1, da, h, mi)
+  const x = new Date(ms)
+  if (x.getUTCFullYear() !== y || x.getUTCMonth() !== mo - 1 || x.getUTCDate() !== da || h > 23 || mi > 59) return null
+  return ms / 1000 - offsetSec
+}
+
+// Arrow keys: one bar / one tick.
+export const nudgePoints = (d, dBars, dTicks, tickSize, timeMap) => movePoints(d, d.points, dBars, dTicks * tickSize, timeMap)
+
+// Magnet: snap an anchor to the open / high / low / close of the bar under it.
+// weak = only when within `tolPrice`; strong = always the nearest of the four.
+export function magnetSnap(pt, candles, mode, tolPrice = 0) {
+  if (mode === 'off' || !candles?.length) return pt
+  const i = Math.min(candles.length - 1, Math.max(0, Math.round(pt.l)))
+  const c = candles[i]
+  let best = null
+  for (const v of [c.open, c.high, c.low, c.close]) { const dist = Math.abs(v - pt.p); if (!best || dist < best.dist) best = { v, dist } }
+  if (mode === 'weak' && best.dist > tolPrice) return pt
+  return { ...pt, p: best.v, t: c.time, l: i }
+}
+
+// ── z-order, clone, defaults ──
+export const byZ = (list) => [...list].sort((a, b) => a.z - b.z)
+export function reorder(list, id, op) {
+  const sorted = byZ(list)
+  const i = sorted.findIndex((d) => d.id === id)
+  if (i < 0) return list
+  const [it] = sorted.splice(i, 1)
+  const j = op === 'front' ? sorted.length : op === 'back' ? 0 : op === 'up' ? Math.min(sorted.length, i + 1) : Math.max(0, i - 1)
+  sorted.splice(j, 0, it)
+  return sorted.map((d, k) => ({ ...d, z: k }))
+}
+export const nextZ = (list) => list.reduce((m, d) => Math.max(m, d.z + 1), 0)
+
+// Copy / paste / clone: a fresh id, moved a little so it is visible, on top.
+export function cloneDrawing(d, { dBars = 2, dPrice = 0 } = {}, timeMap, z = 0) {
+  return {
+    ...JSON.parse(JSON.stringify(d)), id: newId(), z, createdAt: Math.floor(Date.now() / 1000), locked: false,
+    points: movePoints(d, d.points, d.type === 'hline' ? 0 : dBars, dPrice, timeMap),
+  }
+}
+
+// The style part of a drawing (what templates and per-tool defaults store).
+export const styleOf = (d) => ({ color: d.color, width: d.width, style: { ...d.style }, textStyle: { ...d.textStyle }, ...(d.levels ? { levels: d.levels.map((l) => ({ ...l })) } : {}) })
+export function applyStyle(d, tpl) {
+  if (!tpl) return d
+  const spec = TOOLS[d.type]
+  return {
+    ...d,
+    color: typeof tpl.color === 'string' && HEX.test(tpl.color) ? tpl.color : d.color,
+    width: Number.isInteger(tpl.width) && tpl.width >= 1 && tpl.width <= 8 ? tpl.width : d.width,
+    style: cleanStyle({ ...d.style, ...(tpl.style || {}) }, spec?.style),
+    textStyle: cleanTextStyle({ ...d.textStyle, ...(tpl.textStyle || {}) }),
+    ...(d.levels && tpl.levels ? { levels: cleanLevels(tpl.levels, spec?.levels === 'ext') } : {}),
+  }
+}
+export const cleanTemplateMap = (raw) => {
+  const out = {}
+  if (!raw || typeof raw !== 'object') return out
+  for (const [tool, list] of Object.entries(raw)) {
+    if (!TOOLS[tool] || !Array.isArray(list)) continue
+    out[tool] = list.filter((t) => t && typeof t.name === 'string' && t.name).slice(0, 12).map((t) => ({ name: t.name.slice(0, 30), ...styleOf(applyStyle(newDrawing(tool, [{ t: 0, p: 1 }]), t)) }))
+  }
+  return out
+}
+export const cleanDefaultsMap = (raw) => {
+  const out = {}
+  if (!raw || typeof raw !== 'object') return out
+  for (const [tool, tpl] of Object.entries(raw)) if (TOOLS[tool] && tpl && typeof tpl === 'object') out[tool] = styleOf(applyStyle(newDrawing(tool, [{ t: 0, p: 1 }]), tpl))
+  return out
+}
+
+// ── risk : reward & fib helpers (also used by tests) ──
+export const fibPrice = (a, b, lvl) => b.p + (a.p - b.p) * lvl
+export const fibExtPrice = (a, b, c, lvl) => c.p + (b.p - a.p) * lvl

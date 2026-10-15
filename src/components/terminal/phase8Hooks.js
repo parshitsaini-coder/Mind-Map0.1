@@ -49,7 +49,7 @@ export const SHORTCUTS = [
   ['B / S', 'Buy / Sell (same as pressing the button — respects one-click)'],
   ['Enter', 'Confirm the pending Buy / Sell'],
   ['Esc', 'Cancel confirmation · close panels · leave drawing tool · then close the terminal'],
-  ['1 – 8', 'Timeframes M1 M5 M15 M30 H1 H4 D1 W1'],
+  [`1 – ${TIMEFRAMES.length}`, `Timeframes ${TIMEFRAMES.map((t) => t.id).join(' ')}`],
   ['+  /  −', 'Zoom the active chart in / out'],
   ['?', 'This list'],
 ]
@@ -65,7 +65,7 @@ export function useTerminalHotkeys(enabled, onHelp) {
       if (k === 'b' || k === 'B') { st.fireHotkey('buy'); e.preventDefault() }
       else if (k === 's' || k === 'S') { st.fireHotkey('sell'); e.preventDefault() }
       else if (k === 'Enter' && st.ticketPending) { st.fireHotkey('confirm'); e.preventDefault() }
-      else if (/^[1-8]$/.test(k)) { st.setTimeframe(TIMEFRAMES[Number(k) - 1].id); e.preventDefault() }
+      else if (/^[1-9]$/.test(k) && TIMEFRAMES[Number(k) - 1]) { st.setTimeframe(TIMEFRAMES[Number(k) - 1].id); e.preventDefault() }
       else if (k === '+' || k === '=') { window.dispatchEvent(new CustomEvent('tm-zoom', { detail: 1 })); e.preventDefault() }
       else if (k === '-' || k === '_') { window.dispatchEvent(new CustomEvent('tm-zoom', { detail: -1 })); e.preventDefault() }
       else if (k === '?') { onHelp?.(); e.preventDefault() }

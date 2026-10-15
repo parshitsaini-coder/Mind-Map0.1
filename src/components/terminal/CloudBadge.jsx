@@ -29,7 +29,7 @@ function CloudBadge() {
       onClick={retry ? () => terminalCloud.sync() : undefined}
       title={retry ? 'Tap to retry' : text}
       className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold"
-      style={{ borderColor: '#27313d', color: tone, backgroundColor: 'transparent' }}
+      style={{ borderColor: 'var(--tm-border)', color: tone, backgroundColor: 'transparent' }}
     >
       <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tone }} />
       {text}

@@ -1,4 +1,6 @@
 import { memo, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { useMotion } from './motionHooks'
 import { BarChart3, ChevronDown, ChevronUp, Info } from 'lucide-react'
 import { useTerminalStore } from '../../store/terminalStore'
 import { INSTRUMENTS } from '../../lib/terminal/instruments'
@@ -8,13 +10,13 @@ import { askNotifPermission, notifPermission, notifSupported } from '../../lib/t
 import { useAccountMetrics, useQuote } from './hooks'
 import { fmtMoney, fmtPrice, fmtTime, pnlColor, UP_TXT, DOWN_TXT } from './format'
 
-const BORDER = '#27313d'
+const BORDER = 'var(--tm-border)'
 const SideTag = ({ side }) => (
   <span className="rounded px-1.5 py-0.5 text-[10px] font-extrabold text-white" style={{ backgroundColor: side === 'buy' ? '#15803d' : '#b91c1c' }}>{side.toUpperCase()}</span>
 )
 const sign = (n, d = 1) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n).toFixed(d)}`
 
-const fieldCls = 'w-full rounded border bg-[#0b1016] px-1.5 py-1 text-[16px] tabular-nums outline-none focus:border-blue-500 md:text-[12px]'
+const fieldCls = 'w-full rounded border bg-[var(--tm-deep)] px-1.5 py-1 text-[16px] tabular-nums outline-none focus:border-blue-500 md:text-[12px]'
 const num = (v) => (String(v).trim() === '' ? null : Number(v))
 const txt = (v) => (v == null ? '' : String(v))
 
@@ -34,7 +36,7 @@ function PositionEditor({ p, inst }) {
     setErr(r.ok ? '' : r.error)
   }
   return (
-    <div className="mt-2 rounded-lg border p-2" style={{ borderColor: BORDER, backgroundColor: '#0b1016' }}>
+    <div className="mt-2 rounded-lg border p-2" style={{ borderColor: BORDER, backgroundColor: 'var(--tm-deep)' }}>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         <Field label="Stop loss"><input aria-label="Edit stop loss" inputMode="decimal" value={f.sl} onChange={set('sl')} placeholder="none" className={fieldCls} style={{ borderColor: BORDER }} /></Field>
         <Field label="Take profit"><input aria-label="Edit take profit" inputMode="decimal" value={f.tp} onChange={set('tp')} placeholder="none" className={fieldCls} style={{ borderColor: BORDER }} /></Field>
@@ -54,6 +56,7 @@ function PositionEditor({ p, inst }) {
 }
 
 const OrderRow = memo(function OrderRow({ o }) {
+  const confirmCancel = useTerminalStore((s) => s.chartSettings.trading.confirmCancel)
   const inst = INSTRUMENTS[o.symbol]
   const q = useQuote(o.symbol)
   const [edit, setEdit] = useState(false)
@@ -82,11 +85,11 @@ const OrderRow = memo(function OrderRow({ o }) {
           </div>
         </div>
         <div className="text-right text-[10px] tabular-nums text-slate-400">{away == null ? '' : `${away.toFixed(1)} pips away`}</div>
-        <button type="button" onClick={() => useTerminalStore.getState().cancelOrder(o.id)} className="rounded-md bg-slate-700 px-2.5 py-1.5 text-[11px] font-bold hover:bg-slate-600">Cancel</button>
+        <button type="button" onClick={() => { if (confirmCancel && !window.confirm(`Cancel this ${E.ORDER_LABEL[o.type]} order?`)) return; useTerminalStore.getState().cancelOrder(o.id) }} className="rounded-md bg-slate-700 px-2.5 py-1.5 text-[11px] font-bold hover:bg-slate-600">Cancel</button>
         <button type="button" aria-label="Edit order" aria-expanded={edit} onClick={() => setEdit(!edit)} className="rounded-md bg-slate-800 px-2 py-1.5 text-[11px] font-bold hover:bg-slate-700">✎</button>
       </div>
       {edit && (
-        <div className="mt-2 rounded-lg border p-2" style={{ borderColor: BORDER, backgroundColor: '#0b1016' }}>
+        <div className="mt-2 rounded-lg border p-2" style={{ borderColor: BORDER, backgroundColor: 'var(--tm-deep)' }}>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Field label={o.type === 'stoplimit' ? 'Stop price' : 'Price'}><input aria-label="Edit order price" inputMode="decimal" disabled={o.triggered} value={f.price} onChange={set('price')} className={fieldCls} style={{ borderColor: BORDER }} /></Field>
             {o.type === 'stoplimit' && <Field label="Limit price"><input aria-label="Edit limit price" inputMode="decimal" value={f.limit} onChange={set('limit')} className={fieldCls} style={{ borderColor: BORDER }} /></Field>}
@@ -102,6 +105,7 @@ const OrderRow = memo(function OrderRow({ o }) {
 })
 
 const PositionRow = memo(function PositionRow({ p }) {
+  const confirmClose = useTerminalStore((s) => s.chartSettings.trading.confirmClose)
   const inst = INSTRUMENTS[p.symbol]
   const q = useQuote(p.symbol)
   const [more, setMore] = useState(false)
@@ -121,10 +125,10 @@ const PositionRow = memo(function PositionRow({ p }) {
           </div>
         </div>
         <div className="text-right leading-tight">
-          <div className="text-[13px] font-extrabold tabular-nums" style={{ color: pl == null ? '#9aa4b2' : pnlColor(pl) }}>{pl == null ? '—' : fmtMoney(pl, { sign: true })}</div>
+          <div className="text-[13px] font-extrabold tabular-nums" style={{ color: pl == null ? 'var(--tm-muted)' : pnlColor(pl) }}>{pl == null ? '—' : fmtMoney(pl, { sign: true })}</div>
           <div className="text-[10px] tabular-nums text-slate-400">{pips == null ? '' : `${sign(pips)} pips`} · M {fmtMoney(margin)}</div>
         </div>
-        <button type="button" onClick={() => act('closePosition')} className="rounded-md bg-slate-700 px-2.5 py-1.5 text-[11px] font-bold hover:bg-slate-600">Close</button>
+        <button type="button" onClick={() => { if (confirmClose && !window.confirm(`Close ${p.side.toUpperCase()} ${p.lots} ${p.symbol}?`)) return; act('closePosition') }} className="rounded-md bg-slate-700 px-2.5 py-1.5 text-[11px] font-bold hover:bg-slate-600">Close</button>
         <button type="button" aria-label="More actions" aria-expanded={more} onClick={() => setMore(!more)} className="rounded-md bg-slate-800 px-2 py-1.5 text-[11px] font-bold hover:bg-slate-700">⋯</button>
       </div>
       {more && (
@@ -167,6 +171,8 @@ export default function PositionsPanel() {
   const dockOpen = useTerminalStore((s) => s.dockOpen)
   const tab = useTerminalStore((s) => s.dockTab)
   const { metrics } = useAccountMetrics()
+  const mo = useMotion()
+  const rp = rowProps(mo)
   const st = useTerminalStore.getState
 
   const bulk = (kind) => {
@@ -183,11 +189,11 @@ export default function PositionsPanel() {
 
   const tabBtn = (id, text) => (
     <button type="button" onClick={() => { st().setDockTab(id); st().setDockOpen(true) }} className="rounded px-2 py-1 text-[11px] font-bold"
-      style={{ backgroundColor: tab === id && dockOpen ? '#334155' : 'transparent', color: tab === id && dockOpen ? '#fff' : '#9aa4b2' }}>{text}</button>
+      style={{ backgroundColor: tab === id && dockOpen ? 'var(--tm-active)' : 'transparent', color: tab === id && dockOpen ? '#fff' : 'var(--tm-muted)' }}>{text}</button>
   )
 
   return (
-    <div className="shrink-0 border-t" style={{ borderColor: BORDER, backgroundColor: '#10161d' }}>
+    <div className="shrink-0 border-t" style={{ borderColor: BORDER, backgroundColor: 'var(--tm-panel2)' }}>
       <div className="no-scrollbar flex h-9 items-center gap-1 overflow-x-auto px-2">
         {tabBtn('positions', `Positions (${positions.length})`)}
         {tabBtn('orders', `Orders (${orders.length})`)}
@@ -213,7 +219,7 @@ export default function PositionsPanel() {
       {dockOpen && (
         <div className="h-[34vh] overflow-y-auto border-t md:h-[220px]" style={{ borderColor: BORDER }}>
           {rules && (
-            <div className="border-b px-3 py-2 text-[11px] leading-relaxed text-slate-300" style={{ borderColor: BORDER, backgroundColor: '#0b1016' }}>
+            <div className="border-b px-3 py-2 text-[11px] leading-relaxed text-slate-300" style={{ borderColor: BORDER, backgroundColor: 'var(--tm-deep)' }}>
               <b>Fill rules (simulated):</b> BUY fills at the ask and SELL at the bid; SL/TP/pending orders trigger on the side you would really exit/enter at.
               If price gaps past a level you get the <b>first available price</b> (can be worse). Inside one candle during offline catch-up, price is assumed to visit the extreme
               <b> worst for your open trade first, so SL fills before TP</b>. Trailing stops move in 1-pip steps. Fills while the terminal was closed are replayed from
@@ -229,13 +235,13 @@ export default function PositionsPanel() {
                   <button type="button" onClick={() => st().setSettings({ notifAsked: true })} className="rounded bg-slate-700 px-2 py-1 font-bold">Not now</button>
                 </div>
               )}
-              {orders.length ? orders.map((o) => <OrderRow key={o.id} o={o} />) : <Empty text="No pending orders — pick Limit / Stop in the ticket, or right-click (long-press) the chart." />}
+              {orders.length ? <AnimatePresence initial={false} mode="popLayout">{orders.map((o) => <motion.div key={o.id} data-testid="row-order" {...rp}><OrderRow o={o} /></motion.div>)}</AnimatePresence> : <Empty text="No pending orders — pick Limit / Stop in the ticket, or right-click (long-press) the chart." />}
             </>
           ) : tab === 'positions' ? (
-            positions.length ? positions.map((p) => <PositionRow key={p.id} p={p} />) : <Empty text="No open positions — place a BUY or SELL order." />
+            positions.length ? <AnimatePresence initial={false} mode="popLayout">{positions.map((p) => <motion.div key={p.id} data-testid="row-position" {...rp}><PositionRow p={p} /></motion.div>)}</AnimatePresence> : <Empty text="No open positions — place a BUY or SELL order." />
           ) : history.length ? (
             <>
-              {history.slice(0, 100).map((h) => <HistoryRow key={h.id} h={h} />)}
+              <AnimatePresence initial={false} mode="popLayout">{history.slice(0, 100).map((h) => <motion.div key={h.id} data-testid="row-history" {...rp}><HistoryRow h={h} /></motion.div>)}</AnimatePresence>
               <div className="px-3 py-2 text-center text-[10px] text-slate-500">Showing the latest 100 closed trades. <button type="button" onClick={() => st().setHistoryOpen(true)} className="font-bold text-sky-400 underline">Open full history, statistics &amp; CSV export</button></div>
             </>
           ) : <Empty text="No closed trades yet." />}
@@ -245,4 +251,15 @@ export default function PositionsPanel() {
   )
 }
 
+// Phase 13: rows slide in / out and the rest glide into place (transform + opacity only)
+function rowProps(mo) {
+  if (!mo.rows) return {}
+  return {
+    layout: 'position',
+    initial: { opacity: 0, x: -16 },
+    animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: 40, transition: { duration: mo.full ? 0.16 : mo.fadeMs / 1000 } },
+    transition: mo.full ? { type: 'spring', stiffness: 520, damping: 36 } : { duration: mo.fadeMs / 1000 },
+  }
+}
 const Empty = ({ text }) => <div className="px-3 py-6 text-center text-[12px] text-slate-500">{text}</div>

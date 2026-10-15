@@ -10,7 +10,7 @@ const TA_INSTRUMENT = {
   XAUUSD: { pair: 'XAUUSD', name: 'Gold / US Dollar', type: 'Forex' },
   NIFTY50: { pair: 'NIFTY 50', name: 'Nifty 50', type: 'Index' },
 }
-const TA_TIMEFRAME = { M1: '1m', M5: '5m', M15: '15m', M30: '30m', H1: '60m', H4: '4h', D1: '1D' }
+const TA_TIMEFRAME = { M1: '1m', M5: '5m', M15: '15m', M30: '30m', H1: '60m', H4: '4h', D1: '1D', W1: '1W' }
 const REASON_TEXT = { manual: 'closed manually', sl: 'stop loss', tp: 'take profit', stopout: 'stop-out', reverse: 'reversed', ptp: 'partial take profit' }
 
 export const journalKey = (h) => `${h.id}@${h.closeTime}`

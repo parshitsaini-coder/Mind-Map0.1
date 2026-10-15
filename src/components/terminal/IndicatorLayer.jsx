@@ -5,6 +5,7 @@ import { INSTRUMENTS, TIMEFRAMES } from '../../lib/terminal/instruments'
 import { INDICATOR_DEFS } from '../../lib/terminal/indicators'
 import { createIndicatorEngine } from '../../lib/terminal/indicatorClient'
 import { CANDLE_CAP, CANDLE_TRIM } from '../../lib/terminal/indicatorCore'
+import { visibleOn } from '../../lib/terminal/drawings'
 import { createFillPrimitive } from './chartPrimitives'
 import { TZ } from './chartConst'
 
@@ -17,14 +18,16 @@ const hexA = (hex, a) => {
 
 // Renders nothing in the DOM. Builds the indicator series (and sub-panes) on the chart, asks the
 // worker for the maths, paints the result and keeps the last point live as ticks arrive.
-export default function IndicatorLayer({ chartRef, seriesRef, candlesRef, busRef, symbol, timeframe, ver }) {
+const LS = { solid: 0, dotted: 1, dashed: 2 }
+
+export default function IndicatorLayer({ chartRef, seriesRef, candlesRef, busRef, valsRef, symbol, timeframe, ver }) {
   const indicators = useTerminalStore((s) => s.indicators)
 
   useEffect(() => {
     const chart = chartRef.current
     const main = seriesRef.current
     const initial = candlesRef.current
-    const active = indicators.filter((i) => i.visible && INDICATOR_DEFS[i.type])
+    const active = indicators.filter((i) => i.visible && INDICATOR_DEFS[i.type] && visibleOn(i, timeframe))
     if (!chart || !main || !initial?.length || !active.length) return undefined
 
     const inst = INSTRUMENTS[symbol]
@@ -51,10 +54,12 @@ export default function IndicatorLayer({ chartRef, seriesRef, candlesRef, busRef
           const common = { priceLineVisible: false, lastValueVisible: pane > 0 && ln.kind !== 'hist', crosshairMarkerVisible: false }
           if (def.fixed) common.autoscaleInfoProvider = () => ({ priceRange: { minValue: def.fixed[0], maxValue: def.fixed[1] } })
           else if (def.noAutoscale) common.autoscaleInfoProvider = () => null
-          const fmt = cfg.type === 'rsi' || cfg.type === 'stoch' ? smallFormat : priceFormat
+          const fmt = cfg.type === 'rsi' || cfg.type === 'stoch' || cfg.type === 'stochrsi' ? smallFormat : priceFormat
+          const ls = cfg.styles?.[ln.key]
+          const shown = !ls?.hidden
           const s = ln.kind === 'hist'
-            ? chart.addSeries(HistogramSeries, { ...common, priceFormat: fmt, base: 0 }, pane)
-            : chart.addSeries(LineSeries, { ...common, priceFormat: fmt, color, lineWidth: ln.width || 1, lineStyle: ln.dash ? 2 : 0 }, pane)
+            ? chart.addSeries(HistogramSeries, { ...common, priceFormat: cfg.type === 'volume' ? { type: 'volume' } : fmt, base: 0, visible: shown }, pane)
+            : chart.addSeries(LineSeries, { ...common, priceFormat: cfg.type === 'volume' ? { type: 'volume' } : fmt, color, lineWidth: ls?.width || ln.width || 1, lineStyle: LS[ls?.lineStyle || (ln.dash ? 'dashed' : 'solid')], visible: shown }, pane)
           created.push(s)
           lines[ln.key] = { series: s, kind: ln.kind || 'line', color }
         }
@@ -76,8 +81,10 @@ export default function IndicatorLayer({ chartRef, seriesRef, candlesRef, busRef
       if (paneIdx > 0) {
         const panes = chart.panes()
         panes[0].setStretchFactor(3)
-        for (let i = 1; i <= paneIdx; i++) panes[i]?.setStretchFactor(1)
+        let k = 0
+        for (const b of built) { if (b.def.where !== 'pane') continue; k++; panes[k]?.setStretchFactor(b.cfg.collapsed ? 0.08 : (b.cfg.paneSize || 1)) }
       }
+      if (valsRef) valsRef.current = built
     } catch (err) {
       console.warn('[terminal] indicator setup failed', err)
     }
@@ -116,7 +123,7 @@ export default function IndicatorLayer({ chartRef, seriesRef, candlesRef, busRef
             const time = plotTime(idx)
             const v = vals[i]
             if (v == null) data.push({ time })
-            else if (L.kind === 'hist') data.push({ time, value: v, color: histColor(v, vals[i - 1]) })
+            else if (L.kind === 'hist') data.push({ time, value: v, color: e.cfg.type === 'volume' ? ((cs[i]?.close ?? 0) >= (cs[i]?.open ?? 0) ? 'rgba(34,197,94,0.55)' : 'rgba(239,68,68,0.55)') : histColor(v, vals[i - 1]) })
             else data.push({ time, value: v })
           }
           try { L.series.setData(data) } catch { /* series removed while the reply was in flight */ }
@@ -147,7 +154,7 @@ export default function IndicatorLayer({ chartRef, seriesRef, candlesRef, busRef
           const time = plotTime(idx)
           try {
             if (v == null) L.series.update({ time })
-            else if (L.kind === 'hist') L.series.update({ time, value: v, color: histColor(v, e.vals[ln.key]?.[idx - 1]) })
+            else if (L.kind === 'hist') L.series.update({ time, value: v, color: e.cfg.type === 'volume' ? ((cs[idx]?.close ?? 0) >= (cs[idx]?.open ?? 0) ? 'rgba(34,197,94,0.55)' : 'rgba(239,68,68,0.55)') : histColor(v, e.vals[ln.key]?.[idx - 1]) })
             else L.series.update({ time, value: v })
           } catch { /* ignore: older than the last point */ }
           if (e.vals[ln.key] && idx < e.vals[ln.key].length) e.vals[ln.key][idx] = v
@@ -156,6 +163,7 @@ export default function IndicatorLayer({ chartRef, seriesRef, candlesRef, busRef
       }
     }
 
+    try { if (localStorage.getItem('terminal-debug')) window.__terminalPanes = () => chart.panes().length } catch { /* ignore */ }
     const ctx = { tz: TZ, tfMinutes: tfMin }
     const cfgs = built.map((b) => ({ id: b.cfg.id, type: b.cfg.type, params: b.cfg.params }))
     const engine = createIndicatorEngine((msg) => {
@@ -176,11 +184,12 @@ export default function IndicatorLayer({ chartRef, seriesRef, candlesRef, busRef
 
     return () => {
       busRef.current = null
+      if (valsRef) valsRef.current = null
       engine.dispose()
       for (const s of created) { try { chart.removeSeries(s) } catch { /* chart already disposed */ } }
       try { for (let i = chart.panes().length - 1; i > 0; i--) chart.removePane(i) } catch { /* ignore */ }
     }
-  }, [indicators, symbol, timeframe, ver, chartRef, seriesRef, candlesRef, busRef])
+  }, [indicators, symbol, timeframe, ver, chartRef, seriesRef, candlesRef, busRef, valsRef])
 
   return null
 }

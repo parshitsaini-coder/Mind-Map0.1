@@ -1,12 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, AtSign, Lock, ShieldAlert, Trash2, X, Loader2, Check } from 'lucide-react'
 
 // Confirmation step for "Clear all data" — friction against misclicks, not
 // real access control (same convention as DeleteConfirmModal): the person
-// must type their own account ID (email or username) and the fixed
-// password below before anything is deleted.
-const CLEAR_PASSWORD = '1000'
+// must type their own account ID (email or username) and then re-enter their
+// real account password (checked with Supabase) before anything is deleted.
+// Accounts without a password (Google sign-in) or when Supabase is not
+// configured type the word DELETE instead. No password is stored in the app.
+const CONFIRM_WORD = 'DELETE'
 
 const GROUPS = [
   { id: 'trades', label: 'Trade Analysis', hint: 'trades, validation rules' },
@@ -22,6 +25,18 @@ export default function ClearDataModal({ user, onConfirm, onCancel }) {
   const [error, setError] = useState('')
   const [shakeKey, setShakeKey] = useState(0)
   const [busy, setBusy] = useState(false)
+  // true = verify the account password; false = type the word DELETE.
+  const [needsPassword, setNeedsPassword] = useState(false)
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !user?.email) return undefined
+    let alive = true
+    supabase.auth.getUser().then(({ data }) => {
+      const ids = data?.user?.identities || []
+      if (alive) setNeedsPassword(ids.some((i) => i.provider === 'email'))
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [user?.email])
 
   const anySelected = Object.values(selected).some(Boolean)
 
@@ -37,10 +52,16 @@ export default function ClearDataModal({ user, onConfirm, onCancel }) {
     const valid = [user.email, user.username, user.name].filter(Boolean).map((v) => String(v).toLowerCase())
     if (!anySelected) return fail('Select at least one thing to clear.')
     if (!typed || !valid.includes(typed)) return fail('That ID doesn’t match this account.')
-    if (password.trim() !== CLEAR_PASSWORD) return fail('Incorrect password. Try again.')
     setError('')
     setBusy(true)
     try {
+      if (needsPassword) {
+        const { error: authErr } = await supabase.auth.signInWithPassword({ email: user.email, password })
+        if (authErr) { setBusy(false); return fail('Incorrect password. Try again.') }
+      } else if (password.trim() !== CONFIRM_WORD) {
+        setBusy(false)
+        return fail(`Wrong password — type ${CONFIRM_WORD} exactly.`)
+      }
       await onConfirm(selected)
     } finally {
       setBusy(false)
@@ -158,11 +179,11 @@ export default function ClearDataModal({ user, onConfirm, onCancel }) {
               <div className={inputWrap(!!error && error.includes('password'))} style={{ background: 'rgba(255,255,255,0.06)' }}>
                 <Lock size={14} className="text-white/50" />
                 <input
-                  type="password"
+                  type={needsPassword ? 'password' : 'text'}
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); if (error) setError('') }}
                   onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
-                  placeholder="Enter password"
+                  placeholder={needsPassword ? 'Enter your account password' : `Type ${CONFIRM_WORD} to confirm`}
                   className="w-full bg-transparent text-[13px] text-white placeholder-white/35 outline-none"
                 />
               </div>

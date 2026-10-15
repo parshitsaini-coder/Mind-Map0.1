@@ -8,8 +8,9 @@
 //   settings  { v, terminal:{...terminal settings}, prefs:{ indicators, layout, charts, activeChart, chartType, drawSticky, drawHidden } }
 import { SYMBOLS, TIMEFRAMES } from './instruments.js'
 import { INDICATOR_DEFS, cleanParams, MAX_INDICATORS } from './indicators.js'
-import { sanitizeDrawings } from './drawings.js'
+import { cleanVisibility, sanitizeDrawings, cleanDefaultsMap, cleanTemplateMap } from './drawings.js'
 import { LEVERAGES } from './ledger.js'
+import { cleanChartSettings, CHART_TYPE_IDS } from './chartSettings.js'
 
 export const CLOUD_VERSION = 1
 export const HISTORY_CAP = 2000 // same cap the local (persisted) copy uses
@@ -24,16 +25,31 @@ export const DEFAULT_CHARTS = [
 export const validCell = (c) => c && SYMBOLS.includes(c.symbol) && TIMEFRAMES.some((t) => t.id === c.timeframe)
 
 // Saved indicator list -> only entries that still make sense (unknown types / junk are dropped).
+// per-line look: { key: { width 1-4, lineStyle, hidden } } — only keys the indicator really has
+export function cleanLineStyles(type, raw) {
+  const out = {}
+  const r = raw && typeof raw === 'object' ? raw : {}
+  for (const ln of INDICATOR_DEFS[type].lines) {
+    const v = r[ln.key]
+    if (!v || typeof v !== 'object') continue
+    out[ln.key] = { width: Number.isInteger(v.width) && v.width >= 1 && v.width <= 4 ? v.width : (ln.width || 1), lineStyle: ['solid', 'dashed', 'dotted'].includes(v.lineStyle) ? v.lineStyle : (ln.dash ? 'dashed' : 'solid'), hidden: !!v.hidden }
+  }
+  return out
+}
 export const sanitizeIndicators = (list) =>
   (Array.isArray(list) ? list : [])
     .filter((i) => i && typeof i.id === 'string' && INDICATOR_DEFS[i.type])
     .slice(0, MAX_INDICATORS)
-    .map((i) => ({ id: i.id, type: i.type, params: cleanParams(i.type, i.params), colors: i.colors && typeof i.colors === 'object' ? i.colors : {}, visible: i.visible !== false }))
+    .map((i) => ({
+      id: i.id, type: i.type, params: cleanParams(i.type, i.params), colors: i.colors && typeof i.colors === 'object' ? i.colors : {}, visible: i.visible !== false,
+      styles: cleanLineStyles(i.type, i.styles), visibility: cleanVisibility(i.visibility),
+      paneSize: [0.5, 1, 2].includes(i.paneSize) ? i.paneSize : 1, collapsed: !!i.collapsed,
+    }))
 
 // Store keys whose change means "there is something new to upload".
 export const SYNCED_KEYS = [
   'account', 'positions', 'orders', 'history', 'transactions', 'journaled', 'nextId',
-  'drawings', 'settings', 'indicators', 'layout', 'charts', 'activeChart', 'chartType', 'drawSticky', 'drawHidden',
+  'drawings', 'settings', 'chartSettings', 'indicators', 'layout', 'charts', 'activeChart', 'chartType', 'drawSticky', 'drawHidden', 'drawDefaults', 'drawTemplates',
 ]
 
 const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v)
@@ -91,7 +107,7 @@ export function snapshotOf(s) {
     account: s.account, transactions: s.transactions || [], nextId: s.nextId, journaled: s.journaled || {},
     positions: s.positions || [], orders: s.orders || [], history: s.history || [],
     drawings: s.drawings || {}, settings: s.settings || {},
-    prefs: { indicators: s.indicators || [], layout: s.layout, charts: s.charts, activeChart: s.activeChart, chartType: s.chartType, drawSticky: !!s.drawSticky, drawHidden: !!s.drawHidden },
+    prefs: { indicators: s.indicators || [], layout: s.layout, charts: s.charts, activeChart: s.activeChart, chartType: s.chartType, drawSticky: !!s.drawSticky, drawHidden: !!s.drawHidden, chart: s.chartSettings || null, drawDefaults: s.drawDefaults || {}, drawTemplates: s.drawTemplates || {} },
   }
 }
 
@@ -162,7 +178,7 @@ export function parseRow(row) {
     hasAccount: !!hasAccount,
     account: hasAccount ? { balance: a.balance, startBalance: a.startBalance, currency: typeof a.currency === 'string' ? a.currency : 'USD', leverage: a.leverage, createdAt: num(a.createdAt) ? a.createdAt : Math.floor(Date.now() / 1000), ...(num(a.commission) && a.commission > 0 && a.commission <= 100 ? { commission: a.commission } : {}) } : null,
     transactions, nextId, journaled, positions, orders, history, drawings, settings,
-    prefs: { indicators: sanitizeIndicators(P.indicators), layout, charts, activeChart, chartType: P.chartType === 'line' ? 'line' : 'candles', drawSticky: !!P.drawSticky, drawHidden: !!P.drawHidden },
+    prefs: { indicators: sanitizeIndicators(P.indicators), layout, charts, activeChart, chartType: CHART_TYPE_IDS.includes(P.chartType) ? P.chartType : 'candles', drawSticky: !!P.drawSticky, drawHidden: !!P.drawHidden, chart: isObj(P.chart) ? cleanChartSettings(P.chart) : null, drawDefaults: cleanDefaultsMap(P.drawDefaults), drawTemplates: cleanTemplateMap(P.drawTemplates) },
   }
   return snap
 }

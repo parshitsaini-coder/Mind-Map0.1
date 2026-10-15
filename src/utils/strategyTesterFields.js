@@ -92,6 +92,17 @@ export const isValueFilled = (type, value) => {
   return true
 }
 
+// Aliases used by the Strategy Tester cells + analytics (they key on `kind`; the registry keys on `type`).
+export const isFieldFilled = (kind, value) => isValueFilled(kind, value)
+
+export const FIELD_BY_ID = Object.fromEntries(FIELD_TYPES.map((f) => [f.type, { ...f, kind: f.type }]))
+
+// '1:3' -> 3, '1:10+' -> 10; anything unrecognised -> null.
+export const rrrToNumber = (rrr) => {
+  const m = /^1:(\d+(?:\.\d+)?)\+?$/.exec(String(rrr ?? '').trim())
+  return m ? Number(m[1]) : null
+}
+
 // One-time rename: the Win/Loss/BE column used to be called "Win Rate".
 // Older saved data (localStorage or cloud) still carries that label, so
 // it's mapped to "Result" whenever strategies are loaded. Columns the user

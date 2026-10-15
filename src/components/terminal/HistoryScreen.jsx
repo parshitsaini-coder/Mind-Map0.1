@@ -7,9 +7,9 @@ import { journalKey } from '../../lib/terminal/journal'
 import { StatsView, AccountView } from './StatsAccount'
 import { fmtMoney, fmtPrice, fmtTime, pnlColor } from './format'
 
-const BORDER = '#27313d'
+const BORDER = 'var(--tm-border)'
 const TABS = [['trades', 'Trades'], ['stats', 'Statistics'], ['account', 'Account']]
-const sel = 'rounded-md border bg-[#0b1016] px-2 py-1.5 text-[16px] font-semibold text-slate-100 md:text-[12px]'
+const sel = 'rounded-md border bg-[var(--tm-deep)] px-2 py-1.5 text-[16px] font-semibold text-slate-100 md:text-[12px]'
 const PAGE = 100
 
 function downloadCsv(rows) {
@@ -70,19 +70,19 @@ function Inner() {
 
   return (
     <div className="absolute inset-0 z-40 flex flex-col text-slate-100" style={{ backgroundColor: '#0f1419', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b px-2" style={{ borderColor: BORDER, backgroundColor: '#131a22' }}>
+      <div className="flex h-11 shrink-0 items-center gap-2 border-b px-2" style={{ borderColor: BORDER, backgroundColor: 'var(--tm-panel)' }}>
         <button type="button" onClick={() => useTerminalStore.getState().setHistoryOpen(false)} className="flex shrink-0 items-center gap-1 rounded px-2 py-1 text-[12px] font-semibold text-slate-300 hover:bg-white/10"><ArrowLeft size={14} /> Chart</button>
         <div className="hidden whitespace-nowrap text-[13px] font-extrabold sm:block">History &amp; statistics</div>
         <div role="tablist" className="no-scrollbar ml-auto flex min-w-0 gap-1 overflow-x-auto">
           {TABS.map(([id, text]) => (
             <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className="shrink-0 rounded px-2.5 py-1 text-[12px] font-bold"
-              style={{ backgroundColor: tab === id ? '#334155' : 'transparent', color: tab === id ? '#fff' : '#9aa4b2' }}>{text}</button>
+              style={{ backgroundColor: tab === id ? 'var(--tm-active)' : 'transparent', color: tab === id ? '#fff' : 'var(--tm-muted)' }}>{text}</button>
           ))}
         </div>
       </div>
 
       {tab !== 'account' && (
-        <div className="no-scrollbar flex shrink-0 items-center gap-2 overflow-x-auto border-b px-3 py-2" style={{ borderColor: BORDER, backgroundColor: '#10161d' }}>
+        <div className="no-scrollbar flex shrink-0 items-center gap-2 overflow-x-auto border-b px-3 py-2" style={{ borderColor: BORDER, backgroundColor: 'var(--tm-panel2)' }}>
           <select aria-label="Filter symbol" value={f.symbol} onChange={set('symbol')} className={sel} style={{ borderColor: BORDER }}>
             <option value="all">All symbols</option>{SYMBOLS.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>

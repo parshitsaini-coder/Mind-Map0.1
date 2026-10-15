@@ -9,10 +9,10 @@ import { useAccountMetrics, useQuote } from './hooks'
 import { askNotifPermission, notifPermission, notifSupported } from '../../lib/terminal/alerts'
 import { fmtMoney, fmtPrice, UP_TXT, DOWN_TXT } from './format'
 
-const BORDER = '#27313d'
+const BORDER = 'var(--tm-border)'
 const PRESETS = [0.01, 0.1, 1]
 const MODES = [['price', 'Price'], ['pips', 'Pips'], ['usd', '$']]
-const inputCls = 'w-full rounded-md border bg-[#0b1016] px-2 py-1.5 text-[16px] font-semibold tabular-nums text-slate-100 outline-none focus:border-blue-500 md:text-[13px]'
+const inputCls = 'w-full rounded-md border bg-[var(--tm-deep)] px-2 py-1.5 text-[16px] font-semibold tabular-nums text-slate-100 outline-none focus:border-blue-500 md:text-[13px]'
 const cleanLots = (n) => String(+n.toFixed(4))
 
 function StopField({ label, state, onChange, onPick }) {
@@ -23,7 +23,7 @@ function StopField({ label, state, onChange, onPick }) {
         <div className="flex overflow-hidden rounded border" style={{ borderColor: BORDER }}>
           {MODES.map(([m, t]) => (
             <button key={m} type="button" onClick={() => onChange({ ...state, mode: m })} className="flex-1 py-1 text-[10px] font-bold"
-              style={{ backgroundColor: state.mode === m ? '#334155' : 'transparent', color: state.mode === m ? '#fff' : '#9aa4b2' }}>{t}</button>
+              style={{ backgroundColor: state.mode === m ? 'var(--tm-active)' : 'transparent', color: state.mode === m ? '#fff' : 'var(--tm-muted)' }}>{t}</button>
           ))}
         </div>
       </div>
@@ -68,6 +68,16 @@ export default function OrderTicket({ symbol, onExecuted, onPickStart }) {
     else if (pickRes.field === 'limit') setOrdLimit(v)
     else if (pickRes.field === 'sl') setSl({ mode: 'price', value: v })
     else if (pickRes.field === 'tp') setTp({ mode: 'price', value: v })
+  }
+  // Right-click menu on the chart -> "Buy limit…": the ticket opens with that type and price.
+  const prefill = useTerminalStore((s) => s.ticketPrefill)
+  const [seenPrefill, setSeenPrefill] = useState(prefill?.n || 0)
+  if (prefill && prefill.n !== seenPrefill) {
+    setSeenPrefill(prefill.n)
+    setOtype(prefill.type); setOrdPrice(prefill.price != null ? prefill.price.toFixed(inst.digits) : ''); setOrdLimit('')
+    // from a Long / Short position drawing: also fill the stop loss and take profit
+    if (prefill.sl != null) setSl({ mode: 'price', value: prefill.sl.toFixed(inst.digits) })
+    if (prefill.tp != null) setTp({ mode: 'price', value: prefill.tp.toFixed(inst.digits) })
   }
   const startPick = (field) => { useTerminalStore.getState().setPickReq(field); onPickStart?.() }
 
@@ -165,7 +175,7 @@ export default function OrderTicket({ symbol, onExecuted, onPickStart }) {
           onClick={() => useTerminalStore.getState().setSettings({ oneClick: !settings.oneClick })}
           className="flex items-center gap-1.5 text-[10px] font-bold text-slate-300">
           One-click
-          <span className="relative h-4 w-8 rounded-full transition-colors" style={{ backgroundColor: settings.oneClick ? '#2563eb' : '#334155' }}>
+          <span className="relative h-4 w-8 rounded-full transition-colors" style={{ backgroundColor: settings.oneClick ? '#2563eb' : 'var(--tm-border2)' }}>
             <span className="absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all" style={{ left: settings.oneClick ? 18 : 2 }} />
           </span>
         </button>
@@ -174,7 +184,7 @@ export default function OrderTicket({ symbol, onExecuted, onPickStart }) {
       <div role="tablist" aria-label="Order type" className="grid grid-cols-4 overflow-hidden rounded-lg border" style={{ borderColor: BORDER }}>
         {TYPES.map(([id, text]) => (
           <button key={id} type="button" role="tab" aria-selected={otype === id} onClick={() => { setOtype(id); setError(''); setPending(null) }}
-            className="py-1.5 text-[10px] font-bold" style={{ backgroundColor: otype === id ? '#334155' : 'transparent', color: otype === id ? '#fff' : '#9aa4b2' }}>{text}</button>
+            className="py-1.5 text-[10px] font-bold" style={{ backgroundColor: otype === id ? 'var(--tm-active)' : 'transparent', color: otype === id ? '#fff' : 'var(--tm-muted)' }}>{text}</button>
         ))}
       </div>
 
@@ -206,12 +216,12 @@ export default function OrderTicket({ symbol, onExecuted, onPickStart }) {
             </div>
           )}
           <div className="flex items-center gap-2">
-            <select aria-label="Expiry" value={expiry.kind} onChange={(e) => setExpiry({ ...expiry, kind: e.target.value })} className="flex-1 rounded-md border bg-[#0b1016] px-2 py-1.5 text-[16px] font-bold md:text-[12px]" style={{ borderColor: BORDER }}>
+            <select aria-label="Expiry" value={expiry.kind} onChange={(e) => setExpiry({ ...expiry, kind: e.target.value })} className="flex-1 rounded-md border bg-[var(--tm-deep)] px-2 py-1.5 text-[16px] font-bold md:text-[12px]" style={{ borderColor: BORDER }}>
               <option value="gtc">Good till cancelled</option>
               <option value="day">Today only</option>
               <option value="date">Until date…</option>
             </select>
-            {expiry.kind === 'date' && <input aria-label="Expiry date" type="date" value={expiry.date} onChange={(e) => setExpiry({ ...expiry, date: e.target.value })} className="rounded-md border bg-[#0b1016] px-2 py-1 text-[16px] md:text-[12px]" style={{ borderColor: BORDER }} />}
+            {expiry.kind === 'date' && <input aria-label="Expiry date" type="date" value={expiry.date} onChange={(e) => setExpiry({ ...expiry, date: e.target.value })} className="rounded-md border bg-[var(--tm-deep)] px-2 py-1 text-[16px] md:text-[12px]" style={{ borderColor: BORDER }} />}
           </div>
           {prevPending && (
             <label className="flex items-center gap-2 text-[11px] text-slate-300">
@@ -225,7 +235,7 @@ export default function OrderTicket({ symbol, onExecuted, onPickStart }) {
       {live && !pending_ && <div className="-mt-1 text-center text-[10px] text-amber-300">One-click ON — tapping BUY/SELL trades immediately</div>}
 
       {pending && pend && (
-        <div className="rounded-lg border p-2 text-[12px]" style={{ borderColor: pending === 'buy' ? '#15803d' : '#b91c1c', backgroundColor: '#0b1016' }}>
+        <div className="rounded-lg border p-2 text-[12px]" style={{ borderColor: pending === 'buy' ? '#15803d' : '#b91c1c', backgroundColor: 'var(--tm-deep)' }}>
           <div className="font-bold">Confirm {pending.toUpperCase()} {lotsNum} {symbol} @ {fmtPrice(pend.entry, inst.digits)}</div>
           <div className="mt-1 text-slate-400">
             Margin {fmtMoney(pendEv?.margin)} · SL {pend.slR.error ? pend.slR.error : pend.slR.price == null ? 'none' : fmtPrice(pend.slR.price, inst.digits)} · TP {pend.tpR.error ? pend.tpR.error : pend.tpR.price == null ? 'none' : fmtPrice(pend.tpR.price, inst.digits)}
@@ -263,13 +273,13 @@ export default function OrderTicket({ symbol, onExecuted, onPickStart }) {
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Leverage</span>
         <select value={account.leverage} onChange={(e) => useTerminalStore.getState().setLeverage(Number(e.target.value))}
-          className="rounded-md border bg-[#0b1016] px-2 py-1 text-[16px] font-bold md:text-[12px]" style={{ borderColor: BORDER }}>
+          className="rounded-md border bg-[var(--tm-deep)] px-2 py-1 text-[16px] font-bold md:text-[12px]" style={{ borderColor: BORDER }}>
           {LEVERAGES.map((l) => <option key={l} value={l}>1:{l}</option>)}
         </select>
       </div>
 
       {/* Estimates */}
-      <div className="rounded-lg border p-2 text-[11px]" style={{ borderColor: BORDER, backgroundColor: '#0b1016' }}>
+      <div className="rounded-lg border p-2 text-[11px]" style={{ borderColor: BORDER, backgroundColor: 'var(--tm-deep)' }}>
         {[
           ['Margin needed', evBuy ? fmtMoney(evBuy.margin) : '—'],
           ['Pip value', evBuy ? fmtMoney(evBuy.pipValue) : '—'],
@@ -302,7 +312,7 @@ export default function OrderTicket({ symbol, onExecuted, onPickStart }) {
       <div className="flex items-center justify-between text-[10px] font-bold text-slate-300">
         <button type="button" role="switch" aria-checked={settings.sound} onClick={() => useTerminalStore.getState().setSettings({ sound: !settings.sound })} className="flex items-center gap-1.5">
           Sound on fills
-          <span className="relative h-4 w-8 rounded-full transition-colors" style={{ backgroundColor: settings.sound ? '#2563eb' : '#334155' }}>
+          <span className="relative h-4 w-8 rounded-full transition-colors" style={{ backgroundColor: settings.sound ? '#2563eb' : 'var(--tm-border2)' }}>
             <span className="absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all" style={{ left: settings.sound ? 18 : 2 }} />
           </span>
         </button>
