@@ -119,6 +119,10 @@ export const useTerminalStore = create(
       chartSettings: cleanChartSettings(), // Phase 9: appearance + chart-trading display (synced to the account)
       labOpen: false, // Phase 12 dev effects playground (not saved)
       setLabOpen: (v) => set({ labOpen: !!v }),
+      uiDensity: 'compact', // 'compact' | 'normal' — size of the top rows (this device)
+      tradePanelOpen: true, // desktop: the order-ticket panel on the right (this device)
+      setUiDensity: (v) => set({ uiDensity: v === 'normal' ? 'normal' : 'compact' }),
+      setTradePanelOpen: (v) => set({ tradePanelOpen: !!v }),
       dockOpen: typeof window !== 'undefined' ? window.innerWidth >= 768 : true,
       dockTab: 'positions', // 'positions' | 'orders' | 'history'
       // ── Phase 6: indicators, drawings, layouts ──
@@ -557,6 +561,8 @@ export const useTerminalStore = create(
         m.settings = cleanSettings(saved?.settings)
         m.chartSettings = cleanChartSettings(saved?.chartSettings)
         if (!CHART_TYPE_IDS.includes(m.chartType)) m.chartType = 'candles'
+        m.uiDensity = m.uiDensity === 'normal' ? 'normal' : 'compact'
+        m.tradePanelOpen = typeof m.tradePanelOpen === 'boolean' ? m.tradePanelOpen : true
         setSpreadMode(m.settings.spreadMode)
         m.drawings = Object.fromEntries(Object.entries(saved?.drawings && typeof saved.drawings === 'object' ? saved.drawings : {}).filter(([k]) => SYMBOLS.includes(k)).map(([k, v]) => [k, sanitizeDrawings(v)]))
         m.layout = [1, 2, 4].includes(m.layout) ? m.layout : 1
@@ -583,7 +589,7 @@ export const useTerminalStore = create(
       },
       partialize: (s) => ({
         isOpen: s.isOpen, symbol: s.symbol, timeframe: s.timeframe, chartType: s.chartType,
-        dockOpen: s.dockOpen, dockTab: s.dockTab, settings: s.settings, chartSettings: s.chartSettings,
+        dockOpen: s.dockOpen, dockTab: s.dockTab, uiDensity: s.uiDensity, tradePanelOpen: s.tradePanelOpen, settings: s.settings, chartSettings: s.chartSettings,
         indicators: s.indicators, drawings: s.drawings, layout: s.layout, charts: s.charts, activeChart: s.activeChart,
         drawSticky: s.drawSticky, drawHidden: s.drawHidden, drawMagnet: s.drawMagnet, drawFavs: s.drawFavs,
         drawDefaults: s.drawDefaults, drawTemplates: s.drawTemplates,

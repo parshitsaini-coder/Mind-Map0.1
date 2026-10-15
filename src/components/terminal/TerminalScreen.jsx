@@ -18,6 +18,7 @@ import SoundChip from './SoundChip'
 import OrderPopup from './OrderPopup'
 import StopoutBanner from './StopoutBanner'
 import { useMotion } from './motionHooks'
+import { PanelRightClose, PanelRightOpen } from 'lucide-react'
 import EffectsLab from './EffectsLab'
 import DrawToolbar from './DrawToolbar'
 import SettingsDialog from './SettingsDialog'
@@ -108,6 +109,8 @@ export default function TerminalScreen() {
   const settingsRef = useRef(false)
   useEffect(() => { settingsRef.current = settingsOpen }, [settingsOpen])
   const mo = useMotion()
+  const density = useTerminalStore((s) => s.uiDensity)
+  const tradePanelOpen = useTerminalStore((s) => s.tradePanelOpen)
   // dev builds: ?lab=1 opens the effects playground
   useEffect(() => {
     try { if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('lab') === '1') useTerminalStore.getState().setLabOpen(true) } catch { /* ignore */ }
@@ -179,12 +182,13 @@ export default function TerminalScreen() {
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.18, ease: 'easeOut' }}
       data-motion={mo.mode}
+      data-density={density}
       className="tm-root fixed inset-0 z-[60] flex flex-col"
       data-tm-light={chrome.light ? 'true' : undefined}
       style={{ ...themeVars(chrome, cs), backgroundColor: 'var(--tm-bg)', color: 'var(--tm-text)', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       {/* Row 1 — back + symbols + live price */}
-      <div className="no-scrollbar flex min-h-10 shrink-0 items-center gap-2 overflow-x-auto border-b px-2" style={{ borderColor: 'var(--tm-border)', backgroundColor: 'var(--tm-panel)' }}>
+      <div className="tm-r1 no-scrollbar flex min-h-10 shrink-0 items-center gap-2 overflow-x-auto border-b px-2" style={{ borderColor: 'var(--tm-border)', backgroundColor: 'var(--tm-panel)' }}>
         <button type="button" onClick={st.close} className="tm-tap flex shrink-0 items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium hover:bg-white/10">
           <ArrowLeft size={12} /> Back
         </button>
@@ -202,29 +206,36 @@ export default function TerminalScreen() {
         ))}
         <div className="ml-auto flex shrink-0 items-center gap-3 pl-3">
           <div className="flex flex-col items-end leading-tight">
-            <span className="text-[8px] uppercase tracking-wide text-slate-400">Bid</span>
-            <span className="text-[13px] font-extrabold tabular-nums" style={{ color: priceColor }}>{fmt(quote?.bid, inst.digits)}</span>
+            <span className="tm-l text-[8px] uppercase tracking-wide text-slate-400">Bid</span>
+            <span className="tm-v text-[13px] font-extrabold tabular-nums" style={{ color: priceColor }}>{fmt(quote?.bid, inst.digits)}</span>
           </div>
           <div className="flex flex-col items-end leading-tight">
-            <span className="text-[8px] uppercase tracking-wide text-slate-400">Ask</span>
-            <span className="text-[13px] font-extrabold tabular-nums" style={{ color: priceColor }}>{fmt(quote?.ask, inst.digits)}</span>
+            <span className="tm-l text-[8px] uppercase tracking-wide text-slate-400">Ask</span>
+            <span className="tm-v text-[13px] font-extrabold tabular-nums" style={{ color: priceColor }}>{fmt(quote?.ask, inst.digits)}</span>
           </div>
           <div className="flex flex-col items-end leading-tight">
-            <span className="text-[8px] uppercase tracking-wide text-slate-400">Spread</span>
+            <span className="tm-l text-[8px] uppercase tracking-wide text-slate-400">Spread</span>
             <span className="text-[11px] font-semibold tabular-nums text-slate-300">{((quote?.spread ?? inst.spread) / inst.pipSize).toFixed(1)}p</span>
           </div>
           <div className="flex flex-col items-end leading-tight">
-            <span className="text-[8px] uppercase tracking-wide text-slate-400">24h</span>
+            <span className="tm-l text-[8px] uppercase tracking-wide text-slate-400">24h</span>
             <span className="text-[11px] font-bold tabular-nums" style={{ color: change >= 0 ? '#4ade80' : '#f87171' }}>
               {change >= 0 ? '+' : ''}{change.toFixed(2)}%
             </span>
           </div>
+          {isDesktop && (
+            <button type="button" data-testid="trade-panel-toggle" aria-pressed={tradePanelOpen} aria-label={tradePanelOpen ? 'Hide trade panel' : 'Show trade panel'} title={tradePanelOpen ? 'Hide the trade panel' : 'Show the trade panel (Buy / Sell ticket)'}
+              onClick={() => st.setTradePanelOpen(!tradePanelOpen)} className="flex shrink-0 items-center gap-1 rounded border px-1.5 py-1 text-[10px] font-bold hover:bg-white/10"
+              style={{ borderColor: tradePanelOpen ? 'var(--tm-border2)' : '#2563eb', color: tradePanelOpen ? 'var(--tm-muted)' : '#7dd3fc' }}>
+              {tradePanelOpen ? <PanelRightClose size={13} /> : <PanelRightOpen size={13} />} Trade
+            </button>
+          )}
         </div>
       </div>
 
       {/* Row 2 — timeframe, chart type, indicators, drawing tools, layout */}
       <div className="relative shrink-0">
-        <div className="no-scrollbar flex min-h-8 items-center gap-1 overflow-x-auto border-b px-2" style={{ borderColor: 'var(--tm-border)', backgroundColor: 'var(--tm-panel)' }}>
+        <div className="tm-r2 no-scrollbar flex min-h-8 items-center gap-1 overflow-x-auto border-b px-2" style={{ borderColor: 'var(--tm-border)', backgroundColor: 'var(--tm-panel)' }}>
           {TIMEFRAMES.map((t) => (
             <button
               key={t.id}
@@ -286,7 +297,7 @@ export default function TerminalScreen() {
           </div>
           <PositionsPanel />
         </div>
-        {isDesktop && (
+        {isDesktop && tradePanelOpen && (
           <aside className="w-[300px] shrink-0 overflow-y-auto border-l" style={{ borderColor: 'var(--tm-border)', backgroundColor: 'var(--tm-panel)' }}>
             <OrderTicket key={symbol} symbol={symbol} />
           </aside>
@@ -313,7 +324,7 @@ export default function TerminalScreen() {
       {settingsOpen && <SettingsDialog initialTab={settingsTab} onClose={() => setSettingsTab(null)} />}
       <TradingEngine symbol={symbol} extra={visibleSymbols} />
 
-      <div className="flex h-6 shrink-0 items-center justify-center border-t text-[10px] text-slate-400" style={{ borderColor: 'var(--tm-border)', backgroundColor: 'var(--tm-panel)' }}>
+      <div className="tm-ft flex h-6 shrink-0 items-center justify-center border-t text-[10px] text-slate-400" style={{ borderColor: 'var(--tm-border)', backgroundColor: 'var(--tm-panel)' }}>
         DEMO · simulated prices · virtual money
       </div>
     </motion.div>

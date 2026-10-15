@@ -310,6 +310,8 @@ export function TradingTab() {
 // ── Alerts & device ──
 export function AlertsTab() {
   const [taps, setTaps] = useState(0)
+  const density = useTerminalStore((s) => s.uiDensity)
+  const tradePanel = useTerminalStore((s) => s.tradePanelOpen)
   const settings = useTerminalStore((s) => s.settings)
   const set = useTerminalStore.getState().setSettings
   return (
@@ -324,6 +326,14 @@ export function AlertsTab() {
         </Row>
       </Group>
       <Group title="This device">
+        <Row label="Interface size" hint="Compact makes the top bars and buttons small so the chart gets the room.">
+          <div className="flex overflow-hidden rounded border" role="radiogroup" aria-label="Interface size" style={{ borderColor: 'var(--tm-border2)' }}>
+            {[['compact', 'Compact'], ['normal', 'Normal']].map(([id, text]) => (
+              <button key={id} type="button" role="radio" aria-checked={density === id} data-testid={`density-${id}`} onClick={() => useTerminalStore.getState().setUiDensity(id)} className="h-8 px-2.5 text-[11px] font-semibold" style={{ backgroundColor: density === id ? '#2563eb' : 'transparent', color: density === id ? '#fff' : 'var(--tm-muted)' }}>{text}</button>
+            ))}
+          </div>
+        </Row>
+        <SwitchRaw label="Trade panel (desktop)" hint="The Buy / Sell ticket on the right. Also the Trade button in the top-right corner." checked={tradePanel} onChange={(v) => useTerminalStore.getState().setTradePanelOpen(v)} />
         <SwitchRaw label="Keep screen on" hint={wakeLockSupported() ? 'Stops the phone from sleeping while the terminal is open (this device only).' : 'Not supported by this browser.'}
           checked={settings.wakeLock && wakeLockSupported()} disabled={!wakeLockSupported()} onChange={(v) => set({ wakeLock: v })} />
       </Group>

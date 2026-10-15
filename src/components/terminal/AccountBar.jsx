@@ -7,7 +7,7 @@ import AnimNum from './AnimNum'
 
 function Cell({ label, value, color, raw, fmt, count }) {
   return (
-    <div className="flex shrink-0 flex-col leading-tight">
+    <div className="tm-cell flex shrink-0 flex-col leading-tight">
       <span className="text-[8px] uppercase tracking-wide text-slate-400">{label}</span>
       <span className="text-[12px] font-bold tabular-nums" style={{ color: color || 'var(--tm-text)' }}>{raw != null ? <AnimNum value={raw} fmt={fmt} count={count} /> : value}</span>
     </div>
@@ -26,7 +26,7 @@ export default function AccountBar() {
   const lvl = metrics.marginLevel
   const lvlColor = lvl == null ? undefined : lvl < stopOut + 25 ? '#f87171' : lvl < 100 ? '#fbbf24' : '#4ade80'
   return (
-    <div className="no-scrollbar flex h-10 shrink-0 items-center gap-4 overflow-x-auto border-b px-3" style={{ borderColor: 'var(--tm-border)', backgroundColor: 'var(--tm-panel2)' }}>
+    <div className="tm-ab no-scrollbar flex h-10 shrink-0 items-center gap-4 overflow-x-auto border-b px-3" style={{ borderColor: 'var(--tm-border)', backgroundColor: 'var(--tm-panel2)' }}>
       <Cell label="Balance" raw={metrics.balance} fmt={(v) => fmtMoney(v)} count />
       <Cell label="Equity" raw={metrics.equity} fmt={(v) => fmtMoney(v)} />
       <Cell label="Margin" value={fmtMoney(metrics.usedMargin)} />

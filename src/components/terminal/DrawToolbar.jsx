@@ -39,7 +39,7 @@ export default function DrawToolbar({ symbol }) {
   const cats = D.CATEGORIES.filter((c) => D.DRAW_ORDER.some((t) => D.TOOLS[t].category === c && !D.TOOLS[t].hidden))
 
   return (
-    <div ref={box} className="no-scrollbar flex h-10 shrink-0 items-center gap-1 overflow-x-auto border-b px-2" style={{ borderColor: 'var(--tm-border)', backgroundColor: 'var(--tm-panel)' }} role="toolbar" aria-label="Drawing tools">
+    <div ref={box} className="tm-dt no-scrollbar flex h-10 shrink-0 items-center gap-1 overflow-x-auto border-b px-2" style={{ borderColor: 'var(--tm-border)', backgroundColor: 'var(--tm-panel)' }} role="toolbar" aria-label="Drawing tools">
       <button type="button" title="Select / move (Esc)" aria-label="Select" aria-pressed={tool === 'cursor'} onClick={() => st().setDrawTool('cursor')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded" style={btn(tool === 'cursor')}><MousePointer2 size={15} /></button>
       <div className="mx-0.5 h-5 w-px shrink-0 bg-white/15" />
       {cats.map((c) => {

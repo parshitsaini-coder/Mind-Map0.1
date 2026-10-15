@@ -59,3 +59,8 @@
 - Not done from the Phase 9 backlog: scale placement "both" (not in the Phase 10 list).
 - Light / Paper themes still have pale elements (toasts, disabled buttons).
 - Phase 11 NOT built: brush, highlighter, pitchfork, icon / emoji stamp, multi-select (Shift-click / rubber band), "visible on all symbols" (drawings stay per symbol), visibility as sliders (min / max timeframe selects instead), indicator "source" input and price-scale options.
+
+## Layout update (after Phase 13)
+- Interface size **Compact** (default) / Normal: top bar, timeframe row, drawing toolbar, account bar and footer shrink (26 / 24 / 26 / 22 / 16 px; chart starts ~54 px higher). Settings → Alerts → This device; stored on this device (`uiDensity`).
+- **Trade** button in the top-right corner (desktop) hides / shows the Buy / Sell ticket panel (`tradePanelOpen`, remembered); also a switch in the same Settings group. Mobile keeps the bottom Buy / Sell bar.
+- Browser check: `tests/e2e-phase13/layout.mjs` (7 checks).

@@ -1,0 +1,36 @@
+import { boot, OUT } from '../e2e-phase11/lib.mjs'
+const T = await boot({ seed: { settings: { oneClick: true, sound: false } } })
+const { page, check } = T
+const h = (sel) => page.locator(sel).first().evaluate((e) => Math.round(e.getBoundingClientRect().height))
+await page.locator('button[title="Drawing tools"]').click(); await page.waitForTimeout(400)
+const top = async () => page.evaluate(() => { const c = document.querySelector('[data-testid="chart-fx"]').getBoundingClientRect(); return Math.round(c.top) })
+const compactTop = await top()
+await page.screenshot({ path: OUT + '/13-layout-compact.png' })
+const hs = { r1: await h('.tm-r1'), r2: await h('.tm-r2'), dt: await h('.tm-dt'), ab: await h('.tm-ab') }
+console.log('compact heights', JSON.stringify(hs), 'chart top', compactTop)
+check('compact: all four top rows are small (≤ 28 px each)', hs.r1 <= 28 && hs.r2 <= 28 && hs.dt <= 28 && hs.ab <= 24)
+// normal
+await page.evaluate(() => window.__terminalStore.getState().setUiDensity('normal')); await page.waitForTimeout(300)
+const normalTop = await top()
+console.log('normal chart top', normalTop)
+await page.screenshot({ path: OUT + '/13-layout-normal.png' })
+check(`chart starts higher in compact (${compactTop}px) than normal (${normalTop}px)`, compactTop < normalTop - 40)
+await page.evaluate(() => window.__terminalStore.getState().setUiDensity('compact')); await page.waitForTimeout(200)
+// trade panel
+const w1 = await page.locator('[data-chart-overlay]').first().evaluate((e) => e.getBoundingClientRect().width)
+check('trade panel visible by default (Buy / Sell ticket on screen)', await page.getByText('One-click ON').first().isVisible())
+await page.locator('[data-testid="trade-panel-toggle"]').click(); await page.waitForTimeout(400)
+const w2 = await page.locator('[data-chart-overlay]').first().evaluate((e) => e.getBoundingClientRect().width)
+check(`hide: panel gone, chart wider (${Math.round(w1)} → ${Math.round(w2)})`, (await page.getByText('One-click ON').count()) === 0 && w2 > w1 + 200)
+await page.screenshot({ path: OUT + '/13-layout-nopanel.png' })
+check('hidden state persists', (await T.state()).tradePanelOpen === false)
+await page.locator('[data-testid="trade-panel-toggle"]').click(); await page.waitForTimeout(300)
+check('show again', await page.getByText('One-click ON').first().isVisible())
+// settings controls
+await page.locator('button[aria-label="Terminal settings"]').click()
+await page.getByRole('tab', { name: 'Alerts' }).click()
+await page.locator('[data-testid="density-normal"]').click(); await page.waitForTimeout(200)
+check('Settings → Interface size switches to Normal', (await page.locator('.tm-root').getAttribute('data-density')) === 'normal')
+await page.locator('[data-testid="density-compact"]').click()
+await page.screenshot({ path: OUT + '/13-layout-settings.png' })
+await T.done()
