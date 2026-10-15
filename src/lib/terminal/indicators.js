@@ -166,6 +166,25 @@ export function stochastic(candles, kPeriod = 14, slowing = 3, dPeriod = 3) {
   return { lines: { k, d } }
 }
 
+// Volume histogram + its moving average (tick volume of the simulated feed).
+export function volumeInd(candles, maPeriod = 20) {
+  const v = candles.map((c) => (isNum(c.volume) ? c.volume : 0))
+  return { lines: { vol: v, ma: sma(v, maPeriod) } }
+}
+
+// Stochastic RSI: the stochastic formula applied to RSI. %K = SMA(raw, k), %D = SMA(%K, d).
+export function stochRsi(candles, rsiP = 14, stochP = 14, kP = 3, dP = 3) {
+  const r = rsi(candles, rsiP).lines.rsi
+  const raw = r.map((v, i) => {
+    if (v == null || i < stochP - 1) return null
+    let hh = -Infinity, ll = Infinity
+    for (let j = i - stochP + 1; j <= i; j++) { if (r[j] == null) return null; hh = Math.max(hh, r[j]); ll = Math.min(ll, r[j]) }
+    return hh === ll ? 50 : ((v - ll) / (hh - ll)) * 100
+  })
+  const k = kP > 1 ? sma(raw, kP) : raw
+  return { lines: { k, d: sma(k, dP) } }
+}
+
 export function trueRange(candles) {
   return candles.map((c, i) => (i === 0 ? c.high - c.low : Math.max(c.high - c.low, Math.abs(c.high - candles[i - 1].close), Math.abs(c.low - candles[i - 1].close))))
 }
@@ -347,6 +366,15 @@ export const INDICATOR_DEFS = {
     name: 'Stoch', long: 'Stochastic Oscillator', where: 'pane', params: [num('k', '%K period', 14, 1, 200), num('slowing', 'Slowing', 3, 1, 50), num('d', '%D period', 3, 1, 50)],
     lines: [{ key: 'k', label: '%K', color: '#38bdf8' }, { key: 'd', label: '%D', color: '#fb923c' }], fixed: [0, 100], levels: [20, 80],
   },
+  volume: {
+    name: 'Volume', long: 'Volume with moving average (tick volume)', where: 'pane', params: [num('ma', 'MA period', 20, 1, 500)],
+    lines: [{ key: 'vol', label: 'Volume', color: '#64748b', kind: 'hist' }, { key: 'ma', label: 'MA', color: '#f59e0b' }], volumeHist: true,
+  },
+  stochrsi: {
+    name: 'StochRSI', long: 'Stochastic RSI', where: 'pane',
+    params: [num('rsi', 'RSI period', 14, 2, 200), num('stoch', 'Stochastic period', 14, 2, 200), num('k', '%K smoothing', 3, 1, 50), num('d', '%D smoothing', 3, 1, 50)],
+    lines: [{ key: 'k', label: '%K', color: '#38bdf8' }, { key: 'd', label: '%D', color: '#fb923c' }], fixed: [0, 100], levels: [20, 80],
+  },
   atr: { name: 'ATR', long: 'Average True Range', where: 'pane', params: [num('period', 'Period', 14, 1, 200)], lines: [{ key: 'atr', label: 'ATR', color: '#f59e0b' }] },
 }
 
@@ -384,6 +412,8 @@ export function computeIndicator(type, candles, params = {}, ctx = {}) {
     case 'rsi': return rsi(candles, p.period)
     case 'macd': return macd(candles, p.fast, Math.max(p.slow, p.fast + 1), p.signal)
     case 'stoch': return stochastic(candles, p.k, p.slowing, p.d)
+    case 'volume': return volumeInd(candles, p.ma)
+    case 'stochrsi': return stochRsi(candles, p.rsi, p.stoch, p.k, p.d)
     case 'atr': return atr(candles, p.period)
     default: return { lines: {} }
   }

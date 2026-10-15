@@ -10,7 +10,8 @@ import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { useTradeAnalysisStore } from '../src/store/tradeAnalysisStore'
 import { useTerminalStore } from '../src/store/terminalStore'
-import SettingsPanel from '../src/components/terminal/SettingsPanel'
+import SettingsDialog, { SETTINGS_TABS } from '../src/components/terminal/SettingsDialog'
+import { CHART_TYPE_IDS, THEME_IDS } from '../src/lib/terminal/chartSettings'
 import CloudBadge from '../src/components/terminal/CloudBadge'
 
 import OverviewSection from '../src/components/trade-analysis/analysis/pro/sections/OverviewSection'
@@ -212,15 +213,28 @@ console.log('\n── Demo terminal ──')
       useTerminalStore.getState().resetLocalData()
       useTerminalStore.getState().setSettings(settings)
       useTerminalStore.getState().setCommission(commission)
-      render(`terminal settings ${JSON.stringify(settings).slice(0, 30)} / $${commission}`, React.createElement(SettingsPanel, { onClose: () => {} }))
+      render(`terminal settings dialog ${JSON.stringify(settings).slice(0, 30)} / $${commission}`, React.createElement(SettingsDialog, { onClose: () => {} }))
     }
   }
-  render('terminal settings without shortcuts list', React.createElement(SettingsPanel, { onClose: () => {}, showShortcuts: false }))
+  // Phase 9: every tab, under every theme preset, and the Symbol tab for every chart type.
+  for (const theme of [...THEME_IDS, 'system']) {
+    useTerminalStore.getState().resetLocalData()
+    useTerminalStore.getState().applyChartTheme(theme, true)
+    for (const tab of SETTINGS_TABS) render(`settings dialog: ${tab} tab, ${theme} theme`, React.createElement(SettingsDialog, { initialTab: tab, onClose: () => {} }))
+  }
+  for (const type of CHART_TYPE_IDS) {
+    useTerminalStore.getState().resetLocalData()
+    useTerminalStore.getState().setChartType(type)
+    render(`settings dialog: Symbol tab, chart type ${type}`, React.createElement(SettingsDialog, { initialTab: 'symbol', onClose: () => {} }))
+  }
+  useTerminalStore.getState().resetLocalData()
+  useTerminalStore.getState().setChartSettings({ canvas: { bgType: 'gradient', wmMode: 'custom' }, scales: { prevClose: true, bid: true, ask: true, hiLo: true, lastLine: true } })
+  for (const tab of ['scales', 'canvas']) render(`settings dialog: ${tab} tab with every optional group open`, React.createElement(SettingsDialog, { initialTab: tab, onClose: () => {} }))
   for (const status of ['idle', 'pending', 'syncing', 'synced', 'offline', 'missing', 'auth', 'error', 'unreadable', 'something-new']) {
     useTerminalStore.setState({ cloudStatus: status })
     render(`cloud badge: ${status}`, React.createElement(CloudBadge, {}))
   }
-  console.log(`  ${failures > before ? '✗' : '✓'} settings panel × 5 variants, cloud badge × 10 states`)
+  console.log(`  ${failures > before ? '✗' : '✓'} settings dialog × 4 + 7 tabs × 7 themes + 7 chart types, cloud badge × 10 states`)
 }
 
 console.log(`\n══ ${checks} renders, ${failures} failure(s) ══\n`)

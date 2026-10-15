@@ -1,164 +1,73 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, CandlestickChart, LineChart as LineIcon, Crosshair, Activity, PencilRuler, Square, Columns2, LayoutGrid, Settings as SettingsIcon } from 'lucide-react'
-import { createChart, CandlestickSeries, LineSeries, ColorType, CrosshairMode } from 'lightweight-charts'
+import { ArrowLeft, CandlestickChart, ChevronDown, Crosshair, Activity, PencilRuler, Square, Columns2, LayoutGrid, Settings as SettingsIcon } from 'lucide-react'
 import { useTerminalStore } from '../../store/terminalStore'
 import { INSTRUMENTS, SYMBOLS, TIMEFRAMES } from '../../lib/terminal/instruments'
-import { getCandles, subscribe, getDayOpen } from '../../lib/terminal/feed/simulatedFeed'
+import { CHART_TYPES } from '../../lib/terminal/chartSettings'
+import { getDayOpen } from '../../lib/terminal/feed/simulatedFeed'
 import TradingEngine from './TradingEngine'
 import AccountBar from './AccountBar'
 import OrderTicket from './OrderTicket'
 import PositionsPanel from './PositionsPanel'
 import Toasts from './Toasts'
 import HistoryScreen from './HistoryScreen'
-import ChartTrading from './ChartTrading'
-import IndicatorLayer from './IndicatorLayer'
-import DrawingLayer from './DrawingLayer'
+import ChartView from './ChartView'
 import IndicatorPanel from './IndicatorPanel'
+import IndicatorDialog from './IndicatorDialog'
+import SoundChip from './SoundChip'
+import OrderPopup from './OrderPopup'
+import StopoutBanner from './StopoutBanner'
+import { useMotion } from './motionHooks'
+import { PanelRightClose, PanelRightOpen } from 'lucide-react'
+import EffectsLab from './EffectsLab'
 import DrawToolbar from './DrawToolbar'
-import SettingsPanel from './SettingsPanel'
+import SettingsDialog from './SettingsDialog'
 import { useTerminalHotkeys, useWakeLock } from './phase8Hooks'
-import { TZ, BG } from './chartConst'
+import { useChartTheme, themeVars } from './chartTheme'
 import { useMediaQuery, useQuote } from './hooks'
-
-const UP = '#16a34a'
-const DOWN = '#dc2626'
-
-// Some browsers/environments report an invalid language tag; the chart would then
-// fail to draw. Use the browser's locale only when it is valid, else en-US.
-const SAFE_LOCALE = (() => {
-  try {
-    const l = navigator.language
-    return l && Intl.DateTimeFormat.supportedLocalesOf([l]).length ? l : 'en-US'
-  } catch {
-    return 'en-US'
-  }
-})()
 
 const fmt = (n, digits) => (Number.isFinite(n) ? n.toFixed(digits) : '—')
 
-// ─── The chart itself ───────────────────────────────────────────────────
-const ChartView = memo(function ChartView({ symbol, timeframe, chartType, onQuote, active, index, showLabel, onActivate }) {
-  const hostRef = useRef(null)
-  const chartRef = useRef(null)
-  const seriesRef = useRef(null)
-  const extraRef = useRef([]) // prices of SL/TP/order lines — kept inside the visible price range
-  const candlesRef = useRef(null) // the candles the series was loaded with (indicators + drawings read them)
-  const busRef = useRef(null) // IndicatorLayer registers here to receive every live candle update
-  const activeRef = useRef(active)
-  useEffect(() => { activeRef.current = active }, [active])
-  const [ver, setVer] = useState(0)
-
-  // Keyboard + / − : zoom the active chart, keeping the newest bar where it is.
+// Chart type picker (candles, hollow, bars, line, area, baseline, Heikin Ashi) + a shortcut to its settings.
+function ChartTypeMenu({ chartType, onSettings }) {
+  const [open, setOpen] = useState(false)
+  const cur = CHART_TYPES.find((t) => t.id === chartType) || CHART_TYPES[0]
   useEffect(() => {
-    const onZoom = (e) => {
-      if (!activeRef.current) return
-      const ts = chartRef.current?.timeScale()
-      const r = ts?.getVisibleLogicalRange()
-      if (!r) return
-      const width = Math.max(8, (r.to - r.from) * (e.detail > 0 ? 0.75 : 1.33))
-      ts.setVisibleLogicalRange({ from: r.to - width, to: r.to })
-    }
-    window.addEventListener('tm-zoom', onZoom)
-    return () => window.removeEventListener('tm-zoom', onZoom)
-  }, [])
-
-  useEffect(() => {
-    const chart = createChart(hostRef.current, {
-      autoSize: true,
-      localization: { locale: SAFE_LOCALE },
-      layout: { background: { type: ColorType.Solid, color: BG }, textColor: '#9aa4b2', fontSize: 11, panes: { separatorColor: '#27313d', separatorHoverColor: '#334155' } },
-      grid: { vertLines: { color: '#1b232d' }, horzLines: { color: '#1b232d' } },
-      crosshair: { mode: CrosshairMode.Normal },
-      rightPriceScale: { borderColor: '#27313d' },
-      timeScale: { borderColor: '#27313d', timeVisible: true, secondsVisible: false, rightOffset: 6 },
-    })
-    chartRef.current = chart
-    setVer((v) => v + 1)
-    return () => {
-      // stop the resize observer first: a resize landing after remove() throws "Object is disposed"
-      try { chart.applyOptions({ autoSize: false }) } catch { /* ignore */ }
-      chart.remove()
-      chartRef.current = null
-    }
-  }, [])
-
-  useEffect(() => {
-    const chart = chartRef.current
-    if (!chart) return
-    const inst = INSTRUMENTS[symbol]
-    const tfSec = (TIMEFRAMES.find((t) => t.id === timeframe) || TIMEFRAMES[0]).minutes * 60
-    const priceFormat = { type: 'price', precision: inst.digits, minMove: 10 ** -inst.digits }
-    const autoscaleInfoProvider = (base) => {
-      const r = base()
-      const ex = extraRef.current
-      if (!r || !ex.length) return r
-      return { ...r, priceRange: { minValue: Math.min(r.priceRange.minValue, ...ex), maxValue: Math.max(r.priceRange.maxValue, ...ex) } }
-    }
-    const isLine = chartType === 'line'
-    const series = isLine
-      ? chart.addSeries(LineSeries, { color: '#38bdf8', lineWidth: 2, priceFormat, autoscaleInfoProvider })
-      : chart.addSeries(CandlestickSeries, { upColor: UP, downColor: DOWN, borderVisible: false, wickUpColor: UP, wickDownColor: DOWN, priceFormat, autoscaleInfoProvider })
-
-    const candles = getCandles(symbol, timeframe, 1500)
-    candlesRef.current = candles
-    const toPoint = (k) => (isLine ? { time: k.time + TZ, value: k.close } : { time: k.time + TZ, open: k.open, high: k.high, low: k.low, close: k.close })
-    seriesRef.current = series
-    setVer((v) => v + 1)
-    series.setData(candles.map(toPoint))
-    chart.timeScale().scrollToRealTime()
-    let last = candles[candles.length - 1]
-
-    const unsub = subscribe(symbol, (q) => {
-      const bucket = Math.floor(q.time / tfSec) * tfSec
-      const px = q.bid
-      const isNew = !last || bucket > last.time
-      if (isNew) {
-        const open = last ? last.close : px
-        last = { time: bucket, open, high: Math.max(open, px), low: Math.min(open, px), close: px, volume: 1 }
-      } else {
-        last = { ...last, high: Math.max(last.high, px), low: Math.min(last.low, px), close: px, volume: (last.volume || 0) + 1 }
-      }
-      series.update(toPoint(last))
-      if (busRef.current) busRef.current(last, isNew)
-      if (activeRef.current) onQuote(q)
-    })
-
-    return () => {
-      unsub()
-      seriesRef.current = null
-      candlesRef.current = null
-      try { chart.removeSeries(series) } catch { /* chart already disposed (terminal closing) */ }
-    }
-  }, [symbol, timeframe, chartType, onQuote])
-
+    if (!open) return undefined
+    const close = (e) => { if (!e.target.closest?.('[data-chart-type-menu]')) setOpen(false) }
+    window.addEventListener('pointerdown', close)
+    return () => window.removeEventListener('pointerdown', close)
+  }, [open])
   return (
-    <div className="relative h-full w-full" onPointerDownCapture={() => { if (!active) onActivate(index) }}>
-      <div ref={hostRef} className="h-full w-full" />
-      <IndicatorLayer chartRef={chartRef} seriesRef={seriesRef} candlesRef={candlesRef} busRef={busRef} symbol={symbol} timeframe={timeframe} ver={ver} />
-      <ChartTrading hostRef={hostRef} chartRef={chartRef} seriesRef={seriesRef} extraRef={extraRef} symbol={symbol} ver={ver} active={active} />
-      <DrawingLayer hostRef={hostRef} chartRef={chartRef} seriesRef={seriesRef} candlesRef={candlesRef} symbol={symbol} timeframe={timeframe} ver={ver} active={active} />
-      {showLabel && (
-        <div className="pointer-events-none absolute left-2 top-1.5 z-[5] rounded px-1.5 py-0.5 text-[10px] font-bold" style={{ backgroundColor: active ? 'rgba(37,99,235,0.85)' : 'rgba(30,41,59,0.8)', color: '#fff' }}>
-          {symbol} · {(TIMEFRAMES.find((t) => t.id === timeframe) || TIMEFRAMES[0]).label}
+    <div className="relative shrink-0" data-chart-type-menu>
+      <button type="button" title="Chart type" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="tm-tap flex shrink-0 items-center gap-1 rounded px-1.5 py-1 text-[11px] font-semibold" style={{ backgroundColor: open ? 'var(--tm-active)' : 'transparent' }}>
+        <CandlestickChart size={14} /> {cur.label} <ChevronDown size={11} />
+      </button>
+      {open && (
+        <div role="menu" className="absolute left-0 top-full z-40 mt-1 w-44 rounded-lg border py-1 shadow-xl" style={{ backgroundColor: 'var(--tm-panel)', borderColor: 'var(--tm-border2)' }}>
+          {CHART_TYPES.map((t) => (
+            <button key={t.id} type="button" role="menuitemradio" aria-checked={chartType === t.id} onClick={() => { useTerminalStore.getState().setChartType(t.id); setOpen(false) }} className="flex w-full items-center justify-between px-3 py-2 text-left text-[12px] hover:bg-white/10" style={{ color: chartType === t.id ? '#38bdf8' : 'var(--tm-text)' }}>
+              {t.label}{chartType === t.id ? ' ✓' : ''}
+            </button>
+          ))}
+          <button type="button" role="menuitem" onClick={() => { setOpen(false); onSettings() }} className="w-full border-t px-3 py-2 text-left text-[12px] hover:bg-white/10" style={{ borderColor: 'var(--tm-border)', color: 'var(--tm-muted)' }}>Chart settings…</button>
         </div>
       )}
-      {showLabel && active && <div className="pointer-events-none absolute inset-0 z-[4] border" style={{ borderColor: 'rgba(37,99,235,0.7)' }} />}
     </div>
   )
-})
+}
 
 // 1, 2 (side by side) or 4 (2×2) charts. The active chart drives the order ticket, header and shortcuts.
-function ChartGrid({ layout, charts, activeChart, chartType, onQuote, onActivate }) {
+function ChartGrid({ layout, charts, activeChart, chartType, onQuote, onActivate, cs }) {
   const n = layout
   const cells = n === 1 ? [activeChart] : Array.from({ length: n }, (_, i) => i)
   const cols = n === 1 ? 1 : 2
   const rows = n === 4 ? 2 : 1
   return (
-    <div className="grid h-full w-full gap-px" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`, backgroundColor: '#27313d' }}>
+    <div className="grid h-full w-full gap-px" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`, backgroundColor: 'var(--tm-border)' }}>
       {cells.map((i) => (
-        <div key={i} className="relative min-h-0 min-w-0" style={{ backgroundColor: BG }}>
-          <ChartView symbol={charts[i].symbol} timeframe={charts[i].timeframe} chartType={chartType} onQuote={onQuote} active={i === activeChart} index={i} showLabel={n > 1} onActivate={onActivate} />
+        <div key={i} className="relative min-h-0 min-w-0" style={{ backgroundColor: 'var(--tm-chart-bg)' }}>
+          <ChartView cs={cs} symbol={charts[i].symbol} timeframe={charts[i].timeframe} chartType={chartType} onQuote={onQuote} active={i === activeChart} index={i} showLabel={n > 1} onActivate={onActivate} />
         </div>
       ))}
     </div>
@@ -170,7 +79,7 @@ function MobileTradeBar({ symbol, onOpen }) {
   const q = useQuote(symbol)
   const d = INSTRUMENTS[symbol].digits
   return (
-    <div className="grid shrink-0 grid-cols-2 gap-2 border-t p-2" style={{ borderColor: '#27313d', backgroundColor: '#131a22' }}>
+    <div className="grid shrink-0 grid-cols-2 gap-2 border-t p-2" style={{ borderColor: 'var(--tm-border)', backgroundColor: 'var(--tm-panel)' }}>
       <button type="button" onClick={onOpen} className="flex h-12 flex-col items-center justify-center rounded-lg font-extrabold text-white" style={{ backgroundColor: '#b91c1c' }}>
         <span className="text-[10px] tracking-wider">SELL</span><span className="text-[14px] tabular-nums">{fmt(q?.bid, d)}</span>
       </button>
@@ -192,11 +101,20 @@ export default function TerminalScreen() {
   const activeChart = useTerminalStore((s) => s.activeChart)
   const indCount = useTerminalStore((s) => s.indicators.length)
   const drawTool = useTerminalStore((s) => s.drawTool)
+  const { cs, chrome } = useChartTheme()
   const [indOpen, setIndOpen] = useState(false)
   const [drawOpen, setDrawOpen] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsTab, setSettingsTab] = useState(null) // null = closed, else the tab to show
+  const settingsOpen = settingsTab != null
   const settingsRef = useRef(false)
   useEffect(() => { settingsRef.current = settingsOpen }, [settingsOpen])
+  const mo = useMotion()
+  const density = useTerminalStore((s) => s.uiDensity)
+  const tradePanelOpen = useTerminalStore((s) => s.tradePanelOpen)
+  // dev builds: ?lab=1 opens the effects playground
+  useEffect(() => {
+    try { if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('lab') === '1') useTerminalStore.getState().setLabOpen(true) } catch { /* ignore */ }
+  }, [])
   const wakeLock = useTerminalStore((s) => s.settings.wakeLock)
   const [quote, setQuote] = useState(null)
   const prevBid = useRef(null)
@@ -209,8 +127,10 @@ export default function TerminalScreen() {
   useEffect(() => { indRef.current = indOpen }, [indOpen])
   const pickRes = useTerminalStore((s) => s.pickRes)
   useEffect(() => { if (pickRes && !isDesktop) setSheet(true) }, [pickRes, isDesktop])
+  const ticketPrefill = useTerminalStore((s) => s.ticketPrefill)
+  useEffect(() => { if (ticketPrefill && !isDesktop) setSheet(true) }, [ticketPrefill, isDesktop])
 
-  const openHelp = useCallback(() => setSettingsOpen(true), [])
+  const openHelp = useCallback(() => setSettingsTab('shortcuts'), [])
   useTerminalHotkeys(isOpen && !settingsOpen, openHelp)
   useWakeLock(isOpen && wakeLock)
 
@@ -236,8 +156,10 @@ export default function TerminalScreen() {
   useEffect(() => {
     if (!isOpen) return
     const onKey = (e) => {
+      if (e.altKey && e.key === ',') { setSettingsTab((t) => (t ? t : 'symbol')); e.preventDefault(); return }
       if (e.key !== 'Escape') return
-      if (settingsRef.current) setSettingsOpen(false)
+      if (settingsRef.current) window.dispatchEvent(new CustomEvent('tm-settings-cancel'))
+      else if (useTerminalStore.getState().popup) useTerminalStore.getState().dismissPopup()
       else if (useTerminalStore.getState().ticketPending) useTerminalStore.getState().fireHotkey('cancel')
       else if (useTerminalStore.getState().historyOpen) useTerminalStore.getState().setHistoryOpen(false)
       else if (indRef.current) setIndOpen(false)
@@ -252,18 +174,21 @@ export default function TerminalScreen() {
   if (!isOpen) return null
   const st = useTerminalStore.getState()
   const change = quote ? ((quote.mid - dayOpen) / dayOpen) * 100 : 0
-  const priceColor = dir > 0 ? '#4ade80' : dir < 0 ? '#f87171' : '#e5e7eb'
+  const priceColor = dir > 0 ? '#4ade80' : dir < 0 ? '#f87171' : 'var(--tm-text)'
 
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.18, ease: 'easeOut' }}
+      data-motion={mo.mode}
+      data-density={density}
       className="tm-root fixed inset-0 z-[60] flex flex-col"
-      style={{ backgroundColor: BG, color: '#e5e7eb', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      data-tm-light={chrome.light ? 'true' : undefined}
+      style={{ ...themeVars(chrome, cs), backgroundColor: 'var(--tm-bg)', color: 'var(--tm-text)', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       {/* Row 1 — back + symbols + live price */}
-      <div className="no-scrollbar flex min-h-10 shrink-0 items-center gap-2 overflow-x-auto border-b px-2" style={{ borderColor: '#27313d', backgroundColor: '#131a22' }}>
+      <div className="tm-r1 no-scrollbar flex min-h-10 shrink-0 items-center gap-2 overflow-x-auto border-b px-2" style={{ borderColor: 'var(--tm-border)', backgroundColor: 'var(--tm-panel)' }}>
         <button type="button" onClick={st.close} className="tm-tap flex shrink-0 items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium hover:bg-white/10">
           <ArrowLeft size={12} /> Back
         </button>
@@ -274,72 +199,74 @@ export default function TerminalScreen() {
             type="button"
             onClick={() => st.setSymbol(s)}
             className="tm-tap shrink-0 rounded-md px-2 py-1 text-[11px] font-bold transition-colors"
-            style={{ backgroundColor: s === symbol ? '#2563eb' : 'transparent', color: s === symbol ? '#fff' : '#9aa4b2' }}
+            style={{ backgroundColor: s === symbol ? '#2563eb' : 'transparent', color: s === symbol ? '#fff' : 'var(--tm-muted)' }}
           >
             {s}
           </button>
         ))}
         <div className="ml-auto flex shrink-0 items-center gap-3 pl-3">
           <div className="flex flex-col items-end leading-tight">
-            <span className="text-[8px] uppercase tracking-wide text-slate-400">Bid</span>
-            <span className="text-[13px] font-extrabold tabular-nums" style={{ color: priceColor }}>{fmt(quote?.bid, inst.digits)}</span>
+            <span className="tm-l text-[8px] uppercase tracking-wide text-slate-400">Bid</span>
+            <span className="tm-v text-[13px] font-extrabold tabular-nums" style={{ color: priceColor }}>{fmt(quote?.bid, inst.digits)}</span>
           </div>
           <div className="flex flex-col items-end leading-tight">
-            <span className="text-[8px] uppercase tracking-wide text-slate-400">Ask</span>
-            <span className="text-[13px] font-extrabold tabular-nums" style={{ color: priceColor }}>{fmt(quote?.ask, inst.digits)}</span>
+            <span className="tm-l text-[8px] uppercase tracking-wide text-slate-400">Ask</span>
+            <span className="tm-v text-[13px] font-extrabold tabular-nums" style={{ color: priceColor }}>{fmt(quote?.ask, inst.digits)}</span>
           </div>
           <div className="flex flex-col items-end leading-tight">
-            <span className="text-[8px] uppercase tracking-wide text-slate-400">Spread</span>
+            <span className="tm-l text-[8px] uppercase tracking-wide text-slate-400">Spread</span>
             <span className="text-[11px] font-semibold tabular-nums text-slate-300">{((quote?.spread ?? inst.spread) / inst.pipSize).toFixed(1)}p</span>
           </div>
           <div className="flex flex-col items-end leading-tight">
-            <span className="text-[8px] uppercase tracking-wide text-slate-400">24h</span>
+            <span className="tm-l text-[8px] uppercase tracking-wide text-slate-400">24h</span>
             <span className="text-[11px] font-bold tabular-nums" style={{ color: change >= 0 ? '#4ade80' : '#f87171' }}>
               {change >= 0 ? '+' : ''}{change.toFixed(2)}%
             </span>
           </div>
+          {isDesktop && (
+            <button type="button" data-testid="trade-panel-toggle" aria-pressed={tradePanelOpen} aria-label={tradePanelOpen ? 'Hide trade panel' : 'Show trade panel'} title={tradePanelOpen ? 'Hide the trade panel' : 'Show the trade panel (Buy / Sell ticket)'}
+              onClick={() => st.setTradePanelOpen(!tradePanelOpen)} className="flex shrink-0 items-center gap-1 rounded border px-1.5 py-1 text-[10px] font-bold hover:bg-white/10"
+              style={{ borderColor: tradePanelOpen ? 'var(--tm-border2)' : '#2563eb', color: tradePanelOpen ? 'var(--tm-muted)' : '#7dd3fc' }}>
+              {tradePanelOpen ? <PanelRightClose size={13} /> : <PanelRightOpen size={13} />} Trade
+            </button>
+          )}
         </div>
       </div>
 
       {/* Row 2 — timeframe, chart type, indicators, drawing tools, layout */}
       <div className="relative shrink-0">
-        <div className="no-scrollbar flex min-h-8 items-center gap-1 overflow-x-auto border-b px-2" style={{ borderColor: '#27313d', backgroundColor: '#131a22' }}>
+        <div className="tm-r2 no-scrollbar flex min-h-8 items-center gap-1 overflow-x-auto border-b px-2" style={{ borderColor: 'var(--tm-border)', backgroundColor: 'var(--tm-panel)' }}>
           {TIMEFRAMES.map((t) => (
             <button
               key={t.id}
               type="button"
               onClick={() => st.setTimeframe(t.id)}
               className="tm-tap shrink-0 rounded px-2 py-0.5 text-[11px] font-semibold"
-              style={{ backgroundColor: t.id === timeframe ? '#334155' : 'transparent', color: t.id === timeframe ? '#fff' : '#9aa4b2' }}
+              style={{ backgroundColor: t.id === timeframe ? 'var(--tm-active)' : 'transparent', color: t.id === timeframe ? '#fff' : 'var(--tm-muted)' }}
             >
               {t.label}
             </button>
           ))}
           <div className="mx-1 h-4 w-px shrink-0 bg-white/15" />
-          <button type="button" title="Candles" aria-label="Candlestick chart" aria-pressed={chartType === 'candles'} onClick={() => st.setChartType('candles')} className="shrink-0 rounded p-1" style={{ backgroundColor: chartType === 'candles' ? '#334155' : 'transparent' }}>
-            <CandlestickChart size={14} />
-          </button>
-          <button type="button" title="Line" aria-label="Line chart" aria-pressed={chartType === 'line'} onClick={() => st.setChartType('line')} className="shrink-0 rounded p-1" style={{ backgroundColor: chartType === 'line' ? '#334155' : 'transparent' }}>
-            <LineIcon size={14} />
-          </button>
+          <ChartTypeMenu chartType={chartType} onSettings={() => setSettingsTab('symbol')} />
           <div className="mx-1 h-4 w-px shrink-0 bg-white/15" />
-          <button type="button" title="Indicators" aria-expanded={indOpen} onClick={() => setIndOpen((v) => !v)} className="flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: indOpen ? '#334155' : 'transparent', color: indCount ? '#7dd3fc' : '#9aa4b2' }}>
+          <button type="button" title="Indicators" aria-expanded={indOpen} onClick={() => setIndOpen((v) => !v)} className="flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: indOpen ? 'var(--tm-active)' : 'transparent', color: indCount ? '#7dd3fc' : 'var(--tm-muted)' }}>
             <Activity size={13} /> Indicators{indCount ? ` (${indCount})` : ''}
           </button>
-          <button type="button" title="Drawing tools" aria-pressed={drawOpen} onClick={() => { if (drawOpen) st.setDrawTool('cursor'); setDrawOpen((v) => !v) }} className="flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: drawOpen ? '#334155' : 'transparent', color: drawOpen || drawTool !== 'cursor' ? '#7dd3fc' : '#9aa4b2' }}>
+          <button type="button" title="Drawing tools" aria-pressed={drawOpen} onClick={() => { if (drawOpen) st.setDrawTool('cursor'); setDrawOpen((v) => !v) }} className="flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: drawOpen ? 'var(--tm-active)' : 'transparent', color: drawOpen || drawTool !== 'cursor' ? '#7dd3fc' : 'var(--tm-muted)' }}>
             <PencilRuler size={13} /> Draw
           </button>
           {isDesktop && (
             <>
               <div className="mx-1 h-4 w-px shrink-0 bg-white/15" />
               {[[1, Square, 'One chart'], [2, Columns2, 'Two charts'], [4, LayoutGrid, 'Four charts']].map(([n, Icon, title]) => (
-                <button key={n} type="button" title={title} aria-label={title} aria-pressed={layoutPref === n} onClick={() => st.setLayout(n)} className="shrink-0 rounded p-1" style={{ backgroundColor: layoutPref === n ? '#334155' : 'transparent', color: layoutPref === n ? '#fff' : '#9aa4b2' }}>
+                <button key={n} type="button" title={title} aria-label={title} aria-pressed={layoutPref === n} onClick={() => st.setLayout(n)} className="shrink-0 rounded p-1" style={{ backgroundColor: layoutPref === n ? 'var(--tm-active)' : 'transparent', color: layoutPref === n ? '#fff' : 'var(--tm-muted)' }}>
                   <Icon size={14} />
                 </button>
               ))}
             </>
           )}
-          <button type="button" title="Settings  (?)" aria-label="Terminal settings" onClick={openHelp} className="tm-tap ml-auto shrink-0 rounded p-1 text-slate-300 hover:bg-white/10">
+          <button type="button" title="Settings  (Alt+, — shortcuts: ?)" aria-label="Terminal settings" onClick={() => setSettingsTab('symbol')} className="tm-tap ml-auto shrink-0 rounded p-1 text-slate-300 hover:bg-white/10">
             <SettingsIcon size={14} />
           </button>
           <span className="flex shrink-0 items-center gap-1 pl-2 text-[10px] text-slate-400">
@@ -353,6 +280,11 @@ export default function TerminalScreen() {
           </>
         )}
       </div>
+      <IndicatorDialog />
+      <SoundChip />
+      <OrderPopup />
+      <StopoutBanner />
+      <EffectsLab />
       {drawOpen && <DrawToolbar symbol={symbol} />}
 
       <AccountBar />
@@ -361,12 +293,12 @@ export default function TerminalScreen() {
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="relative min-h-0 flex-1">
-            <ChartGrid layout={layout} charts={charts} activeChart={activeChart} chartType={chartType} onQuote={onQuote} onActivate={st.setActiveChart} />
+            <ChartGrid layout={layout} charts={charts} activeChart={activeChart} chartType={chartType} onQuote={onQuote} onActivate={st.setActiveChart} cs={cs} />
           </div>
           <PositionsPanel />
         </div>
-        {isDesktop && (
-          <aside className="w-[300px] shrink-0 overflow-y-auto border-l" style={{ borderColor: '#27313d', backgroundColor: '#131a22' }}>
+        {isDesktop && tradePanelOpen && (
+          <aside className="w-[300px] shrink-0 overflow-y-auto border-l" style={{ borderColor: 'var(--tm-border)', backgroundColor: 'var(--tm-panel)' }}>
             <OrderTicket key={symbol} symbol={symbol} />
           </aside>
         )}
@@ -377,8 +309,8 @@ export default function TerminalScreen() {
         <>
           <motion.div initial={false} animate={{ opacity: sheet ? 1 : 0 }} onClick={() => setSheet(false)} className="absolute inset-0 z-20 bg-black/60" style={{ pointerEvents: sheet ? 'auto' : 'none' }} />
           <motion.div initial={false} animate={{ y: sheet ? 0 : '105%' }} transition={{ type: 'spring', damping: 32, stiffness: 320 }} aria-hidden={!sheet}
-            className="absolute inset-x-0 bottom-0 z-30 max-h-[88%] overflow-y-auto rounded-t-2xl border-t" style={{ backgroundColor: '#131a22', borderColor: '#27313d', paddingBottom: 'env(safe-area-inset-bottom, 0px)', pointerEvents: sheet ? 'auto' : 'none' }}>
-            <div className="sticky top-0 z-10 flex items-center justify-between px-3 pt-2" style={{ backgroundColor: '#131a22' }}>
+            className="absolute inset-x-0 bottom-0 z-30 max-h-[88%] overflow-y-auto rounded-t-2xl border-t" style={{ backgroundColor: 'var(--tm-panel)', borderColor: 'var(--tm-border)', paddingBottom: 'env(safe-area-inset-bottom, 0px)', pointerEvents: sheet ? 'auto' : 'none' }}>
+            <div className="sticky top-0 z-10 flex items-center justify-between px-3 pt-2" style={{ backgroundColor: 'var(--tm-panel)' }}>
               <div className="mx-auto h-1 w-10 rounded-full bg-white/25" />
               <button type="button" onClick={() => setSheet(false)} className="absolute right-2 top-1.5 rounded px-2 py-1 text-[11px] font-bold text-slate-300">Close</button>
             </div>
@@ -389,10 +321,10 @@ export default function TerminalScreen() {
 
       <HistoryScreen />
       <Toasts />
-      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && <SettingsDialog initialTab={settingsTab} onClose={() => setSettingsTab(null)} />}
       <TradingEngine symbol={symbol} extra={visibleSymbols} />
 
-      <div className="flex h-6 shrink-0 items-center justify-center border-t text-[10px] text-slate-400" style={{ borderColor: '#27313d', backgroundColor: '#131a22' }}>
+      <div className="tm-ft flex h-6 shrink-0 items-center justify-center border-t text-[10px] text-slate-400" style={{ borderColor: 'var(--tm-border)', backgroundColor: 'var(--tm-panel)' }}>
         DEMO · simulated prices · virtual money
       </div>
     </motion.div>

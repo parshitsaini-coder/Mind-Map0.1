@@ -7,15 +7,15 @@ import { fmtDuration } from '../../lib/terminal/stats'
 import { useAccountMetrics } from './hooks'
 import { fmtMoney, fmtTime, pnlColor, UP_TXT, DOWN_TXT } from './format'
 
-const BORDER = '#27313d'
-const inputCls = 'w-full rounded-md border bg-[#0b1016] px-2 py-1.5 text-[16px] font-semibold tabular-nums text-slate-100 outline-none focus:border-blue-500 md:text-[13px]'
+const BORDER = 'var(--tm-border)'
+const inputCls = 'w-full rounded-md border bg-[var(--tm-deep)] px-2 py-1.5 text-[16px] font-semibold tabular-nums text-slate-100 outline-none focus:border-blue-500 md:text-[13px]'
 const pf = (v) => (v == null ? '—' : v === Infinity ? '∞' : v.toFixed(2))
 
 function Card({ label, value, sub, color }) {
   return (
-    <div className="rounded-lg border p-2.5" style={{ borderColor: BORDER, backgroundColor: '#10161d' }}>
+    <div className="rounded-lg border p-2.5" style={{ borderColor: BORDER, backgroundColor: 'var(--tm-panel2)' }}>
       <div className="text-[9px] font-bold uppercase tracking-wide text-slate-400">{label}</div>
-      <div className="mt-0.5 text-[16px] font-extrabold tabular-nums" style={{ color: color || '#e5e7eb' }}>{value}</div>
+      <div className="mt-0.5 text-[16px] font-extrabold tabular-nums" style={{ color: color || 'var(--tm-text)' }}>{value}</div>
       {sub && <div className="text-[10px] text-slate-500">{sub}</div>}
     </div>
   )
@@ -61,7 +61,7 @@ export function StatsView({ stats: s, filtered, startBalance }) {
         <Card label="Streaks" value={`${s.winStreak}W / ${s.lossStreak}L`} sub="longest runs" />
       </div>
 
-      <div className="rounded-lg border p-3" style={{ borderColor: BORDER, backgroundColor: '#10161d' }}>
+      <div className="rounded-lg border p-3" style={{ borderColor: BORDER, backgroundColor: 'var(--tm-panel2)' }}>
         <div className="mb-1 flex items-center justify-between text-[11px]">
           <span className="font-bold text-slate-300">Equity curve <span className="font-normal text-slate-500">(closed trades, excl. deposits{filtered ? ', filtered' : ''})</span></span>
           <span className="tabular-nums text-slate-400">{fmtMoney(startBalance)} → <b style={{ color: pnlColor(s.endBalance - startBalance) }}>{fmtMoney(s.endBalance)}</b></span>
@@ -70,7 +70,7 @@ export function StatsView({ stats: s, filtered, startBalance }) {
       </div>
 
       <div className="overflow-hidden rounded-lg border" style={{ borderColor: BORDER }}>
-        <div className="grid grid-cols-[1.2fr_0.6fr_0.7fr_0.8fr_0.7fr] gap-1 px-3 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-400" style={{ backgroundColor: '#10161d' }}>
+        <div className="grid grid-cols-[1.2fr_0.6fr_0.7fr_0.8fr_0.7fr] gap-1 px-3 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-400" style={{ backgroundColor: 'var(--tm-panel2)' }}>
           <span>Symbol</span><span className="text-right">Trades</span><span className="text-right">Win %</span><span className="text-right">Net P&amp;L</span><span className="text-right">PF</span>
         </div>
         {syms.map(([sym, g]) => (
@@ -90,7 +90,7 @@ export function StatsView({ stats: s, filtered, startBalance }) {
 
 function Section({ title, children }) {
   return (
-    <div className="rounded-lg border p-3" style={{ borderColor: BORDER, backgroundColor: '#10161d' }}>
+    <div className="rounded-lg border p-3" style={{ borderColor: BORDER, backgroundColor: 'var(--tm-panel2)' }}>
       <div className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">{title}</div>
       {children}
     </div>
@@ -144,7 +144,7 @@ export function AccountView() {
       <Section title="Leverage">
         <div className="flex items-center justify-between gap-3">
           <span className="text-[11px] text-slate-400">Applies to trades you open from now on; open positions keep theirs.</span>
-          <select aria-label="Account leverage" value={account.leverage} onChange={(e) => st().setLeverage(Number(e.target.value))} className="shrink-0 rounded-md border bg-[#0b1016] px-2 py-1.5 text-[16px] font-bold md:text-[12px]" style={{ borderColor: BORDER }}>
+          <select aria-label="Account leverage" value={account.leverage} onChange={(e) => st().setLeverage(Number(e.target.value))} className="shrink-0 rounded-md border bg-[var(--tm-deep)] px-2 py-1.5 text-[16px] font-bold md:text-[12px]" style={{ borderColor: BORDER }}>
             {LEVERAGES.map((l) => <option key={l} value={l}>1:{l}</option>)}
           </select>
         </div>
@@ -156,7 +156,7 @@ export function AccountView() {
             <div className="text-[10px] text-slate-500">Only trades closed after you switch this on are added.</div>
           </div>
           <button type="button" role="switch" aria-checked={autoJournal} aria-label="Auto-add closed trades to the journal" onClick={() => st().setAutoJournal(!autoJournal)}>
-            <span className="relative block h-5 w-10 rounded-full transition-colors" style={{ backgroundColor: autoJournal ? '#2563eb' : '#334155' }}>
+            <span className="relative block h-5 w-10 rounded-full transition-colors" style={{ backgroundColor: autoJournal ? '#2563eb' : 'var(--tm-border2)' }}>
               <span className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all" style={{ left: autoJournal ? 22 : 2 }} />
             </span>
           </button>

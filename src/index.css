@@ -2034,3 +2034,66 @@ body {
 @media (pointer: coarse) {
   .tm-root .tm-tap { min-width: 40px; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; }
 }
+
+/* ── Demo Terminal: light themes (Light / Paper). The terminal's Tailwind text / hover utilities were
+   written for a dark UI; under [data-tm-light] they are remapped to the theme variables. Buttons that
+   carry their own coloured background keep text-white. ── */
+.tm-root[data-tm-light="true"] .text-slate-100,
+.tm-root[data-tm-light="true"] .text-slate-200,
+.tm-root[data-tm-light="true"] .text-slate-300 { color: var(--tm-text); }
+.tm-root[data-tm-light="true"] .text-slate-400,
+.tm-root[data-tm-light="true"] .text-slate-500 { color: var(--tm-muted); }
+.tm-root[data-tm-light="true"] .bg-white\/5 { background-color: rgba(0, 0, 0, 0.05); }
+.tm-root[data-tm-light="true"] .bg-white\/10,
+.tm-root[data-tm-light="true"] .hover\:bg-white\/10:hover { background-color: rgba(0, 0, 0, 0.08); }
+.tm-root[data-tm-light="true"] .bg-white\/15,
+.tm-root[data-tm-light="true"] .bg-white\/25 { background-color: rgba(0, 0, 0, 0.14); }
+.tm-root[data-tm-light="true"] .bg-slate-700,
+.tm-root[data-tm-light="true"] .bg-slate-800 { background-color: var(--tm-border2); color: var(--tm-text); }
+.tm-root[data-tm-light="true"] .hover\:bg-slate-600:hover,
+.tm-root[data-tm-light="true"] .hover\:bg-slate-700:hover { background-color: var(--tm-border); }
+.tm-root[data-tm-light="true"] input,
+.tm-root[data-tm-light="true"] select { color: var(--tm-text); }
+.tm-root *:focus-visible { outline: 2px solid #38bdf8; outline-offset: 1px; }
+
+/* Phase 10: buttons inside the on-chart pills and menus — compact with a mouse, 40 px for a finger */
+.tm-pbtn { min-height: 28px; min-width: 28px; }
+@media (pointer: coarse) { .tm-pbtn { min-height: 40px; min-width: 40px; } }
+
+/* ── Phase 13: motion ── */
+@keyframes tm-shrink { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes tm-flash-up { 0% { background-color: rgba(34, 197, 94, 0.45); } 100% { background-color: transparent; } }
+@keyframes tm-flash-down { 0% { background-color: rgba(239, 68, 68, 0.45); } 100% { background-color: transparent; } }
+@keyframes tm-border-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); } 50% { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.9); } }
+.tm-root .tm-tap:active, .tm-root .tm-press:active { transform: scale(0.96); }
+.tm-root .tm-tap, .tm-root .tm-press { transition: transform 90ms ease-out, background-color 120ms; }
+.tm-root .tm-flash-up { animation: tm-flash-up 120ms ease-out; }
+.tm-root .tm-flash-down { animation: tm-flash-down 120ms ease-out; }
+.tm-root .tm-margin-pulse { animation: tm-border-pulse 1s ease-in-out infinite; }
+.tm-root[data-motion='off'] *, .tm-root[data-motion='off'] *::before, .tm-root[data-motion='off'] *::after { animation: none !important; transition: none !important; }
+.tm-root[data-motion='reduced'] .tm-margin-pulse { animation-duration: 2s; }
+.tm-root[data-motion='reduced'] .tm-tap:active, .tm-root[data-motion='reduced'] .tm-press:active { transform: none; }
+
+/* ── Interface size: compact (default) — the top rows, toolbar, account bar and footer shrink ── */
+.tm-root[data-density='compact'] .tm-r1 { min-height: 26px; gap: 4px; }
+.tm-root[data-density='compact'] .tm-r1 button { padding: 1px 6px; font-size: 10px; min-height: 22px; min-width: 0; }
+.tm-root[data-density='compact'] .tm-r1 .tm-l { font-size: 7px; }
+.tm-root[data-density='compact'] .tm-r1 .tm-v { font-size: 11px; }
+.tm-root[data-density='compact'] .tm-r1 .text-\[11px\] { font-size: 10px; }
+.tm-root[data-density='compact'] .tm-r1 > div:last-child { gap: 8px; }
+.tm-root[data-density='compact'] .tm-r2 { min-height: 24px; gap: 2px; }
+.tm-root[data-density='compact'] .tm-r2 button { padding: 1px 5px; font-size: 10px; min-height: 20px; min-width: 0; }
+.tm-root[data-density='compact'] .tm-r2 svg, .tm-root[data-density='compact'] .tm-r1 svg { width: 12px; height: 12px; }
+.tm-root[data-density='compact'] .tm-dt { height: 26px; gap: 2px; }
+.tm-root[data-density='compact'] .tm-dt button { height: 22px; min-width: 0; padding-top: 0; padding-bottom: 0; font-size: 10px; }
+.tm-root[data-density='compact'] .tm-dt button[aria-label]:not([data-testid]), .tm-root[data-density='compact'] .tm-dt button.w-8 { width: 22px; padding-left: 0; padding-right: 0; }
+.tm-root[data-density='compact'] .tm-dt svg { width: 12px; height: 12px; }
+.tm-root[data-density='compact'] .tm-ab { height: 22px; gap: 12px; }
+.tm-root[data-density='compact'] .tm-ab .tm-cell { flex-direction: row; align-items: baseline; gap: 4px; }
+.tm-root[data-density='compact'] .tm-ab .tm-cell > span:first-child { font-size: 7px; }
+.tm-root[data-density='compact'] .tm-ab .tm-cell > span:last-child { font-size: 10px; }
+.tm-root[data-density='compact'] .tm-ft { height: 16px; font-size: 9px; }
+@media (pointer: coarse) {
+  .tm-root[data-density='compact'] .tm-r1 button, .tm-root[data-density='compact'] .tm-r2 button, .tm-root[data-density='compact'] .tm-dt button { min-height: 28px; }
+  .tm-root[data-density='compact'] .tm-tap { min-width: 30px; min-height: 28px; }
+}

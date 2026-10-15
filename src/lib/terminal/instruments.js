@@ -25,4 +25,5 @@ export const TIMEFRAMES = [
   { id: 'H1', label: '1h', minutes: 60 },
   { id: 'H4', label: '4h', minutes: 240 },
   { id: 'D1', label: '1D', minutes: 1440 },
+  { id: 'W1', label: '1W', minutes: 10080 },
 ]

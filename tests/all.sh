@@ -23,6 +23,16 @@ run "terminal phase 7"    node tests/terminal-phase7.test.mjs
 run "terminal phase 7 store" ./tests/run.sh terminal-phase7-store.test.mjs
 run "terminal phase 8"    node tests/terminal-phase8.test.mjs
 run "terminal phase 8 store" ./tests/run.sh terminal-phase8-store.test.mjs
+run "terminal phase 9"    node tests/terminal-phase9.test.mjs
+run "terminal phase 9 store" ./tests/run.sh terminal-phase9-store.test.mjs
+run "terminal phase 10"   ./tests/run.sh terminal-phase10.test.mjs
+run "terminal phase 10 store" ./tests/run.sh terminal-phase10-store.test.mjs
+run "terminal phase 11"   node tests/terminal-phase11.test.mjs
+run "terminal phase 11 store" ./tests/run.sh terminal-phase11-store.test.mjs
+run "terminal phase 12"   node tests/terminal-phase12.test.mjs
+run "terminal phase 12 store" ./tests/run.sh terminal-phase12-store.test.mjs
+run "terminal phase 13"   node tests/terminal-phase13.test.mjs
+run "terminal phase 13 store" ./tests/run.sh terminal-phase13-store.test.mjs
 run "terminal performance" node --expose-gc tests/terminal-perf.test.mjs
 run "render smoke test"  node tests/render.mjs
 echo; echo "▸ production build"; npm run build > /tmp/b.txt 2>&1 && grep -E "✓ built" /tmp/b.txt || { FAIL=1; tail -20 /tmp/b.txt; }

@@ -2,7 +2,6 @@
 // so they pan / zoom with it for free and never fall out of sync.
 //   FillPrimitive      – shaded band between two lines (Bollinger) or a 2-colour cloud (Ichimoku)
 //   DrawingsPrimitive  – every user drawing, rendered from a scene supplied on each frame
-import { TEXT_H } from '../../lib/terminal/drawings'
 
 const FONT = '600 11px system-ui, -apple-system, Segoe UI, sans-serif'
 
@@ -78,6 +77,22 @@ export function createFillPrimitive() {
 }
 
 // getScene({width,height}) -> { items: [{ d, lay, selected, ghost }] }
+// Honours the schema-v2 style of each drawing: opacity, line style (solid / dashed / dotted), arrow
+// ends, fill colour + opacity, per-segment / per-fill / per-label colour overrides, text styling.
+const DASH = { solid: [], dashed: [6, 4], dotted: [1.5, 4] }
+
+function endMark(ctx, kind, x, y, ang, w) {
+  if (kind === 'arrow') {
+    const L = 8 + w * 1.5
+    ctx.beginPath()
+    ctx.moveTo(x, y); ctx.lineTo(x - L * Math.cos(ang - 0.4), y - L * Math.sin(ang - 0.4))
+    ctx.moveTo(x, y); ctx.lineTo(x - L * Math.cos(ang + 0.4), y - L * Math.sin(ang + 0.4))
+    ctx.stroke()
+  } else if (kind === 'circle') {
+    ctx.beginPath(); ctx.arc(x, y, 3 + w, 0, Math.PI * 2); ctx.fill()
+  }
+}
+
 export function createDrawingsPrimitive(getScene) {
   const prim = makePrimitive(({ context: ctx, mediaSize }) => {
     const scene = getScene(mediaSize)
@@ -86,55 +101,68 @@ export function createDrawingsPrimitive(getScene) {
     ctx.font = FONT
     ctx.textBaseline = 'middle'
     for (const { d, lay, selected, ghost } of scene.items) {
-      ctx.globalAlpha = ghost ? 0.85 : 1
-      const color = d.type === 'measure' ? (lay.labels[0]?.up === false ? '#ef4444' : '#38bdf8') : d.color
+      const st = d.style || {}
+      const base = (ghost ? 0.85 : 1) * (st.opacity ?? 1)
+      const color = d.type === 'measure' ? (lay.measureUp === false ? '#ef4444' : '#38bdf8') : d.color
       for (const f of lay.fills) {
-        if (!f.alpha) continue
-        ctx.globalAlpha = f.alpha
-        ctx.fillStyle = color
+        let alpha = f.alpha
+        let col = f.color || color
+        if (f.main) { if (!st.fill) continue; alpha = st.fillOpacity ?? alpha; if (st.fillColor) col = st.fillColor }
+        if (!alpha) continue
+        ctx.globalAlpha = base * alpha
+        ctx.fillStyle = col
         ctx.beginPath()
         f.poly.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)))
         ctx.closePath()
         ctx.fill()
       }
       ctx.lineCap = 'round'
-      for (const s of lay.segs) {
-        ctx.globalAlpha = s.alpha ?? 1
-        ctx.strokeStyle = color
-        ctx.lineWidth = d.width || 2
-        ctx.setLineDash(s.dash || d.dash ? [6, 4] : [])
+      ctx.lineJoin = 'round'
+      const w = d.width || 2
+      for (const sg of lay.segs) {
+        const col = sg.color || color
+        ctx.globalAlpha = base * (sg.alpha ?? 1)
+        ctx.strokeStyle = col
+        ctx.fillStyle = col
+        ctx.lineWidth = w
+        ctx.setLineDash(DASH[sg.dash ? 'dashed' : sg.dotted ? 'dotted' : st.lineStyle || 'solid'])
         ctx.beginPath()
-        ctx.moveTo(s.x1, s.y1)
-        ctx.lineTo(s.x2, s.y2)
+        ctx.moveTo(sg.x1, sg.y1)
+        ctx.lineTo(sg.x2, sg.y2)
         ctx.stroke()
-        if (s.arrow) {
-          const ang = Math.atan2(s.y2 - s.y1, s.x2 - s.x1)
-          ctx.setLineDash([])
-          ctx.beginPath()
-          ctx.moveTo(s.x2, s.y2)
-          ctx.lineTo(s.x2 - 9 * Math.cos(ang - 0.4), s.y2 - 9 * Math.sin(ang - 0.4))
-          ctx.moveTo(s.x2, s.y2)
-          ctx.lineTo(s.x2 - 9 * Math.cos(ang + 0.4), s.y2 - 9 * Math.sin(ang + 0.4))
-          ctx.stroke()
-        }
+        ctx.setLineDash([])
+        const ang = Math.atan2(sg.y2 - sg.y1, sg.x2 - sg.x1)
+        if (sg.arrowEnd && sg.arrowEnd !== 'none') endMark(ctx, sg.arrowEnd, sg.x2, sg.y2, ang, w)
+        if (sg.arrowStart && sg.arrowStart !== 'none') endMark(ctx, sg.arrowStart, sg.x1, sg.y1, ang + Math.PI, w)
       }
       ctx.setLineDash([])
-      ctx.globalAlpha = 1
+      ctx.globalAlpha = base
+      const ts = d.textStyle || {}
       for (const l of lay.labels) {
         if (l.plain) {
-          ctx.fillStyle = color
+          ctx.font = FONT
+          ctx.fillStyle = l.color || color
           ctx.textAlign = l.align
           ctx.fillText(l.text, l.x, l.y)
-        } else if (d.type === 'text') {
-          ctx.fillStyle = 'rgba(17,24,39,0.88)'
-          ctx.strokeStyle = color
-          ctx.lineWidth = 1
-          roundRect(ctx, l.x, l.y - TEXT_H / 2, l.bw, TEXT_H, 5)
-          ctx.fill()
-          ctx.stroke()
-          ctx.fillStyle = color
-          ctx.textAlign = 'left'
-          ctx.fillText(l.text, l.x + 7, l.y)
+        } else if (l.note) {
+          const size = ts.size || 12
+          ctx.font = `${ts.italic ? 'italic ' : ''}${ts.bold ? 700 : 600} ${size}px system-ui, -apple-system, Segoe UI, sans-serif`
+          if (ts.bg !== false) {
+            ctx.fillStyle = 'rgba(17,24,39,0.88)'
+            roundRect(ctx, l.x, l.y - l.bh / 2, l.bw, l.bh, 5)
+            ctx.fill()
+          }
+          if (ts.border !== false) {
+            ctx.strokeStyle = color
+            ctx.lineWidth = 1
+            roundRect(ctx, l.x, l.y - l.bh / 2, l.bw, l.bh, 5)
+            ctx.stroke()
+          }
+          ctx.fillStyle = ts.color || color
+          const al = ts.align || 'left'
+          ctx.textAlign = al
+          ctx.fillText(l.text, al === 'left' ? l.x + 7 : al === 'center' ? l.x + l.bw / 2 : l.x + l.bw - 7, l.y)
+          ctx.font = FONT
         } else if (l.lines) {
           const bx = clampX(l.x - l.bw / 2, l.bw, mediaSize.width)
           const by = Math.max(2, Math.min(mediaSize.height - l.bh - 2, l.up ? l.y - l.bh : l.y))
@@ -147,6 +175,7 @@ export function createDrawingsPrimitive(getScene) {
         }
       }
       if (selected) {
+        ctx.globalAlpha = 1
         for (const h of lay.handles) {
           ctx.beginPath()
           ctx.arc(h.x, h.y, 5, 0, Math.PI * 2)
