@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useTerminalStore } from '../../store/terminalStore'
-import { useAccountMetrics } from './hooks'
+import { useAccountMetrics, useLiveHistory } from './hooks'
 import { fmtMoney, pnlColor } from './format'
 import CloudBadge from './CloudBadge'
 import AnimNum from './AnimNum'
@@ -16,7 +16,7 @@ function Cell({ label, value, color, raw, fmt, count }) {
 
 export default function AccountBar() {
   const { metrics } = useAccountMetrics()
-  const history = useTerminalStore((s) => s.history)
+  const history = useLiveHistory()
   const stopOut = useTerminalStore((s) => s.settings.stopOutLevel)
   const realizedToday = useMemo(() => {
     const start = new Date().setHours(0, 0, 0, 0) / 1000

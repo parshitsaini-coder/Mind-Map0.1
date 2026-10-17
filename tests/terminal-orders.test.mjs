@@ -3,7 +3,7 @@
 import { INSTRUMENTS as I } from '../src/lib/terminal/instruments.js'
 import * as E from '../src/lib/terminal/engine.js'
 import * as L from '../src/lib/terminal/ledger.js'
-import * as F from '../src/lib/terminal/feed/simulatedFeed.js'
+import * as F from './fixtures/mockFeed.js'
 
 let fail = 0
 const check = (name, ok, extra = '') => { if (!ok) fail++; console.log(`${ok ? '✓' : '✗'} ${name} ${ok ? '' : extra}`) }

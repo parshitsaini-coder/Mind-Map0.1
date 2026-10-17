@@ -7,8 +7,12 @@ let fail = 0
 const check = (n, ok, x = '') => { if (!ok) fail++; console.log(`${ok ? '✓' : '✗'} ${n} ${ok ? '' : x}`) }
 
 mem.set('mindmap-terminal-storage', JSON.stringify({ version: 0, state: { chartSettings: { trading: { plUnit: 'pips' } } } }))
-const { useTerminalStore } = await import('../src/store/terminalStore.js')
+await import('./fixtures/legacyInstruments.js') // test-only legacy symbols (the app is XAUUSD-only)
+const { setTradeGate, useTerminalStore } = await import('../src/store/terminalStore.js')
+setTradeGate(() => null) // Phase 14: no live feed in unit tests
 const hub = await import('../src/lib/terminal/quoteHub.js')
+const mock = await import('./fixtures/mockFeed.js')
+hub.setFeedSubscribe(mock.subscribe)
 const A = await import('../src/components/terminal/chartActions.js')
 const s = () => useTerminalStore.getState()
 
@@ -68,3 +72,4 @@ s().setChartSettings({ trading: { snap: 'bars', defSlValue: 12.5, marginWarn: 15
 const saved = JSON.parse(mem.get('mindmap-terminal-storage')).state.chartSettings.trading
 check('Phase 10 settings are persisted', saved.snap === 'bars' && saved.defSlValue === 12.5 && saved.marginWarn === 150 && saved.plUnit === 'r')
 process.exit(fail ? 1 : 0)
+

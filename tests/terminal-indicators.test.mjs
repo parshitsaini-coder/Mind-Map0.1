@@ -1,7 +1,7 @@
 // Hand-checked examples for the indicator maths. Run: node tests/terminal-indicators.test.mjs
 import * as I from '../src/lib/terminal/indicators.js'
 import { createCore, CANDLE_CAP } from '../src/lib/terminal/indicatorCore.js'
-import { getCandles } from '../src/lib/terminal/feed/simulatedFeed.js'
+import { getCandles } from './fixtures/mockFeed.js'
 
 let fail = 0
 const check = (name, ok, extra = '') => { if (!ok) fail++; console.log(`${ok ? '✓' : '✗'} ${name} ${ok ? '' : extra}`) }

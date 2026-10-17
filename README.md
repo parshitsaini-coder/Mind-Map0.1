@@ -4,6 +4,7 @@ Full-featured mind mapping web app built with React, React Flow (`@xyflow/react`
 
 ## Recent updates
 
+- **Demo Terminal — live XAUUSD data (Phase 14)** — the simulator is gone. The terminal shows **real gold (XAUUSD) prices only** (other symbols removed; multi-chart layouts show XAUUSD on different timeframes). Prices come through your own serverless functions (`api/candles`, `api/quote`, `api/symbols`, `api/health`) that call Twelve Data with a server-side key, with allow-list, caching, rate limit and a daily credit budget. Real market hours (Sun 22:00 → Fri 21:00 UTC, daily break) with a Live / Delayed / Offline / Market closed badge; market orders are refused while closed, SL/TP/pending never trigger on stale prices; offline catch-up replays **real candles** (SL first when one candle touches both SL and TP). Old simulated accounts get a one-time dialog (keep history / start fresh). Setup: `.env.example`, section "Live data" below. See `PHASE-STATUS.md` and `QA-PHASE14.md`.
 - **Demo Terminal — drawing tools & indicator settings (Phase 11)** — 22 drawing tools in grouped flyouts (lines, arrows, extended lines, channel, fib retracement / extension, rectangle, ellipse, triangle, text, callout, arrow marker, long / short position with “Place this order”, price / date ranges) with a floating bar, a full settings dialog (Style · Text · Levels · Coordinates · Visibility, live preview, Cancel / Ok), templates and per-tool defaults that sync with your account, right-click menu, object tree, magnet, shortcuts and one Ctrl+Z / Ctrl+Y for everything on the chart. Indicators get a settings dialog (inputs, per-line style, pane size, timeframe range), a legend with live values, and two new ones: Volume and Stochastic RSI. See `PHASE-STATUS.md` and `QA-PHASE11.md`.
 - **Demo Terminal — sound engine (Phase 12)** — every terminal event (fills, pending orders, closes, SL / TP, stop-out, margin warning …) goes through one event bus and one catalogue. Sounds are synthesised with Web Audio (no files): Classic / Soft / Arcade / Silent-pro packs, a Settings → Sounds tab with master volume, mute-in-background, vibration, per-event switch / sound / volume / preview, Test all and Reset. Simultaneous events play one sound (the most important), the browser's audio lock is handled with a "Tap to enable sound" chip. Dev playground: `?lab=1`. See `PHASE-STATUS.md` and `QA-PHASE12.md`.
 - **Demo Terminal — animations & order popups (Phase 13)** — a fast “Done” popup for every order action (animated tick, P/L count-up, slippage, old → new for modifies, shake on rejection), redesigned stacked toasts, chart effects drawn on one shared canvas (entry sweep, limit / stop trigger pulse, take-profit shockwave with particles, stop-loss crack and shake, margin border pulse, stop-out vignette + banner), animated Positions / Orders / History rows and balance counters. Settings → Animations: Full / Reduced / Off, match system reduced-motion, popup style / time / position, per-effect switches; it also drops to Reduced by itself if the chart gets slow. See `PHASE-STATUS.md` and `QA-PHASE13.md`.
@@ -69,6 +70,7 @@ copy).
 | `VITE_SUPABASE_ANON_KEY` | Auth + cloud map sync | Supabase Dashboard → Settings → API → **anon public** key |
 | `VITE_CLOUDINARY_CLOUD_NAME` | Hosting node images (primary) | Cloudinary Dashboard home page, top of the page |
 | `VITE_CLOUDINARY_UPLOAD_PRESET` | Hosting node images (primary) | Cloudinary Dashboard → Settings → Upload → Upload presets → create one with **Signing Mode: Unsigned** |
+| `FEED_PROVIDER` / `TWELVEDATA_API_KEY` / `ALLOWED_ORIGIN` | Live XAUUSD prices (**server-side**, never `VITE_`) | See "Live data" below |
 
 All four are optional in the sense that the app degrades gracefully without
 them (no auth/cloud sync without the Supabase pair; images embed as base64
@@ -85,6 +87,32 @@ If using Supabase Storage as the image-hosting fallback, create a **public**
 bucket named exactly `mindmap-media`, then add Storage policies allowing
 `INSERT` and `SELECT` for the `anon` (and `authenticated`) roles — a bucket
 with zero policies will reject uploads even if it's marked Public.
+
+## Live data (Demo Terminal, Phase 14)
+
+The terminal's gold prices come from **Twelve Data** through serverless functions in `api/` (Vercel runs
+them automatically; `npm run dev` serves the same functions locally). The browser only ever calls
+same-origin `/api/*` — the provider key lives only in server environment variables.
+
+1. Create a free account at <https://twelvedata.com> and copy your API key (Dashboard → API keys).
+2. **Vercel** → Project → Settings → Environment Variables → add (Production + Preview), then redeploy:
+   - `FEED_PROVIDER` = `twelvedata`
+   - `TWELVEDATA_API_KEY` = your key (**no `VITE_` prefix**)
+   - `ALLOWED_ORIGIN` = `https://your-app.vercel.app` (optional; empty = same-origin only)
+3. **Local dev:** copy `.env.example` to `.env`, fill `TWELVEDATA_API_KEY`, run `npm run dev` (a small Vite plugin serves
+   `/api/*` from the same files). Alternatively `npx vercel dev`.
+4. Check it: open `/api/health` — it should say `"keyConfigured": true`. Then open the terminal: the badge turns **Live**.
+
+**Quota (free plan: 8 credits/minute, 800/day).** One credit per provider call. The functions cache
+(live quote 25 s, forming candle 20 s – 10 min by timeframe, older history 24 h), share one upstream call between
+all viewers, and stop calling the provider after 700 credits/day (you then see "quota reached" instead of fresh
+prices). The browser polls every 30 s while the tab is visible and the market is open (every 5 min when closed, not at
+all when the tab is hidden). Roughly: about 6½ hours of continuous viewing per day on the free plan.
+**Terms:** Twelve Data's Basic plan is for internal / non-display use; for a public app check their terms or upgrade.
+Prices are indicative and delayed; the terminal says "Prices are indicative, for practice only".
+
+The provider only gives a mid price, so bid/ask = live mid ± half of a **simulated spread** (Settings → Trading →
+"Simulated spread over live mid").
 
 ## Multiple projects & tabs
 

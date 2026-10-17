@@ -20,6 +20,7 @@ mem.set('mindmap-terminal-storage', JSON.stringify({
   },
 }))
 
+await import('./fixtures/legacyInstruments.js')
 const { useTerminalStore } = await import('../src/store/terminalStore.js')
 const s = () => useTerminalStore.getState()
 
@@ -101,3 +102,4 @@ check('tool/selection are NOT persisted', !('drawTool' in saved) && !('drawSel' 
 
 console.log(fail ? `\n${fail} FAILED` : '\nALL PASSED')
 process.exit(fail ? 1 : 0)
+

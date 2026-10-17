@@ -3,11 +3,11 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useMotion } from './motionHooks'
 import { BarChart3, ChevronDown, ChevronUp, Info } from 'lucide-react'
 import { useTerminalStore } from '../../store/terminalStore'
-import { INSTRUMENTS } from '../../lib/terminal/instruments'
+import { instOf } from '../../lib/terminal/instruments'
 import * as E from '../../lib/terminal/engine'
 import { getSnapshot } from '../../lib/terminal/quoteHub'
 import { askNotifPermission, notifPermission, notifSupported } from '../../lib/terminal/alerts'
-import { useAccountMetrics, useQuote } from './hooks'
+import { useAccountMetrics, useQuote, useLiveHistory } from './hooks'
 import { fmtMoney, fmtPrice, fmtTime, pnlColor, UP_TXT, DOWN_TXT } from './format'
 
 const BORDER = 'var(--tm-border)'
@@ -57,7 +57,7 @@ function PositionEditor({ p, inst }) {
 
 const OrderRow = memo(function OrderRow({ o }) {
   const confirmCancel = useTerminalStore((s) => s.chartSettings.trading.confirmCancel)
-  const inst = INSTRUMENTS[o.symbol]
+  const inst = instOf(o.symbol)
   const q = useQuote(o.symbol)
   const [edit, setEdit] = useState(false)
   const [f, setF] = useState({ price: txt(o.price), limit: txt(o.limitPrice), sl: txt(o.sl), tp: txt(o.tp) })
@@ -106,7 +106,7 @@ const OrderRow = memo(function OrderRow({ o }) {
 
 const PositionRow = memo(function PositionRow({ p }) {
   const confirmClose = useTerminalStore((s) => s.chartSettings.trading.confirmClose)
-  const inst = INSTRUMENTS[p.symbol]
+  const inst = instOf(p.symbol)
   const q = useQuote(p.symbol)
   const [more, setMore] = useState(false)
   const exit = q ? E.exitPrice(p.side, q) : null
@@ -146,7 +146,7 @@ const PositionRow = memo(function PositionRow({ p }) {
 
 const REASONS = { manual: 'Manual', sl: 'Stop loss', tp: 'Take profit', stopout: 'Stop-out', reverse: 'Reverse', ptp: 'Partial TP' }
 const HistoryRow = memo(function HistoryRow({ h }) {
-  const inst = INSTRUMENTS[h.symbol]
+  const inst = instOf(h.symbol)
   return (
     <div className="flex items-center gap-2 border-b px-3 py-1.5" style={{ borderColor: BORDER }}>
       <SideTag side={h.side} />
@@ -164,7 +164,7 @@ const HistoryRow = memo(function HistoryRow({ h }) {
 
 export default function PositionsPanel() {
   const positions = useTerminalStore((s) => s.positions)
-  const history = useTerminalStore((s) => s.history)
+  const history = useLiveHistory()
   const orders = useTerminalStore((s) => s.orders) || []
   const notifAsked = useTerminalStore((s) => s.settings.notifAsked)
   const [rules, setRules] = useState(false)
@@ -220,7 +220,7 @@ export default function PositionsPanel() {
         <div className="h-[34vh] overflow-y-auto border-t md:h-[220px]" style={{ borderColor: BORDER }}>
           {rules && (
             <div className="border-b px-3 py-2 text-[11px] leading-relaxed text-slate-300" style={{ borderColor: BORDER, backgroundColor: 'var(--tm-deep)' }}>
-              <b>Fill rules (simulated):</b> BUY fills at the ask and SELL at the bid; SL/TP/pending orders trigger on the side you would really exit/enter at.
+              <b>Fill rules (virtual money, live prices):</b> BUY fills at the ask and SELL at the bid; SL/TP/pending orders trigger on the side you would really exit/enter at.
               If price gaps past a level you get the <b>first available price</b> (can be worse). Inside one candle during offline catch-up, price is assumed to visit the extreme
               <b> worst for your open trade first, so SL fills before TP</b>. Trailing stops move in 1-pip steps. Fills while the terminal was closed are replayed from
               1-minute candles and are <b>approximate</b> (max 7 days back).

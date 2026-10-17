@@ -1,10 +1,11 @@
 // Phase 8 performance audit (what can be measured without a browser): per-tick engine cost, memory
 // growth over a long simulated session, indicator maths on the largest history the app keeps, and the
 // cost of building / parsing a full cloud row. Run with `node --expose-gc` for the leak check.
+import './fixtures/legacyInstruments.js'
 import * as L from '../src/lib/terminal/ledger.js'
 import * as C from '../src/lib/terminal/cloudSync.js'
 import { INDICATOR_TYPES, computeIndicator, defaultParams } from '../src/lib/terminal/indicators.js'
-import { quoteFromMid } from '../src/lib/terminal/feed/simulatedFeed.js'
+import { quoteFromMid } from '../src/lib/terminal/feed/spread.js'
 
 let fail = 0
 const check = (n, ok, x = '') => { if (!ok) fail++; console.log(`${ok ? '✓' : '✗'} ${n} ${ok ? '' : x}`) }

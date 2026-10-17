@@ -3,7 +3,11 @@ import { persist } from 'zustand/middleware'
 import * as L from '../lib/terminal/ledger'
 import { validateCloseLots } from '../lib/terminal/chartOrders'
 import { ORDER_LABEL, slipQuote } from '../lib/terminal/engine'
-import { getCandles, getMidAt, quoteFromMid, setSpreadMode } from '../lib/terminal/feed/simulatedFeed'
+import { getCandles } from '../lib/terminal/feed/liveFeed'
+import { quoteFromMid, setSpreadMode } from '../lib/terminal/feed/spread'
+import { needsMigration, migrateKeep, migrateFresh } from '../lib/terminal/liveMigration'
+import { marketStatus } from '../lib/terminal/marketHours'
+import { getStatus as feedStatusNow } from '../lib/terminal/feed/liveFeed'
 import { osNotify } from '../lib/terminal/alerts'
 import { emitTerminalEvent, registerSubscriber } from '../lib/terminal/effects'
 import { configureSound, installUnlock } from '../lib/terminal/soundEngine'
@@ -55,6 +59,18 @@ const newIndId = () => `i${Date.now().toString(36)}${(++indSeq).toString(36)}`
 const keepSel = (id, map) => (id && Object.values(map).some((l) => l.some((d) => d.id === id)) ? id : null)
 const pushHist = (s) => ({ past: [...s.drawHist.past.slice(-59), { at: Date.now(), drawings: s.drawings }], future: [] })
 const MAX_CATCHUP_SEC = 7 * 86400
+// Phase 14: market orders / closes need an OPEN market and a live price. Pending orders are always
+// accepted (they simply wait). Tests replace the gate with setTradeGate(() => null).
+const defaultGate = () => {
+  const ms = marketStatus()
+  const st = feedStatusNow()
+  if (!ms.open || st.marketOpen === false) return ms.closedMessage || 'Market closed'
+  if (st.state === 'offline') return 'No live price — check your connection'
+  if (st.state === 'loading') return 'Waiting for the first live price…'
+  return null
+}
+let tradeGate = defaultGate
+export const setTradeGate = (fn) => { tradeGate = typeof fn === 'function' ? fn : defaultGate }
 const DEFAULT_SETTINGS = {
   oneClick: false, lots: 0.01, stopOutLevel: L.DEFAULT_STOP_OUT, sound: true, notifAsked: false, autoJournal: false, autoSince: 0,
   spreadMode: 'fixed', // 'fixed' | 'variable'  (Phase 8)
@@ -120,9 +136,21 @@ export const useTerminalStore = create(
       labOpen: false, // Phase 12 dev effects playground (not saved)
       setLabOpen: (v) => set({ labOpen: !!v }),
       uiDensity: 'compact', // 'compact' | 'normal' — size of the top rows (this device)
+      showSimulated: false, // include old simulated-price practice trades in history / stats (this device)
       tradePanelOpen: true, // desktop: the order-ticket panel on the right (this device)
       setUiDensity: (v) => set({ uiDensity: v === 'normal' ? 'normal' : 'compact' }),
       setTradePanelOpen: (v) => set({ tradePanelOpen: !!v }),
+      setShowSimulated: (v) => set({ showSimulated: !!v }),
+      // Phase 14.5: 'keep' = keep history, close old open trades flat, cancel old pending orders;
+      // 'fresh' = brand-new account. Idempotent: does nothing when there is nothing left to migrate.
+      migrateToLive: (choice) => {
+        const s = get()
+        if (!needsMigration(s)) return { ok: true, noop: true }
+        const patch = choice === 'fresh' ? migrateFresh(s) : migrateKeep(s)
+        set({ ...patch, cloudMeta: { ...s.cloudMeta, force: choice === 'fresh' ? true : s.cloudMeta?.force } })
+        get().notify(choice === 'fresh' ? 'Fresh account ready — live prices from now on' : 'Old practice trades kept in history (tagged "simulated")', 'info')
+        return { ok: true }
+      },
       dockOpen: typeof window !== 'undefined' ? window.innerWidth >= 768 : true,
       dockTab: 'positions', // 'positions' | 'orders' | 'history'
       // ── Phase 6: indicators, drawings, layouts ──
@@ -426,6 +454,8 @@ export const useTerminalStore = create(
 
       // Each action takes the current quotes map { SYMBOL: {bid, ask} } and returns {ok, error?}.
       openPosition: (order, quotes) => {
+        const blocked = tradeGate()
+        if (blocked) return { ok: false, error: blocked }
         const r = L.openPosition(pick(get()), { tf: get().timeframe, ...order }, slipFor(get, quotes, [order.symbol]))
         if (r.error) return { ok: false, error: r.error }
         set(r.ledger)
@@ -437,6 +467,7 @@ export const useTerminalStore = create(
         return { ok: true }
       },
       closePosition: (id, quotes) => {
+        { const blocked = tradeGate(); if (blocked) { get().notify(blocked, 'error'); return { ok: false, error: blocked } } }
         const r = L.closePosition(pick(get()), id, slipFor(get, quotes, symbolsOf(get, [id])))
         if (r.error) { get().notify(r.error, 'error'); return { ok: false, error: r.error } }
         set(r.ledger)
@@ -444,6 +475,7 @@ export const useTerminalStore = create(
         return { ok: true }
       },
       partialClose: (id, pct, quotes) => {
+        { const blocked = tradeGate(); if (blocked) { get().notify(blocked, 'error'); return { ok: false, error: blocked } } }
         const r = L.partialClose(pick(get()), id, pct, slipFor(get, quotes, symbolsOf(get, [id])))
         if (r.error) { get().notify(r.error, 'error'); return { ok: false, error: r.error } }
         set(r.ledger)
@@ -451,6 +483,7 @@ export const useTerminalStore = create(
         return { ok: true }
       },
       closeMany: (ids, quotes) => {
+        { const blocked = tradeGate(); if (blocked) { get().notify(blocked, 'error'); return { ok: false, error: blocked } } }
         const r = L.closeMany(pick(get()), ids, slipFor(get, quotes, symbolsOf(get, ids)))
         if (!r.trades.length) return { ok: false }
         set(r.ledger)
@@ -460,6 +493,7 @@ export const useTerminalStore = create(
       },
       // Close an exact number of lots (the chart's "Close custom lots").
       closeLots: (id, lots, quotes) => {
+        { const blocked = tradeGate(); if (blocked) { get().notify(blocked, 'error'); return { ok: false, error: blocked } } }
         const pos = get().positions.find((p) => p.id === id)
         if (!pos) return { ok: false, error: 'Position not found' }
         const err = validateCloseLots(pos.lots, lots, INSTRUMENTS[pos.symbol])
@@ -528,28 +562,40 @@ export const useTerminalStore = create(
         get().announce(r.events)
       },
 
-      // Replay what price did between `from` and `to` (seconds) while the terminal was closed.
-      catchUp: (from, to) => {
+      // Replay REAL candles between `from` and `to` (seconds) while the terminal was closed (Phase 14).
+      // Short gaps use 1-min candles; gaps over 3 days use 5-min candles (the provider caps one call).
+      catchUp: async (from, to) => {
         const s = get()
         if (!s.positions.length && !s.orders.length) return
         const start = Math.max(from, to - MAX_CATCHUP_SEC)
-        const first = Math.ceil(start / 60) * 60
-        const lastMin = Math.floor(to / 60) * 60
+        const tf = to - start > 3 * 86400 ? 'M5' : 'M1'
+        const step = tf === 'M5' ? 300 : 60
+        const first = Math.ceil(start / step) * step
+        const lastBucket = Math.floor(to / step) * step
         const syms = [...new Set([...s.positions, ...s.orders].map((x) => x.symbol))]
         const candles = {}
         const mids = {}
-        const minutes = Math.ceil((to - start) / 60) + 5
-        for (const sym of syms) {
-          candles[sym] = getCandles(sym, 'M1', minutes).filter((c) => c.time >= first && c.time < lastMin)
-          mids[sym] = getMidAt(sym, start)
+        try {
+          for (const sym of syms) {
+            const all = await getCandles(sym, tf, { limit: Math.min(5000, Math.ceil((to - start) / step) + 10) })
+            candles[sym] = all.filter((c) => c.time >= first && c.time < lastBucket && !c.filled)
+            const before = all.filter((c) => c.time < first).slice(-1)[0]
+            mids[sym] = before ? before.close : candles[sym][0]?.open
+          }
+        } catch {
+          get().notify('Could not load price history to check what happened while you were away', 'error')
+          return
         }
-        const r = L.catchUp(pick(s), candles, mids, { stopOutLevel: s.settings.stopOutLevel, quoteFromMid })
+        const cur = get() // state may have changed while we waited
+        const real = Object.fromEntries(Object.entries(candles).filter(([sym, c]) => c.length && mids[sym] != null))
+        if (!Object.keys(real).length) return
+        const r = L.catchUp(pick(cur), real, mids, { stopOutLevel: cur.settings.stopOutLevel, quoteFromMid })
         if (!r.events.length) return
         set(r.ledger)
         get().announce(r.events)
         const mins = Math.round((to - start) / 60)
         const away = mins >= 120 ? `${(mins / 60).toFixed(1)} h` : `${mins} min`
-        get().notify(`While you were away (${away}): ${r.events.length} event(s) — approximate, from 1-min candles`, 'info')
+        get().notify(`While you were away (${away}): ${r.events.length} event(s) — replayed from real ${tf === 'M5' ? '5-min' : '1-min'} candles, approximate`, 'info')
       },
     }),
     {
@@ -563,6 +609,8 @@ export const useTerminalStore = create(
         if (!CHART_TYPE_IDS.includes(m.chartType)) m.chartType = 'candles'
         m.uiDensity = m.uiDensity === 'normal' ? 'normal' : 'compact'
         m.tradePanelOpen = typeof m.tradePanelOpen === 'boolean' ? m.tradePanelOpen : true
+        m.showSimulated = m.showSimulated === true
+        if (!SYMBOLS.includes(m.symbol)) m.symbol = SYMBOLS[0] // old saves may point at a removed symbol
         setSpreadMode(m.settings.spreadMode)
         m.drawings = Object.fromEntries(Object.entries(saved?.drawings && typeof saved.drawings === 'object' ? saved.drawings : {}).filter(([k]) => SYMBOLS.includes(k)).map(([k, v]) => [k, sanitizeDrawings(v)]))
         m.layout = [1, 2, 4].includes(m.layout) ? m.layout : 1
@@ -589,7 +637,7 @@ export const useTerminalStore = create(
       },
       partialize: (s) => ({
         isOpen: s.isOpen, symbol: s.symbol, timeframe: s.timeframe, chartType: s.chartType,
-        dockOpen: s.dockOpen, dockTab: s.dockTab, uiDensity: s.uiDensity, tradePanelOpen: s.tradePanelOpen, settings: s.settings, chartSettings: s.chartSettings,
+        dockOpen: s.dockOpen, dockTab: s.dockTab, uiDensity: s.uiDensity, tradePanelOpen: s.tradePanelOpen, showSimulated: s.showSimulated, settings: s.settings, chartSettings: s.chartSettings,
         indicators: s.indicators, drawings: s.drawings, layout: s.layout, charts: s.charts, activeChart: s.activeChart,
         drawSticky: s.drawSticky, drawHidden: s.drawHidden, drawMagnet: s.drawMagnet, drawFavs: s.drawFavs,
         drawDefaults: s.drawDefaults, drawTemplates: s.drawTemplates,

@@ -1,5 +1,5 @@
-// TEST-ONLY deterministic price generator (was the app's simulator until Phase 14; the shipped app never imports it —
-// tests/check-imports.mjs enforces that). Same shape as before so the engine / ledger / indicator tests keep deterministic data:
+// TEST-ONLY deterministic price feed (moved out of src/ in Phase 14). Nothing in src/ may import this.
+// Simulated price feed (no API key, no network). Same interface a real feed will use later:
 //   getCandles(symbol, tfId, count)  ·  subscribe(symbol, cb)  ·  getMidAt(symbol, tSec)
 //
 // The price is a pure function of TIME: every minute is generated from a seed
@@ -7,8 +7,9 @@
 // ticks follow that very same path. So history, live ticks, a page reload and offline
 // catch-up all see the SAME prices (open the app tomorrow and the market it replays is
 // the one that would have been live). Markets are simulated 24/7.
+import './legacyInstruments.js'
 import { INSTRUMENTS, TIMEFRAMES } from '../../src/lib/terminal/instruments.js'
-import { quoteFromMid } from '../../src/lib/terminal/feed/spread.js'
+import { applySpread } from '../../src/lib/terminal/engine.js'
 
 const ANCHOR_MIN = Math.floor(Date.UTC(2026, 6, 1) / 60000) // 2026-07-01 00:00 UTC, in minutes
 const KEEP_MINUTES = 60 * 1440 // keep the last 60 days of M1
@@ -115,10 +116,30 @@ export function getMidAt(symbol, tSec) {
   return mid * (1 + gauss(jr) * sigmaMin(inst) * Math.sqrt(TICK_MS / 60000) * 0.5)
 }
 
-export { quoteFromMid, setSpreadMode, getSpreadMode, spreadFactor } from '../../src/lib/terminal/feed/spread.js'
+// Spread mode (Settings): 'fixed' = the instrument's base spread; 'variable' = it breathes with the
+// clock — mostly 1–1.2× base, sometimes ~2×, rarely 3–6× (news-like spikes). Deterministic in
+// (symbol, 10-second bucket), so replays / offline catch-up see the same spread the live feed did.
+let spreadMode = 'fixed'
+export const setSpreadMode = (m) => { spreadMode = m === 'variable' ? 'variable' : 'fixed' }
+export const getSpreadMode = () => spreadMode
+export function spreadFactor(symbol, time) {
+  const r = mulberry32((hash(symbol) ^ Math.imul(Math.floor(time / 10), 0x9e3779b1)) >>> 0)()
+  if (r < 0.8) return 1 + r * 0.25
+  if (r < 0.97) return 1.5 + (r - 0.8) * 5
+  return 3 + (r - 0.97) * 100
+}
+
+const quoteOf = (symbol, mid, time = Date.now() / 1000) => {
+  const inst = INSTRUMENTS[symbol]
+  const spread = spreadMode === 'variable' ? inst.spread * spreadFactor(symbol, time) : inst.spread
+  const { bid, ask } = applySpread(mid, spread, inst.digits)
+  return { symbol, time, mid, bid, ask, spread }
+}
+
+export const quoteFromMid = (symbol, mid, time) => quoteOf(symbol, mid, time)
 export const getQuote = (symbol) => {
   const t = Date.now() / 1000
-  return quoteFromMid(symbol, getMidAt(symbol, t), t)
+  return quoteOf(symbol, getMidAt(symbol, t), t)
 }
 
 // Price ~24h ago, for the "day change" figure.
@@ -148,11 +169,4 @@ export function subscribe(symbol, cb) {
       s.timer = null
     }
   }
-}
-
-// ── scripted client for the polling-hub tests ──
-export function mockClient(script = []) { // script: array of {quotes}|Error, consumed in order, last one repeats
-  let i = 0
-  const calls = []
-  return { calls, async getQuotes(symbols) { calls.push(symbols); const s = script[Math.min(i++, script.length - 1)]; if (s instanceof Error) throw s; return { quotes: s.quotes, serverTime: Date.now() } }, async getCandles() { return { candles: [] } } }
 }

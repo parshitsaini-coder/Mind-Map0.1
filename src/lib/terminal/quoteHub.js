@@ -1,7 +1,9 @@
 // Shared live-quote store for the trading UI. Subscribes to the feed once per symbol
 // (ref-counted) and publishes a new snapshot at most every 100 ms (~10 UI updates/sec).
-import { subscribe } from './feed/simulatedFeed.js'
+import { subscribe } from './feed/liveFeed.js'
 
+let feedSubscribe = subscribe // tests swap in a deterministic test-only feed
+export const setFeedSubscribe = (fn) => { feedSubscribe = fn || subscribe }
 const quotes = {}
 const refs = new Map()
 const listeners = new Set()
@@ -20,7 +22,7 @@ export function watch(symbol) {
   if (!r) {
     r = { count: 0, unsub: null }
     refs.set(symbol, r)
-    r.unsub = subscribe(symbol, (q) => {
+    r.unsub = feedSubscribe(symbol, (q) => {
       const first = !quotes[symbol]
       quotes[symbol] = q
       if (first) flush()

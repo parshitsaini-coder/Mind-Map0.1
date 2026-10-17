@@ -1,0 +1,12 @@
+{
+  "meta": { "symbol": "XAU/USD", "interval": "1min", "currency_base": "Gold Spot", "currency_quote": "US Dollar", "type": "Physical Currency" },
+  "values": [
+    { "datetime": "2026-10-14 13:03:00", "open": "4352.10", "high": "4353.40", "low": "4351.80", "close": "4353.00", "volume": "120" },
+    { "datetime": "2026-10-14 13:02:00", "open": "4351.50", "high": "4352.30", "low": "4351.20", "close": "4352.10" },
+    { "datetime": "2026-10-14 13:01:00", "open": "4350.90", "high": "4351.80", "low": "4350.50", "close": "4351.50", "volume": "98" },
+    { "datetime": "2026-10-14 13:01:00", "open": "4350.90", "high": "4351.80", "low": "4350.50", "close": "4351.50", "volume": "98" },
+    { "datetime": "garbage", "open": "1", "high": "2", "low": "0", "close": "1" },
+    { "datetime": "2026-10-14 13:00:00", "open": "4350.00", "high": "4349.00", "low": "4351.00", "close": "4350.5" }
+  ],
+  "status": "ok"
+}

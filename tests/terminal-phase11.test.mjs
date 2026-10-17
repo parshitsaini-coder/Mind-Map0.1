@@ -1,5 +1,6 @@
 // Phase 11 (pure): drawing schema v2 + migration, every tool's layout / hit-test / handles, styles, clone / paste,
 // z-order, visibility by timeframe, templates / defaults, magnet, anchors (typed coordinates), fib + position maths.
+import './fixtures/legacyInstruments.js'
 import * as D from '../src/lib/terminal/drawings.js'
 import * as E from '../src/lib/terminal/engine.js'
 import { INSTRUMENTS } from '../src/lib/terminal/instruments.js'

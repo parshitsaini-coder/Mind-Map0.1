@@ -6,7 +6,7 @@
 //   positions []        orders []        history  (plain array, or compact — see encodeHistory)
 //   drawings  { SYMBOL: [drawing] }
 //   settings  { v, terminal:{...terminal settings}, prefs:{ indicators, layout, charts, activeChart, chartType, drawSticky, drawHidden } }
-import { SYMBOLS, TIMEFRAMES } from './instruments.js'
+import { SYMBOLS, KNOWN_SYMBOLS, TIMEFRAMES } from './instruments.js'
 import { INDICATOR_DEFS, cleanParams, MAX_INDICATORS } from './indicators.js'
 import { cleanVisibility, sanitizeDrawings, cleanDefaultsMap, cleanTemplateMap } from './drawings.js'
 import { LEVERAGES } from './ledger.js'
@@ -19,8 +19,8 @@ export const MAX_ROW_BYTES = 4_000_000 // keep one upsert comfortably under typi
 export const TX_CAP = 200
 
 export const DEFAULT_CHARTS = [
-  { symbol: 'XAUUSD', timeframe: 'M15' }, { symbol: 'EURUSD', timeframe: 'M15' },
-  { symbol: 'GBPUSD', timeframe: 'H1' }, { symbol: 'USDJPY', timeframe: 'H1' },
+  { symbol: 'XAUUSD', timeframe: 'M15' }, { symbol: 'XAUUSD', timeframe: 'M5' },
+  { symbol: 'XAUUSD', timeframe: 'H1' }, { symbol: 'XAUUSD', timeframe: 'H4' },
 ]
 export const validCell = (c) => c && SYMBOLS.includes(c.symbol) && TIMEFRAMES.some((t) => t.id === c.timeframe)
 
@@ -90,9 +90,9 @@ export function decodeHistory(raw) {
 }
 
 // ── validation of cloud data (never trust a stored blob) ────────────────
-const okPosition = (p) => isObj(p) && str(p.id) && SYMBOLS.includes(p.symbol) && (p.side === 'buy' || p.side === 'sell') && num(p.lots) && p.lots > 0 && num(p.entry) && num(p.openTime)
-const okOrder = (o) => isObj(o) && str(o.id) && SYMBOLS.includes(o.symbol) && ['limit', 'stop', 'stoplimit'].includes(o.type) && (o.side === 'buy' || o.side === 'sell') && num(o.lots) && o.lots > 0 && num(o.price)
-const okTrade = (h) => isObj(h) && str(h.id) && SYMBOLS.includes(h.symbol) && (h.side === 'buy' || h.side === 'sell') && num(h.pnl) && num(h.closeTime)
+const okPosition = (p) => isObj(p) && str(p.id) && KNOWN_SYMBOLS.includes(p.symbol) && (p.side === 'buy' || p.side === 'sell') && num(p.lots) && p.lots > 0 && num(p.entry) && num(p.openTime)
+const okOrder = (o) => isObj(o) && str(o.id) && KNOWN_SYMBOLS.includes(o.symbol) && ['limit', 'stop', 'stoplimit'].includes(o.type) && (o.side === 'buy' || o.side === 'sell') && num(o.lots) && o.lots > 0 && num(o.price)
+const okTrade = (h) => isObj(h) && str(h.id) && KNOWN_SYMBOLS.includes(h.symbol) && (h.side === 'buy' || h.side === 'sell') && num(h.pnl) && num(h.closeTime)
 const okTx = (t) => isObj(t) && str(t.id) && (t.type === 'deposit' || t.type === 'withdraw') && num(t.amount) && num(t.time)
 
 // numeric suffix of ids like p12 / h40 / o7 / x3 — nextId must stay above all of them.

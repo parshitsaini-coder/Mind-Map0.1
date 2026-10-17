@@ -1,6 +1,6 @@
 import { chromium } from 'playwright'
 export const OUT = './e2e-shots'
-export async function boot({ width = 1440, height = 900, touch = false, seed = {}, args = [] } = {}) {
+export async function boot({ width = 1440, height = 900, touch = false, seed = {}, args = [], setup = null } = {}) {
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox', ...args], ...(args.length ? { ignoreDefaultArgs: ['--autoplay-policy=no-user-gesture-required'] } : {}) })
   const errors = []
   const ctx = await browser.newContext({ viewport: { width, height }, hasTouch: touch, isMobile: touch })
@@ -8,6 +8,7 @@ export async function boot({ width = 1440, height = 900, touch = false, seed = {
   const page = await ctx.newPage()
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
   page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text().slice(0, 200)) })
+  if (setup) await setup(ctx, page)
   await page.goto('http://127.0.0.1:5173/', { waitUntil: 'load' })
   await page.waitForSelector('.tm-root', { timeout: 15000 })
   await page.waitForTimeout(1500)

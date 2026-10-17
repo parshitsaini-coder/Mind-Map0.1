@@ -56,7 +56,7 @@ export default function IndicatorPanel({ onClose }) {
             </div>
           </div>
         ))}
-        <p className="px-1 pt-1 text-[10px] leading-snug text-slate-500">Saved on this device. VWAP uses tick volume of the simulated feed. Pivots use the previous day (previous week on 1D).</p>
+        <p className="px-1 pt-1 text-[10px] leading-snug text-slate-500">Saved on this device. VWAP and Volume use the volume the data provider sends (spot gold often has little or none). Pivots use the previous day (previous week on 1D).</p>
       </div>
     </div>
   )

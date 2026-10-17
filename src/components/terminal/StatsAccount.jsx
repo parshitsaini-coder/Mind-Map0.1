@@ -4,7 +4,7 @@ import { LEVERAGES } from '../../lib/terminal/ledger'
 import { getSnapshot } from '../../lib/terminal/quoteHub'
 import { journalKey } from '../../lib/terminal/journal'
 import { fmtDuration } from '../../lib/terminal/stats'
-import { useAccountMetrics } from './hooks'
+import { useAccountMetrics, useLiveHistory } from './hooks'
 import { fmtMoney, fmtTime, pnlColor, UP_TXT, DOWN_TXT } from './format'
 
 const BORDER = 'var(--tm-border)'
@@ -101,7 +101,7 @@ export function AccountView() {
   const { metrics } = useAccountMetrics()
   const account = useTerminalStore((s) => s.account)
   const transactions = useTerminalStore((s) => s.transactions) || []
-  const history = useTerminalStore((s) => s.history)
+  const history = useLiveHistory()
   const journaled = useTerminalStore((s) => s.journaled)
   const autoJournal = useTerminalStore((s) => s.settings.autoJournal)
   const [amount, setAmount] = useState('')

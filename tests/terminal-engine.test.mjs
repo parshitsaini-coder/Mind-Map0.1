@@ -1,7 +1,7 @@
 // Hand-checked examples for the demo terminal's maths. Run: node tests/terminal-engine.test.mjs
 import { INSTRUMENTS } from '../src/lib/terminal/instruments.js'
 import * as E from '../src/lib/terminal/engine.js'
-import { getCandles, getQuote, subscribe } from '../src/lib/terminal/feed/simulatedFeed.js'
+import { getCandles, getQuote, subscribe } from './fixtures/mockFeed.js'
 
 let fail = 0
 const near = (a, b, tol = 0.01) => Math.abs(a - b) <= tol

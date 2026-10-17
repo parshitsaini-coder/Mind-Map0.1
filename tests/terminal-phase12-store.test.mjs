@@ -8,7 +8,9 @@ const check = (n, ok, x = '') => { if (!ok) fail++; console.log(`${ok ? '✓' : 
 
 // OLD save: Phase 11 era, sound switched off, no sounds block
 mem.set('mindmap-terminal-storage', JSON.stringify({ version: 0, state: { settings: { sound: false, oneClick: true } } }))
-const { useTerminalStore, cleanSettings } = await import('../src/store/terminalStore.js')
+await import('./fixtures/legacyInstruments.js') // test-only legacy symbols (the app is XAUUSD-only)
+const { setTradeGate, useTerminalStore, cleanSettings } = await import('../src/store/terminalStore.js')
+setTradeGate(() => null) // Phase 14: no live feed in unit tests
 const FX = await import('../src/lib/terminal/effects.js')
 const SE = await import('../src/lib/terminal/soundEngine.js')
 const CS = await import('../src/lib/terminal/chartSettings.js')
@@ -87,3 +89,4 @@ check('master off in the store silences everything', ctx.oscillators === 0)
 s().setSettings({ sound: true }); SE.playEvent('position.tp.hit'); SE.flushNow()
 check('master on again: plays', ctx.oscillators > 0)
 process.exit(fail ? 1 : 0)
+

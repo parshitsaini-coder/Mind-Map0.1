@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Eye, EyeOff, Settings2, X } from 'lucide-react'
 import { useTerminalStore } from '../../store/terminalStore'
 import { INSTRUMENTS, TIMEFRAMES } from '../../lib/terminal/instruments'
+import { useFeedStatus } from './hooks'
+import { marketStatus } from '../../lib/terminal/marketHours'
 import { INDICATOR_DEFS } from '../../lib/terminal/indicators'
 import { tzOffsetSec } from '../../lib/terminal/chartSettings'
 import * as E from '../../lib/terminal/engine'
@@ -23,6 +25,7 @@ function findCandle(candles, t) {
 // The status line (top-left of a chart) and the "time to bar close" label on the price scale.
 export default function ChartHud({ chartRef, seriesRef, candlesRef, valsRef, live, symbol, timeframe, ver, cs, offsetTop = 0 }) {
   const s = cs.status
+  const feed = useFeedStatus()
   const inst = INSTRUMENTS[symbol]
   const tf = TIMEFRAMES.find((t) => t.id === timeframe) || TIMEFRAMES[0]
   const quote = useQuote(symbol)
@@ -110,7 +113,7 @@ export default function ChartHud({ chartRef, seriesRef, candlesRef, valsRef, liv
             {s.symbol && <span>{symbol}</span>}
             {s.desc && <span className="font-normal" style={{ color: 'var(--tm-muted)' }}>{inst.name}</span>}
             <span className="font-normal" style={{ color: 'var(--tm-muted)' }}>{tf.label}</span>
-            {s.marketDot && <span className="flex items-center gap-1 font-normal" title="Simulated market — always open" style={{ color: 'var(--tm-muted)' }}><span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: '#22c55e' }} />Open</span>}
+            {s.marketDot && <span data-testid="market-dot" className="flex items-center gap-1 font-normal" title={feed.state === 'closed' ? marketStatus().closedMessage : 'Gold market is open'} style={{ color: 'var(--tm-muted)' }}><span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: feed.state === 'closed' ? '#94a3b8' : '#22c55e' }} />{feed.state === 'closed' ? 'Closed' : 'Open'}</span>}
           </div>
         )}
         {s.ohlc && bar && (

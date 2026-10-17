@@ -1,66 +1,99 @@
-// Twelve Data adapter (Phase 14): URL builders + pure response normalisers. No network in here: the proxy passes the fetched
-// JSON in, so every function is unit-testable. Shapes follow twelvedata.com/llms-full.txt (time_series, quote, error shape).
-// NOTE: free plan = 8 credits / minute, 800 / day, 1 credit per symbol per request.
-import { feedError } from './errors.js'
+// Twelve Data adapter — PURE normalisation + a fetch wrapper with an injectable fetch (for tests).
+// Runs only on the server (api/*); the key is passed in from process.env and is never logged.
+import { FeedError, TF_INTERVAL } from '../feedTypes.js'
 
-export const BASE = 'https://api.twelvedata.com'
-export const INTERVAL = { M1: '1min', M5: '5min', M15: '15min', M30: '30min', H1: '1h', H4: '4h', D1: '1day', W1: '1week' }
-export const MAX_OUTPUT = 5000
+const BASE = 'https://api.twelvedata.com'
+export const PROVIDER = 'Twelve Data'
+export const PROVIDER_SYMBOLS = { XAUUSD: 'XAU/USD' }
+export const toProviderSymbol = (s) => PROVIDER_SYMBOLS[s] || null
 
-const iso = (sec) => new Date(sec * 1000).toISOString().slice(0, 19).replace('T', ' ')
-export function candlesUrl(vendor, tf, { from, to, limit } = {}) {
-  const p = new URLSearchParams({ symbol: vendor, interval: INTERVAL[tf], timezone: 'UTC', order: 'asc', outputsize: String(Math.min(MAX_OUTPUT, limit || 500)) })
-  if (from) p.set('start_date', iso(from))
-  if (to) p.set('end_date', iso(to))
-  return `${BASE}/time_series?${p}`
-}
-export const quoteUrl = (vendors) => `${BASE}/quote?${new URLSearchParams({ symbol: vendors.join(','), interval: '1min' })}`
-export const authHeaders = (key) => ({ Authorization: `apikey ${key}` })
-
-// 'YYYY-MM-DD HH:MM:SS' (UTC because we ask timezone=UTC) or 'YYYY-MM-DD' -> seconds
-export const parseTime = (s) => { const t = Date.parse(String(s).length > 10 ? `${String(s).replace(' ', 'T')}Z` : `${s}T00:00:00Z`); return Number.isFinite(t) ? Math.floor(t / 1000) : null }
-const num = (x) => { const n = Number(x); return Number.isFinite(n) ? n : null }
-
-// Twelve Data's error shape: { code, message, status: 'error' }
-export function errorOf(json, httpStatus) {
-  const code = Number(json?.code) || httpStatus
-  const msg = String(json?.message || '').slice(0, 160)
-  if (code === 429) return feedError(/day|daily/i.test(msg) ? 'quota' : 'rate_limited', /day|daily/i.test(msg) ? 'Daily data limit reached' : 'Price provider is busy, retrying', { retryAfter: /day|daily/i.test(msg) ? 3600 : 30 })
-  if (code === 401) return feedError('auth', 'Price provider key was rejected')
-  if (code === 403) return feedError('plan', 'This symbol is not included in the data plan')
-  if (code === 400 || code === 404) return feedError('unsupported_symbol', 'Symbol or range not available from the provider')
-  return feedError('upstream', 'Price provider error')
+// "2026-10-14 13:05:00" (UTC, because we ask timezone=UTC) or "2026-10-14" -> UTC seconds
+export function parseDatetime(s) {
+  if (typeof s !== 'string') return NaN
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/)
+  if (!m) return NaN
+  return Date.UTC(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0)) / 1000
 }
 
-export function normalizeCandles(json, httpStatus = 200) {
-  if (!json || json.status === 'error' || httpStatus >= 400) throw errorOf(json, httpStatus)
-  if (!Array.isArray(json.values)) throw feedError('upstream', 'Unexpected response from the price provider')
+// Provider error body -> FeedError
+export function toFeedError(body, httpStatus) {
+  const code = Number(body?.code ?? httpStatus)
+  const msg = String(body?.message || '')
+  if (code === 429 || /run out of api credits|rate limit|too many/i.test(msg)) return new FeedError('QUOTA', 'Data provider quota reached — try again later')
+  if (code === 401 || code === 403 || /apikey|api key/i.test(msg)) return new FeedError('NO_KEY', 'Data provider rejected the key')
+  if (code === 400 || code === 404) return new FeedError('UPSTREAM', 'Data provider could not serve this request')
+  return new FeedError('UPSTREAM')
+}
+
+// /time_series payload -> candles oldest first
+export function normaliseCandles(body) {
+  if (!body || body.status === 'error') throw toFeedError(body)
+  const vals = Array.isArray(body.values) ? body.values : []
   const out = []
-  for (const v of json.values) {
-    const time = parseTime(v.datetime), open = num(v.open), high = num(v.high), low = num(v.low), close = num(v.close)
-    if (time == null || [open, high, low, close].some((x) => x == null)) continue // drop a malformed row, keep the rest
-    out.push({ time, open, high, low, close, volume: num(v.volume) || 0 })
+  for (const v of vals) {
+    const time = parseDatetime(v.datetime)
+    const open = parseFloat(v.open), high = parseFloat(v.high), low = parseFloat(v.low), close = parseFloat(v.close)
+    if (![time, open, high, low, close].every(Number.isFinite) || high < low) continue
+    out.push({ time, open, high, low, close, volume: Number.isFinite(parseFloat(v.volume)) ? parseFloat(v.volume) : 0 })
   }
   out.sort((a, b) => a.time - b.time)
   return out.filter((c, i) => i === 0 || c.time !== out[i - 1].time)
 }
-
-// interval=1min matters: without it /quote answers with the DAILY bar, whose timestamp is hours old (the day change comes from D1 candles).
-// A quote for ONE symbol object -> Tick, or null if it has no usable price.
-function tickOf(q) {
-  const last = num(q?.close ?? q?.price)
-  if (last == null || q?.status === 'error') return null
-  const ts = num(q.timestamp)
-  return { bid: num(q.bid), ask: num(q.ask), last, ts: ts ? ts * 1000 : null, source: 'twelvedata', marketOpen: typeof q.is_market_open === 'boolean' ? q.is_market_open : undefined }
+// /price payload -> { last, ts }
+export function normalisePrice(body, now = Math.floor(Date.now() / 1000)) {
+  if (!body || body.status === 'error') throw toFeedError(body)
+  const last = parseFloat(body.price)
+  if (!Number.isFinite(last) || last <= 0) throw new FeedError('UPSTREAM', 'Bad price from provider')
+  return { last, ts: now }
 }
-// One symbol -> flat object; several -> an object keyed by vendor symbol. Returns { [vendorSymbol]: Tick | FeedError }.
-export function normalizeQuotes(json, requested, httpStatus = 200) {
-  if (!json || httpStatus >= 400 || (json.status === 'error' && !json[requested[0]])) throw errorOf(json, httpStatus)
-  const out = {}
-  const single = requested.length === 1 && (json.symbol || json.close || json.status === 'error')
-  for (const v of requested) {
-    const q = single ? json : json[v]
-    out[v] = q ? (tickOf(q) || (q.status === 'error' ? errorOf(q, q.code) : feedError('upstream', 'No price available'))) : feedError('unsupported_symbol', 'Symbol not returned by the provider')
+// /quote payload -> { last, prevClose, open, high, low, ts, isOpen }
+export function normaliseQuote(body, now = Math.floor(Date.now() / 1000)) {
+  if (!body || body.status === 'error') throw toFeedError(body)
+  const last = parseFloat(body.close)
+  if (!Number.isFinite(last) || last <= 0) throw new FeedError('UPSTREAM', 'Bad quote from provider')
+  const f = (x) => (Number.isFinite(parseFloat(x)) ? parseFloat(x) : null)
+  const ts = Number.isFinite(Number(body.timestamp)) ? Number(body.timestamp) : now
+  return { last, prevClose: f(body.previous_close), open: f(body.open), high: f(body.high), low: f(body.low), ts, isOpen: typeof body.is_market_open === 'boolean' ? body.is_market_open : null }
+}
+
+async function call(path, params, { key, fetchImpl = fetch, timeoutMs = 8000 }) {
+  if (!key) throw new FeedError('NO_KEY')
+  const qs = new URLSearchParams({ ...params, apikey: key, timezone: 'UTC', format: 'JSON' })
+  const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null
+  const timer = ctl ? setTimeout(() => ctl.abort(), timeoutMs) : null
+  try {
+    const res = await fetchImpl(`${BASE}${path}?${qs}`, { signal: ctl?.signal, headers: { accept: 'application/json' } })
+    let body = null
+    try { body = await res.json() } catch { /* non-JSON */ }
+    if (!res.ok || body?.status === 'error') throw toFeedError(body, res.status)
+    return body
+  } catch (e) {
+    if (e instanceof FeedError) throw e
+    throw new FeedError('UPSTREAM', e?.name === 'AbortError' ? 'Data provider timed out' : 'Data provider unreachable')
+  } finally { if (timer) clearTimeout(timer) }
+}
+
+export function createTwelveData(opts) {
+  return {
+    name: PROVIDER,
+    async candles(symbol, tf, { limit = 500, to } = {}) {
+      const ps = toProviderSymbol(symbol)
+      const interval = TF_INTERVAL[tf]
+      if (!ps || !interval) throw new FeedError('BAD_REQUEST')
+      const params = { symbol: ps, interval, outputsize: String(Math.min(5000, Math.max(1, limit))), order: 'DESC' }
+      if (to) params.end_date = new Date(to * 1000).toISOString().slice(0, 19).replace('T', ' ')
+      // DESC = the newest N rows (normaliseCandles sorts them oldest-first)
+      return normaliseCandles(await call('/time_series', params, opts))
+    },
+    async price(symbol) {
+      const ps = toProviderSymbol(symbol)
+      if (!ps) throw new FeedError('BAD_REQUEST')
+      return normalisePrice(await call('/price', { symbol: ps }, opts))
+    },
+    async quote(symbol) {
+      const ps = toProviderSymbol(symbol)
+      if (!ps) throw new FeedError('BAD_REQUEST')
+      return normaliseQuote(await call('/quote', { symbol: ps }, opts))
+    },
   }
-  return out
 }

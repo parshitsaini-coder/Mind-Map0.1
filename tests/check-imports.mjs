@@ -73,3 +73,14 @@ for (const file of files) {
 }
 console.log(problems ? `\n${problems} import problem(s)` : '\n✓ all local named imports resolve')
 process.exit(problems ? 1 : 0)
+
+// Phase 14: the simulator is gone — nothing in src/ may import it (or the test-only mock feed).
+{
+  let bad = 0
+  for (const f of files) {
+    const src = fs.readFileSync(f, 'utf8')
+    if (/from\s+['"][^'"]*(simulatedFeed|mockFeed|legacyInstruments)[^'"]*['"]/.test(src)) { console.log(`✗ ${path.relative('.', f)} imports the simulator / a test-only fixture`); bad++ }
+  }
+  if (bad) process.exit(1)
+  console.log('✓ no src/ file imports the simulator or test fixtures')
+}

@@ -1,5 +1,6 @@
 // Phase 5: statistics, filters, CSV, deposits/withdrawals/reset, journal bridge.
 // Run: node tests/terminal-stats.test.mjs
+import './fixtures/legacyInstruments.js'
 import * as L from '../src/lib/terminal/ledger.js'
 import * as S from '../src/lib/terminal/stats.js'
 import * as J from '../src/lib/terminal/journal.js'

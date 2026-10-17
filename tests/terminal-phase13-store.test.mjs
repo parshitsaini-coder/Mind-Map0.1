@@ -5,7 +5,9 @@ globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), se
 globalThis.window = globalThis
 let fail = 0
 const check = (n, ok, x = '') => { if (!ok) fail++; console.log(`${ok ? '✓' : '✗'} ${n} ${ok ? '' : x}`) }
-const { useTerminalStore } = await import('../src/store/terminalStore.js')
+await import('./fixtures/legacyInstruments.js') // test-only legacy symbols (the app is XAUUSD-only)
+const { setTradeGate, useTerminalStore } = await import('../src/store/terminalStore.js')
+setTradeGate(() => null) // Phase 14: no live feed in unit tests
 const FX = await import('../src/lib/terminal/effects.js')
 const CF = await import('../src/lib/terminal/chartFx.js')
 const s = () => useTerminalStore.getState()
@@ -94,3 +96,4 @@ const saved = JSON.parse(mem.get('mindmap-terminal-storage'))
 check('anim settings persist', saved.state.chartSettings.anim.popup === 'full' && saved.state.chartSettings.anim.mode === 'full')
 check('popup / banner / adaptive are not persisted', !('popup' in saved.state) && !('banner' in saved.state) && !('adaptive' in saved.state))
 process.exit(fail ? 1 : 0)
+

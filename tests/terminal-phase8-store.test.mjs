@@ -9,8 +9,10 @@ const check = (n, ok, x = '') => { if (!ok) fail++; console.log(`${ok ? '✓' : 
 
 // An OLD save (before Phase 8) has a settings object without the new keys, plus junk values.
 mem.set('mindmap-terminal-storage', JSON.stringify({ version: 0, state: { settings: { oneClick: true, lots: 0.5, stopOutLevel: 30, sound: false, spreadMode: 'wild', slippage: 'yes', lots2: 1 } } }))
-const { useTerminalStore, cleanSettings } = await import('../src/store/terminalStore.js')
-const { getSpreadMode } = await import('../src/lib/terminal/feed/simulatedFeed.js')
+await import('./fixtures/legacyInstruments.js') // test-only legacy symbols (the app is XAUUSD-only)
+const { setTradeGate, useTerminalStore, cleanSettings } = await import('../src/store/terminalStore.js')
+setTradeGate(() => null) // Phase 14: no live feed in unit tests
+const { getSpreadMode } = await import('../src/lib/terminal/feed/spread.js')
 const C = await import('../src/lib/terminal/cloudSync.js')
 const s = () => useTerminalStore.getState()
 const Q = { EURUSD: { bid: 1.0999, ask: 1.1001 } }

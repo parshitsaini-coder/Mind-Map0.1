@@ -33,9 +33,12 @@ run "terminal phase 12"   node tests/terminal-phase12.test.mjs
 run "terminal phase 12 store" ./tests/run.sh terminal-phase12-store.test.mjs
 run "terminal phase 13"   node tests/terminal-phase13.test.mjs
 run "terminal phase 13 store" ./tests/run.sh terminal-phase13-store.test.mjs
+run "terminal phase 14"   node tests/terminal-phase14.test.mjs
+run "terminal phase 14 store" ./tests/run.sh terminal-phase14-store.test.mjs
 run "terminal performance" node --expose-gc tests/terminal-perf.test.mjs
 run "render smoke test"  node tests/render.mjs
 echo; echo "▸ production build"; npm run build > /tmp/b.txt 2>&1 && grep -E "✓ built" /tmp/b.txt || { FAIL=1; tail -20 /tmp/b.txt; }
+echo; echo "▸ secret scan"; node tests/secret-scan.mjs || FAIL=1
 echo; echo "▸ lint"; npm run lint 2>&1 | tail -1
 echo
 [ $FAIL -eq 0 ] && echo "══ ALL GREEN ══" || { echo "══ FAILURES ══"; exit 1; }

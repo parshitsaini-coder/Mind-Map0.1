@@ -14,7 +14,9 @@ const clone = (o) => JSON.parse(JSON.stringify(o))
 // A save with junk sync bookkeeping must not crash or be trusted.
 mem.set('mindmap-terminal-storage', JSON.stringify({ version: 0, state: { cloudMeta: { userId: 5, dirty: 'yes', cloudUpdatedAt: 12 } } }))
 
-const { useTerminalStore } = await import('../src/store/terminalStore.js')
+await import('./fixtures/legacyInstruments.js') // test-only legacy symbols (the app is XAUUSD-only)
+const { setTradeGate, useTerminalStore } = await import('../src/store/terminalStore.js')
+setTradeGate(() => null) // Phase 14: no live feed in unit tests
 const { createTerminalSync } = await import('../src/lib/terminal/terminalSync.js')
 const { newDrawing } = await import('../src/lib/terminal/drawings.js')
 const s = () => useTerminalStore.getState()
@@ -103,3 +105,4 @@ engine2.stop()
 
 console.log(fail ? `\n${fail} FAILED` : '\nALL PASSED')
 process.exit(fail ? 1 : 0)
+

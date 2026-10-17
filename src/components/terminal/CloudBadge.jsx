@@ -17,7 +17,7 @@ function CloudBadge() {
   const online = useOnline()
   let text
   let tone
-  if (!online) { text = 'Offline — simulated prices keep running'; tone = TONE.warn }
+  if (!online) { text = 'Offline — live prices paused'; tone = TONE.warn }
   else if (!isSupabaseConfigured) { text = 'Saved on this device only'; tone = TONE.mute }
   else if (!user) { text = STATUS_TEXT.signedout; tone = TONE.mute }
   else { text = STATUS_TEXT[status] || 'Cloud sync on'; tone = toneOf(status) }

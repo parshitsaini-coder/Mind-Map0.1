@@ -1,5 +1,6 @@
-import { createProxy } from './_lib/core.js'
+import { createCore } from './_lib/core.js'
 
-// GET /api/quote  (see api/_lib/core.js). One proxy per server instance so the rate limiter and credit budget persist between calls.
-const proxy = createProxy({ env: process.env })
-export default function handler(req, res) { return proxy.handle('quote', req, res) }
+const core = createCore()
+export default function handler(req, res) {
+  return core.quote(req, res)
+}

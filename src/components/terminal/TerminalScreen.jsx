@@ -2,9 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowLeft, CandlestickChart, ChevronDown, Crosshair, Activity, PencilRuler, Square, Columns2, LayoutGrid, Settings as SettingsIcon } from 'lucide-react'
 import { useTerminalStore } from '../../store/terminalStore'
-import { INSTRUMENTS, SYMBOLS, TIMEFRAMES } from '../../lib/terminal/instruments'
+import { INSTRUMENTS, TIMEFRAMES } from '../../lib/terminal/instruments'
 import { CHART_TYPES } from '../../lib/terminal/chartSettings'
-import { getDayOpen } from '../../lib/terminal/feed/simulatedFeed'
+import { getPrevClose } from '../../lib/terminal/feed/liveFeed'
+import FeedBadge, { MarketClosedStrip } from './FeedBadge'
+import MigrationDialog from './MigrationDialog'
+import { PROVIDER_LABEL } from '../../lib/terminal/feed/liveFeed'
 import TradingEngine from './TradingEngine'
 import AccountBar from './AccountBar'
 import OrderTicket from './OrderTicket'
@@ -137,13 +140,14 @@ export default function TerminalScreen() {
   const layout = isDesktop ? layoutPref : 1 // several charts are a desktop feature
   const visibleSymbols = useMemo(() => (layout === 1 ? [symbol] : charts.slice(0, layout).map((c) => c.symbol)), [layout, charts, symbol])
   const inst = INSTRUMENTS[symbol]
-  const dayOpen = useMemo(() => getDayOpen(symbol), [symbol])
+  const [dayOpen, setDayOpen] = useState(() => getPrevClose(symbol))
 
   const onQuote = useMemo(
     () => (q) => {
       if (prevBid.current != null && q.bid !== prevBid.current) setDir(q.bid > prevBid.current ? 1 : -1)
       prevBid.current = q.bid
       setQuote(q)
+      setDayOpen(getPrevClose(q.symbol || 'XAUUSD'))
     },
     [],
   )
@@ -173,7 +177,7 @@ export default function TerminalScreen() {
 
   if (!isOpen) return null
   const st = useTerminalStore.getState()
-  const change = quote ? ((quote.mid - dayOpen) / dayOpen) * 100 : 0
+  const change = quote && dayOpen ? ((quote.mid - dayOpen) / dayOpen) * 100 : null
   const priceColor = dir > 0 ? '#4ade80' : dir < 0 ? '#f87171' : 'var(--tm-text)'
 
   return (
@@ -193,17 +197,8 @@ export default function TerminalScreen() {
           <ArrowLeft size={12} /> Back
         </button>
         <div className="h-4 w-px shrink-0 bg-white/15" />
-        {SYMBOLS.map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => st.setSymbol(s)}
-            className="tm-tap shrink-0 rounded-md px-2 py-1 text-[11px] font-bold transition-colors"
-            style={{ backgroundColor: s === symbol ? '#2563eb' : 'transparent', color: s === symbol ? '#fff' : 'var(--tm-muted)' }}
-          >
-            {s}
-          </button>
-        ))}
+        <span data-testid="symbol-chip" className="shrink-0 rounded-md px-2 py-1 text-[11px] font-bold text-white" style={{ backgroundColor: '#2563eb' }}>{symbol}</span>
+        <FeedBadge />
         <div className="ml-auto flex shrink-0 items-center gap-3 pl-3">
           <div className="flex flex-col items-end leading-tight">
             <span className="tm-l text-[8px] uppercase tracking-wide text-slate-400">Bid</span>
@@ -214,13 +209,13 @@ export default function TerminalScreen() {
             <span className="tm-v text-[13px] font-extrabold tabular-nums" style={{ color: priceColor }}>{fmt(quote?.ask, inst.digits)}</span>
           </div>
           <div className="flex flex-col items-end leading-tight">
-            <span className="tm-l text-[8px] uppercase tracking-wide text-slate-400">Spread</span>
+            <span className="tm-l text-[8px] uppercase tracking-wide text-slate-400">Spread (sim.)</span>
             <span className="text-[11px] font-semibold tabular-nums text-slate-300">{((quote?.spread ?? inst.spread) / inst.pipSize).toFixed(1)}p</span>
           </div>
           <div className="flex flex-col items-end leading-tight">
             <span className="tm-l text-[8px] uppercase tracking-wide text-slate-400">24h</span>
-            <span className="text-[11px] font-bold tabular-nums" style={{ color: change >= 0 ? '#4ade80' : '#f87171' }}>
-              {change >= 0 ? '+' : ''}{change.toFixed(2)}%
+            <span className="text-[11px] font-bold tabular-nums" style={{ color: change == null ? 'var(--tm-muted)' : change >= 0 ? '#4ade80' : '#f87171' }}>
+              {change == null ? '—' : `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`}
             </span>
           </div>
           {isDesktop && (
@@ -287,6 +282,7 @@ export default function TerminalScreen() {
       <EffectsLab />
       {drawOpen && <DrawToolbar symbol={symbol} />}
 
+      <MarketClosedStrip />
       <AccountBar />
 
       {/* Chart + positions | order ticket (desktop) */}
@@ -320,12 +316,13 @@ export default function TerminalScreen() {
       )}
 
       <HistoryScreen />
+      <MigrationDialog />
       <Toasts />
       {settingsOpen && <SettingsDialog initialTab={settingsTab} onClose={() => setSettingsTab(null)} />}
       <TradingEngine symbol={symbol} extra={visibleSymbols} />
 
       <div className="tm-ft flex h-6 shrink-0 items-center justify-center border-t text-[10px] text-slate-400" style={{ borderColor: 'var(--tm-border)', backgroundColor: 'var(--tm-panel)' }}>
-        DEMO · simulated prices · virtual money
+        DEMO · virtual money · {PROVIDER_LABEL} · Prices are indicative, for practice only
       </div>
     </motion.div>
   )

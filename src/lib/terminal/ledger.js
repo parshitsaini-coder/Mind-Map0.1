@@ -1,7 +1,7 @@
 // Pure account ledger for the demo terminal. No React, no storage — unit-tested directly.
 // Ledger: { account:{balance,startBalance,currency,leverage,createdAt}, positions[], orders[], history[], nextId }
 // Every function returns a NEW ledger (or {error}).
-import { INSTRUMENTS } from './instruments.js'
+import { INSTRUMENTS, instOf } from './instruments.js'
 import * as E from './engine.js'
 
 export const LEVERAGES = [1, 5, 10, 20, 30, 50, 100, 200, 300, 500]
@@ -68,7 +68,7 @@ export function openPosition(ledger, { symbol, side, lots, sl = null, tp = null,
   const position = {
     id: `p${ledger.nextId}`, symbol, side, lots, entry, sl, tp,
     trail: null, beAfter: null, partialTp: null,
-    leverage: ledger.account.leverage, openTime: now,
+    leverage: ledger.account.leverage, openTime: now, source: 'live',
     ...(tf ? { tf } : {}),
     ...(opts.approx ? { approx: true } : {}),
     ...(opts.fromOrder ? { fromOrder: opts.fromOrder } : {}),
@@ -84,7 +84,7 @@ export function closePosition(ledger, id, quotes, { lots, reason = 'manual', now
   if (!q) return { error: 'No live price for this symbol yet' }
   const closeLots = lots == null ? pos.lots : lots
   if (!(closeLots > 0) || closeLots > pos.lots + 1e-9) return { error: 'Invalid lots to close' }
-  const inst = INSTRUMENTS[pos.symbol]
+  const inst = instOf(pos.symbol)
   const exit = exitOverride != null ? exitOverride : E.exitPrice(pos.side, q)
   const s = E.settleClose(pos, closeLots, exit, inst)
   // Commission is a per-lot account setting (account.commission, USD), charged when lots are
@@ -96,6 +96,7 @@ export function closePosition(ledger, id, quotes, { lots, reason = 'manual', now
     entry: pos.entry, exit, sl: pos.sl ?? null, tp: pos.tp ?? null, openTime: pos.openTime, closeTime: now, pnl: net, pips: s.pips, reason,
     ...(commission > 0 ? { commission } : {}),
     ...(pos.tf ? { tf: pos.tf } : {}),
+    ...(pos.source ? { source: pos.source } : {}),
     ...(approx || pos.approx ? { approx: true } : {}),
   }
   const positions = s.remaining > 1e-9
@@ -126,7 +127,7 @@ export function closeMany(ledger, ids, quotes, reason = 'manual', now = nowSec()
 export function partialClose(ledger, id, pct, quotes, now = nowSec()) {
   const pos = ledger.positions.find((p) => p.id === id)
   if (!pos) return { error: 'Position not found' }
-  const sp = E.splitLots(pos.lots, pct, INSTRUMENTS[pos.symbol])
+  const sp = E.splitLots(pos.lots, pct, instOf(pos.symbol))
   if (sp.error) return { error: sp.error }
   return closePosition(ledger, id, quotes, { lots: sp.lots, now })
 }
@@ -147,7 +148,7 @@ export function reversePosition(ledger, id, quotes, now = nowSec()) {
 export function modifyPosition(ledger, id, patch, quotes) {
   const pos = ledger.positions.find((p) => p.id === id)
   if (!pos) return { error: 'Position not found' }
-  const inst = INSTRUMENTS[pos.symbol]
+  const inst = instOf(pos.symbol)
   const next = {}
   if (has(patch, 'sl') || has(patch, 'tp')) {
     const q = quotes[pos.symbol]
@@ -225,7 +226,7 @@ export function placeOrder(ledger, spec, quotes, now = nowSec()) {
   const order = {
     id: `o${ledger.nextId}`, symbol, type, side, lots, price,
     limitPrice: type === 'stoplimit' ? limitPrice : null, sl, tp, expiresAt, oco,
-    triggered: false, createdAt: now,
+    triggered: false, createdAt: now, source: 'live',
     ...(tf ? { tf } : {}),
   }
   return { order, ledger: { ...ledger, nextId: ledger.nextId + 1, orders: [...orders, order] } }
@@ -311,7 +312,7 @@ export function processTick(ledger, quotes, opts = {}) {
     let p = cur.positions.find((x) => x.id === id)
     const q = p && quotes[p.symbol]
     if (!q) continue
-    const inst = INSTRUMENTS[p.symbol]
+    const inst = instOf(p.symbol)
     const hit = E.checkSlTp(p, q)
     if (hit) {
       const level = hit === 'sl' ? p.sl : p.tp
@@ -360,11 +361,15 @@ export function processTick(ledger, quotes, opts = {}) {
 }
 
 // ── Offline catch-up ─────────────────────────────────────────────────────
-// Replays 1-minute candles (oldest first) to trigger what price would have triggered while
-// the app was closed. Inside one candle price is assumed to visit the extreme that hurts the
-// open positions FIRST (so SL beats TP when both fit in one candle); with no positions it
-// goes low-first on a rising candle and high-first on a falling one. Every event is
-// marked approx. args: candles { SYMBOL: [{time,open,high,low,close}] }, startMids { SYMBOL: mid }
+// Replays REAL candles (oldest first) to trigger what price did while the app was closed.
+// Rules (documented, also shown in the trade log):
+//  • bid/ask: every price on the candle path goes through quoteFromMid (live mid + simulated spread).
+//  • the candle OPEN is processed as a gap: a stop/pending order the open jumped past fills at the
+//    GAPPED open price, not at its own level. The rest of the candle fills at the order's level.
+//  • inside one candle price is assumed to visit the extreme that hurts the open positions FIRST,
+//    so when ONE candle touches both SL and TP, SL FIRST wins. Such trades carry bothHit:true.
+//  • every event is marked approx. Candles are 1-min for short gaps (coarser for long ones).
+// args: candles { SYMBOL: [{time,open,high,low,close}] }, startMids { SYMBOL: mid }
 // Call as catchUp(ledger, candles, startMids, { stopOutLevel, quoteFromMid })
 //     or  catchUp(ledger, { candles, startMids, quoteOf, stopOutLevel }).
 export function catchUp(ledger, a, b, c) {
@@ -385,11 +390,24 @@ export function catchUp(ledger, a, b, c) {
     const sellLots = cur.positions.filter((p) => p.symbol === sym && p.side === 'sell').reduce((a, p) => a + p.lots, 0)
     const lowFirst = buyLots + sellLots > 0 ? buyLots >= sellLots : c.close >= c.open
     const path = lowFirst ? [c.open, c.low, c.high, c.close] : [c.open, c.high, c.low, c.close]
+    const evFrom = events.length
     for (let i = 0; i < path.length; i++) {
       q[sym] = quoteFromMid(sym, path[i], c.time + i * 15)
-      const r = processTick(cur, q, { stopOutLevel, now: c.time + i * 15, continuous: true, approx: true })
+      // step 0 = the candle open (a possible GAP): fill at the gapped price; later steps at the level
+      const r = processTick(cur, q, { stopOutLevel, now: c.time + i * 15, continuous: i > 0, approx: true })
       if (r) { cur = r.ledger; events.push(...r.events) }
     }
+    // SL-first marker: this candle also reached the TP of a position that stopped out
+    const tagged = new Set()
+    for (let k = evFrom; k < events.length; k++) {
+      const t = events[k].trade
+      if (!t || t.reason !== 'sl' || t.tp == null) continue
+      const reached = t.side === 'buy' ? c.high >= t.tp : c.low <= t.tp
+      if (!reached) continue
+      tagged.add(t.id)
+      events[k] = { ...events[k], trade: { ...t, bothHit: true } }
+    }
+    if (tagged.size) cur = { ...cur, history: cur.history.map((h) => (tagged.has(h.id) ? { ...h, bothHit: true } : h)) }
   }
   return { ledger: cur, events }
 }

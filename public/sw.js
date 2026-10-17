@@ -3,9 +3,10 @@
      falling back to the cached app shell when offline.
    - Same-origin build files (/assets/*, icons, fonts): cache first (they are
      content-hashed, so a cached copy never goes stale).
+   - /api/* (live prices) is NEVER touched or cached, so a price can never be stale-from-cache.
    - Everything cross-origin (Supabase, image hosts, APIs) is NEVER touched,
      so login, cloud sync and shared links always hit the network. */
-const VERSION = 'v2'
+const VERSION = 'v3'
 const SHELL = `mm-shell-${VERSION}`
 const ASSETS = `mm-assets-${VERSION}`
 
@@ -27,6 +28,8 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return
   const url = new URL(req.url)
   if (url.origin !== self.location.origin) return
+  // Phase 14: live prices must always come from the network — never cache or replay /api/*
+  if (url.pathname.startsWith('/api/')) return
 
   if (req.mode === 'navigate') {
     event.respondWith(

@@ -238,7 +238,7 @@ export default function TopToolbar() {
         />
         <IconBtn
           icon={Activity}
-          label="Trading Terminal — live demo chart with virtual money (simulated prices)"
+          label="Trading Terminal — live XAUUSD (gold) chart with virtual money"
           onClick={() => useTerminalStore.getState().open()}
         />
       </div>

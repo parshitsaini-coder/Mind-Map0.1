@@ -1,5 +1,6 @@
 // Phase 7: cloud sync — row building/parsing, compact history, the sync decision table, and the
 // whole conflict flow against a fake Supabase with two simulated devices. Plain Node, no browser.
+import './fixtures/legacyInstruments.js'
 import { createStore } from 'zustand/vanilla'
 import * as L from '../src/lib/terminal/ledger.js'
 import * as C from '../src/lib/terminal/cloudSync.js'

@@ -1,35 +1,33 @@
 import { useMemo } from 'react'
 import { useTerminalStore } from '../../store/terminalStore'
-import { legacyCounts, needsMigration } from '../../lib/terminal/migrateLegacy'
+import { needsMigration, migrationCounts } from '../../lib/terminal/liveMigration'
 
-// One-time, blocking choice for accounts traded on the old simulated prices. Never changes a balance silently.
+// Phase 14.5 — shown once for accounts that were used with the old simulated prices.
 export default function MigrationDialog() {
+  const isOpen = useTerminalStore((s) => s.isOpen)
   const positions = useTerminalStore((s) => s.positions)
   const orders = useTerminalStore((s) => s.orders)
   const history = useTerminalStore((s) => s.history)
-  const keep = useTerminalStore((s) => s.migrateKeepHistory)
-  const fresh = useTerminalStore((s) => s.migrateFreshAccount)
-  const ledger = useMemo(() => ({ positions, orders: orders || [], history }), [positions, orders, history])
-  if (!needsMigration(ledger)) return null
-  const c = legacyCounts(ledger)
+  const state = useMemo(() => ({ positions, orders, history }), [positions, orders, history])
+  if (!isOpen || !needsMigration(state)) return null
+  const c = migrationCounts(state)
+  const act = (choice) => useTerminalStore.getState().migrateToLive(choice)
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }} role="dialog" aria-modal="true" aria-labelledby="mig-title">
-      <div className="w-full max-w-md rounded-xl border p-5" style={{ backgroundColor: 'var(--tm-panel)', borderColor: 'var(--tm-border)', color: 'var(--tm-text)' }}>
-        <h2 id="mig-title" className="text-base font-bold">Live data is on</h2>
-        <p className="mt-2 text-sm" style={{ color: 'var(--tm-muted)' }}>
-          Your old practice trades used simulated prices, which do not match the real market. Nothing changes until you choose.
-        </p>
-        <p className="mt-2 text-xs" style={{ color: 'var(--tm-muted)' }}>
-          Found: {c.positions} open trade(s), {c.orders} pending order(s), {c.history} closed trade(s).
-        </p>
-        <div className="mt-4 flex flex-col gap-2">
-          <button type="button" onClick={keep} className="min-h-[44px] rounded-lg px-4 py-2 text-left text-sm font-semibold" style={{ backgroundColor: 'var(--tm-active)', color: '#fff' }}>
-            Keep history
-            <span className="block text-xs font-normal opacity-90">Close open trades at their entry price (flat, no profit or loss), cancel pending orders. Old trades are tagged “simulated” and hidden from statistics by default. Balance stays the same.</span>
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="mig-title" data-testid="migration-dialog">
+      <div className="w-full max-w-md rounded-xl border p-4 shadow-2xl" style={{ backgroundColor: 'var(--tm-panel)', borderColor: 'var(--tm-border2)' }}>
+        <h2 id="mig-title" className="text-[15px] font-extrabold">Live data is on</h2>
+        <p className="mt-1 text-[12px] text-slate-300">Your old practice trades used simulated prices. The terminal now shows real XAUUSD (gold) prices only.</p>
+        <ul className="mt-2 text-[12px] text-slate-400">
+          <li>{c.trades} past trade(s) · {c.positions} open trade(s) · {c.orders} pending order(s)</li>
+        </ul>
+        <div className="mt-3 grid gap-2">
+          <button type="button" data-testid="mig-keep" onClick={() => act('keep')} className="rounded-lg bg-blue-600 px-3 py-2 text-left text-[12px] font-bold text-white hover:bg-blue-500">
+            Keep my history
+            <span className="block text-[11px] font-normal text-blue-100">Open trades are closed flat at their entry price (profit 0), pending orders are cancelled. Old trades stay in History, tagged “simulated” and hidden from live stats. Your balance does not change.</span>
           </button>
-          <button type="button" onClick={() => { if (window.confirm('Start a fresh account? Old positions, orders and history are removed.')) fresh() }} className="min-h-[44px] rounded-lg border px-4 py-2 text-left text-sm font-semibold" style={{ borderColor: 'var(--tm-border2)' }}>
+          <button type="button" data-testid="mig-fresh" onClick={() => { if (window.confirm('Start a fresh account? Old trades and history will be deleted.')) act('fresh') }} className="rounded-lg border px-3 py-2 text-left text-[12px] font-bold hover:bg-white/10" style={{ borderColor: 'var(--tm-border2)' }}>
             Start a fresh account
-            <span className="block text-xs font-normal" style={{ color: 'var(--tm-muted)' }}>Same starting balance and leverage, everything else cleared.</span>
+            <span className="block text-[11px] font-normal text-slate-400">Balance goes back to your starting balance; old trades and history are deleted.</span>
           </button>
         </div>
       </div>

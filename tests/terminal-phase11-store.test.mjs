@@ -4,7 +4,9 @@ globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), se
 globalThis.window = globalThis
 let fail = 0
 const check = (n, ok, x = '') => { if (!ok) fail++; console.log(`${ok ? '✓' : '✗'} ${n} ${ok ? '' : x}`) }
-const { useTerminalStore } = await import('../src/store/terminalStore.js')
+await import('./fixtures/legacyInstruments.js') // test-only legacy symbols (the app is XAUUSD-only)
+const { setTradeGate, useTerminalStore } = await import('../src/store/terminalStore.js')
+setTradeGate(() => null) // Phase 14: no live feed in unit tests
 const D = await import('../src/lib/terminal/drawings.js')
 const CS = await import('../src/lib/terminal/cloudSync.js')
 const A = await import('../src/components/terminal/chartActions.js')
@@ -88,3 +90,4 @@ const old = s().drawings.EURUSD[0]
 check('old v1 drawing migrates (dash -> dashed)', old.style.lineStyle === 'dashed' && old.visibility && s().drawHist.past.length === 0 && s().drawMagnet === 'off')
 console.log(fail ? `\n${fail} FAILED` : '\nALL PASSED')
 process.exit(fail ? 1 : 0)
+

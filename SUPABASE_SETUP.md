@@ -530,3 +530,18 @@ validation rules sync the same way.
 If the keys are missing, the app doesn't break — the account button just
 shows a note that cloud save isn't connected yet, and everything keeps
 working locally.
+
+## 6. Live gold prices for the Demo Terminal (Twelve Data key — Phase 14)
+
+This is NOT a Supabase setting, but it is configured in the same places (Vercel environment variables / local `.env`).
+
+1. Make a free account at <https://twelvedata.com> → Dashboard → **API keys** → copy the key.
+2. Vercel → **Settings → Environment Variables**: add `FEED_PROVIDER=twelvedata`, `TWELVEDATA_API_KEY=<your key>` and
+   optionally `ALLOWED_ORIGIN=https://<your-domain>`. Do **not** prefix them with `VITE_` (that would publish the key in the
+   browser bundle). Redeploy.
+3. Local: put the same lines in `.env` and run `npm run dev` (or `npx vercel dev`).
+4. Verify at `https://<your-domain>/api/health` → `keyConfigured: true`.
+5. Quota (free plan): 8 requests/minute and 800/day. The functions cache and cap themselves at 700/day; if the number is
+   reached the terminal shows "Data provider quota reached" and keeps the last known price (badge: Delayed / Offline).
+6. Old demo accounts (made with the simulated prices) see a one-time dialog on first open; the choice is saved with the
+   account and syncs through the usual Supabase `terminal_accounts` row — nothing extra to create.

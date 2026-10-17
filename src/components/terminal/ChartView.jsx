@@ -2,7 +2,7 @@ import { memo, useEffect, useRef, useState } from 'react'
 import { createChart, CandlestickSeries, BarSeries, LineSeries, AreaSeries, BaselineSeries, createTextWatermark, createSeriesMarkers } from 'lightweight-charts'
 import { useTerminalStore } from '../../store/terminalStore'
 import { INSTRUMENTS, TIMEFRAMES } from '../../lib/terminal/instruments'
-import { getCandles, subscribe, getDayOpen } from '../../lib/terminal/feed/simulatedFeed'
+import { getCandles, subscribe, getPrevClose, peek } from '../../lib/terminal/feed/liveFeed'
 import { chartOptions, seriesOptions, seriesClassOf, applyChartSettings, pointOf, heikinAll, heikinBar, sourceOf, watermarkLines, WM_ALIGN } from '../../lib/terminal/chartApply'
 import { tzOffsetSec, css, LINE_STYLE } from '../../lib/terminal/chartSettings'
 import IndicatorLayer from './IndicatorLayer'
@@ -58,6 +58,8 @@ function ChartView({ symbol, timeframe, chartType, onQuote, active, index, showL
   const [ver, setVer] = useState(0)
   const history = useTerminalStore((s) => s.history)
   const positions = useTerminalStore((s) => s.positions)
+  const [load, setLoad] = useState({ state: 'loading' })
+  const [retry, setRetry] = useState(0)
 
   setTz(cs.symbol.tz) // idempotent; keeps the shared TZ binding in step with the setting
   const dataKey = dataKeyOf(cs, chartType)
@@ -104,55 +106,72 @@ function ChartView({ symbol, timeframe, chartType, onQuote, active, index, showL
       if (!r || !ex.length) return r
       return { ...r, priceRange: { minValue: Math.min(r.priceRange.minValue, ...ex), maxValue: Math.max(r.priceRange.maxValue, ...ex) } }
     }
-    const candles = getCandles(symbol, timeframe, 1500)
-    candlesRef.current = candles
-    const ha = chartType === 'heikin'
-    const shown = ha ? heikinAll(candles) : candles
-    const extra = { autoscaleInfoProvider }
-    if (chartType === 'baseline' && candles.length) {
-      extra.baseValue = { type: 'price', price: sourceOf(candles[Math.max(0, candles.length - 120)], cur.symbol.lineSource) }
-    }
-    const series = chart.addSeries(CLASSES[seriesClassOf(chartType)], seriesOptions(chartType, cur, inst, extra))
-    seriesRef.current = series
-    setVer((v) => v + 1)
-
-    const points = shown.map((k, i) => pointOf(chartType, k, k.time + tz, csRef.current, i ? shown[i - 1].close : null))
-    series.setData(points)
-    chart.timeScale().scrollToRealTime()
-
-    let last = candles[candles.length - 1]
-    let haPrev = ha ? shown[shown.length - 2] || null : null // HA bar before the live one
-    let haLast = ha ? shown[shown.length - 1] || null : null
-    let prevShownClose = shown.length > 1 ? shown[shown.length - 2].close : null
-    let prevClose = candles.length > 1 ? candles[candles.length - 2].close : null
-    live.set({ last, prevClose })
-
-    const unsub = subscribe(symbol, (q) => {
-      const bucket = bucketOf(q.time, tfSec)
-      const px = q.bid
-      const isNew = !last || bucket > last.time
-      if (isNew) {
-        prevClose = last ? last.close : null
-        if (ha) { haPrev = haLast; prevShownClose = haLast ? haLast.close : null } else prevShownClose = last ? last.close : null
-        const open = last ? last.close : px
-        last = { time: bucket, open, high: Math.max(open, px), low: Math.min(open, px), close: px, volume: 1 }
-      } else {
-        last = { ...last, high: Math.max(last.high, px), low: Math.min(last.low, px), close: px, volume: (last.volume || 0) + 1 }
+    let cancelled = false
+    let series = null
+    let unsub = null
+    const start = async () => {
+      setLoad({ state: 'loading' })
+      let candles
+      try { candles = await getCandles(symbol, timeframe, { limit: 1500 }) } catch (e) {
+        if (!cancelled) setLoad({ state: 'error', message: e?.code === 'OFFLINE' ? 'No internet connection' : e?.message || 'Could not load prices' })
+        return
       }
+      if (cancelled) return
+      setLoad({ state: 'ok' })
+      candlesRef.current = candles
+      const ha = chartType === 'heikin'
+      const shown = ha ? heikinAll(candles) : candles
+      const extra = { autoscaleInfoProvider }
+      if (chartType === 'baseline' && candles.length) {
+        extra.baseValue = { type: 'price', price: sourceOf(candles[Math.max(0, candles.length - 120)], cur.symbol.lineSource) }
+      }
+      series = chart.addSeries(CLASSES[seriesClassOf(chartType)], seriesOptions(chartType, cur, inst, extra))
+      seriesRef.current = series
+      setVer((v) => v + 1)
+
+      const points = shown.map((k, i) => pointOf(chartType, k, k.time + tz, csRef.current, i ? shown[i - 1].close : null))
+      series.setData(points)
+      chart.timeScale().scrollToRealTime()
+
+      let last = candles[candles.length - 1]
+      let haPrev = ha ? shown[shown.length - 2] || null : null // HA bar before the live one
+      let haLast = ha ? shown[shown.length - 1] || null : null
+      let prevShownClose = shown.length > 1 ? shown[shown.length - 2].close : null
+      let prevClose = candles.length > 1 ? candles[candles.length - 2].close : null
       live.set({ last, prevClose })
-      const disp = ha ? (haLast = heikinBar(last, haPrev)) : last
-      series.update(pointOf(chartType, disp, last.time + tz, csRef.current, prevShownClose))
-      if (busRef.current) busRef.current(last, isNew)
-      if (activeRef.current) onQuote(q)
-    })
+
+      unsub = subscribe(symbol, (q) => {
+        const bucket = bucketOf(q.ts || q.time, tfSec)
+        const px = q.bid
+        const isNew = !last || bucket > last.time
+        if (isNew) {
+          prevClose = last ? last.close : null
+          if (ha) { haPrev = haLast; prevShownClose = haLast ? haLast.close : null } else prevShownClose = last ? last.close : null
+          const open = last ? last.close : px
+          last = { time: bucket, open, high: Math.max(open, px), low: Math.min(open, px), close: px, volume: 1 }
+        } else {
+          last = { ...last, high: Math.max(last.high, px), low: Math.min(last.low, px), close: px, volume: (last.volume || 0) + 1 }
+        }
+        live.set({ last, prevClose })
+        const disp = ha ? (haLast = heikinBar(last, haPrev)) : last
+        series.update(pointOf(chartType, disp, last.time + tz, csRef.current, prevShownClose))
+        if (busRef.current) busRef.current(last, isNew)
+        if (activeRef.current) onQuote(q)
+      })
+
+    }
+    start()
 
     return () => {
-      unsub()
-      seriesRef.current = null
-      candlesRef.current = null
-      try { chart.removeSeries(series) } catch { /* chart already disposed (terminal closing) */ }
+      cancelled = true
+      unsub?.()
+      if (series) {
+        seriesRef.current = null
+        candlesRef.current = null
+        try { chart.removeSeries(series) } catch { /* chart already disposed (terminal closing) */ }
+      }
     }
-  }, [symbol, timeframe, chartType, dataKey, onQuote, live])
+  }, [symbol, timeframe, chartType, dataKey, onQuote, live, retry])
 
   // ── settings -> chart + series (cheap, in place) ──
   useEffect(() => {
@@ -172,12 +191,12 @@ function ChartView({ symbol, timeframe, chartType, onQuote, active, index, showL
     const mk = (opts) => { const l = series.createPriceLine({ axisLabelVisible: true, ...opts }); made.push(l); return l }
     const style = (s) => LINE_STYLE[s]
     if (c.prevClose) {
-      const px = getDayOpen(symbol)
+      const px = getPrevClose(symbol)
       if (Number.isFinite(px)) mk({ price: px, color: css(c.prevCloseColor), lineStyle: style(c.prevCloseStyle), lineWidth: c.prevCloseWidth, title: 'Prev' })
     }
     let bid = null, ask = null, unsub = null
     if (c.bid || c.ask) {
-      const q0 = (() => { let first = null; const u = subscribe(symbol, (q) => { first = q }); u(); return first })()
+      const q0 = peek(symbol)
       if (c.bid) bid = mk({ price: q0?.bid ?? 0, color: css(c.bidColor), lineStyle: style(c.bidStyle), lineWidth: c.bidWidth, title: 'Bid' })
       if (c.ask) ask = mk({ price: q0?.ask ?? 0, color: css(c.askColor), lineStyle: style(c.askStyle), lineWidth: c.askWidth, title: 'Ask' })
       unsub = subscribe(symbol, (q) => { bid?.applyOptions({ price: q.bid }); ask?.applyOptions({ price: q.ask }) })
@@ -249,6 +268,18 @@ function ChartView({ symbol, timeframe, chartType, onQuote, active, index, showL
   return (
     <div className="relative h-full w-full" onPointerDownCapture={() => { if (!active) onActivate(index) }}>
       <div ref={hostRef} className="h-full w-full" />
+      {load.state === 'loading' && (
+        <div data-testid="chart-skeleton" className="pointer-events-none absolute inset-0 z-[3] flex items-end gap-1 px-6 pb-10 opacity-60" aria-label="Loading prices">
+          {Array.from({ length: 40 }, (_, i) => <span key={i} className="flex-1 animate-pulse rounded-sm bg-slate-600/40" style={{ height: `${25 + ((i * 37) % 55)}%`, animationDelay: `${(i % 8) * 90}ms` }} />)}
+        </div>
+      )}
+      {load.state === 'error' && (
+        <div data-testid="chart-error" role="alert" className="absolute inset-0 z-[6] flex flex-col items-center justify-center gap-2 text-center" style={{ backgroundColor: 'var(--tm-chart-bg)' }}>
+          <div className="text-[13px] font-bold">Couldn’t load gold prices</div>
+          <div className="max-w-xs text-[11px] text-slate-400">{load.message}</div>
+          <button type="button" data-testid="chart-retry" onClick={() => setRetry((n) => n + 1)} className="rounded bg-blue-600 px-3 py-1 text-[12px] font-bold text-white hover:bg-blue-500">Retry</button>
+        </div>
+      )}
       <IndicatorLayer chartRef={chartRef} seriesRef={seriesRef} candlesRef={candlesRef} busRef={busRef} valsRef={valsRef} symbol={symbol} timeframe={timeframe} ver={ver} />
       <ChartTrading hostRef={hostRef} chartRef={chartRef} seriesRef={seriesRef} candlesRef={candlesRef} extraRef={extraRef} symbol={symbol} ver={ver} active={active} />
       <PositionPills hostRef={hostRef} seriesRef={seriesRef} candlesRef={candlesRef} symbol={symbol} ver={ver} active={active} />

@@ -9,7 +9,9 @@ const check = (n, ok, x = '') => { if (!ok) fail++; console.log(`${ok ? '✓' : 
 
 // An OLD save (Phase 8) has no chartSettings and a chartType the new code must keep.
 mem.set('mindmap-terminal-storage', JSON.stringify({ version: 0, state: { chartType: 'line', settings: { oneClick: true } } }))
-const { useTerminalStore } = await import('../src/store/terminalStore.js')
+await import('./fixtures/legacyInstruments.js') // test-only legacy symbols (the app is XAUUSD-only)
+const { setTradeGate, useTerminalStore } = await import('../src/store/terminalStore.js')
+setTradeGate(() => null) // Phase 14: no live feed in unit tests
 const C = await import('../src/lib/terminal/cloudSync.js')
 const CS = await import('../src/lib/terminal/chartSettings.js')
 const s = () => useTerminalStore.getState()

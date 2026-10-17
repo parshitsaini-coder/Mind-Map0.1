@@ -1,20 +1,34 @@
-// Phase 14.6: no vendor key (or key-shaped literal) in src/ public/ tests/ and, after `npm run build`, dist/.
+// Secret scan: after `npm run build`, the provider key must not appear anywhere the browser (or git)
+// can see it: src/ public/ tests/ dist/ (+ api/ and root docs may only mention the variable NAME).
 import fs from 'node:fs'
 import path from 'node:path'
-const dirs = ['src', 'public', 'tests', 'dist'].filter((d) => fs.existsSync(d))
-const bad = []
-const PATTERNS = [
-  [/VITE_(TWELVE|FINNHUB|OANDA|BINANCE)\w*/i, 'a VITE_-prefixed vendor key would be bundled into the browser'],
-  [/(apikey|api_key|x-finnhub-token|token)\s*[:=]\s*['"][A-Za-z0-9]{20,}['"]/i, 'key-shaped literal'],
-  [/\b[a-z0-9]{32}\b(?=['"]?\s*[,;)\]}]?\s*$)/im, null], // placeholder: 32-hex literals are only reported when next to a key word (below)
-]
-const KEYWORD = /(twelve|finnhub|api[_-]?key)/i
-const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (/\.(js|jsx|mjs|html|json|css|map)$/.test(e.name) && !p.endsWith('secret-scan.mjs')) scan(p) } }
-function scan(p) {
-  const src = fs.readFileSync(p, 'utf8')
-  for (const [re, why] of PATTERNS) { if (!why) continue; const m = src.match(re); if (m) bad.push(`${p}: ${why}: ${m[0].slice(0, 40)}`) }
-  for (const line of src.split('\n')) { const m = line.match(/['"]([a-f0-9]{32})['"]/i); if (m && KEYWORD.test(line)) bad.push(`${p}: 32-char literal next to a key word`) }
+
+const dirs = ['src', 'public', 'tests', 'dist', 'api']
+const skip = new Set(['node_modules', '.testbuild'])
+const files = []
+const walk = (d) => {
+  if (!fs.existsSync(d)) return
+  for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+    if (skip.has(e.name)) continue
+    const p = path.join(d, e.name)
+    if (e.isDirectory()) walk(p)
+    else if (!/\.(png|jpg|jpeg|gif|webp|ico|woff2?|ttf|mp3|ogg|wav|zip)$/i.test(e.name)) files.push(p)
+  }
 }
 dirs.forEach(walk)
-console.log(bad.length ? bad.join('\n') + `\n${bad.length} possible secret(s)` : `✓ secret scan clean (${dirs.join(', ')})`)
-process.exit(bad.length ? 1 : 0)
+for (const f of ['README.md', 'SUPABASE_SETUP.md', '.env.example', 'vercel.json', 'package.json']) if (fs.existsSync(f)) files.push(f)
+
+const bad = []
+const secrets = [process.env.TWELVEDATA_API_KEY].filter((x) => x && x.length >= 8)
+for (const f of files) {
+  const t = fs.readFileSync(f, 'utf8')
+  for (const s of secrets) if (t.includes(s)) bad.push(`${f}: contains the real key`)
+  if (/VITE_[A-Z_]*(TWELVE|API_KEY|FEED)/.test(t)) bad.push(`${f}: a provider key must never use the VITE_ prefix`)
+  // a literal apikey=<value> (not a variable / placeholder)
+  for (const m of t.matchAll(/apikey\s*[=:]\s*['"]?([A-Za-z0-9]{16,})/gi)) if (!/^(your|example|xxxx|test)/i.test(m[1])) bad.push(`${f}: literal apikey value`)
+  // the browser bundle must not know the provider host or the env var
+  if (f.startsWith('dist') && /api\.twelvedata\.com|TWELVEDATA_API_KEY/.test(t)) bad.push(`${f}: browser bundle references the provider / key name`)
+  if ((f.startsWith('src') || f.startsWith('public')) && /api\.twelvedata\.com/.test(t) && !f.includes(`${path.sep}adapters${path.sep}`)) bad.push(`${f}: talks to the provider directly (must go through /api/*)`)
+}
+if (bad.length) { bad.forEach((b) => console.log(`✗ ${b}`)); process.exit(1) }
+console.log(`✓ secret scan clean (${files.length} files)`)

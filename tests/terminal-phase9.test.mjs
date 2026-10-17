@@ -1,5 +1,6 @@
 // Phase 9 (pure logic): chart settings validation / merge / themes, Heikin Ashi + colour-by-previous-close
 // transforms (hand-calculated), the option objects pushed into the chart (stub chart), time zone + format helpers.
+import './fixtures/legacyInstruments.js'
 import * as C from '../src/lib/terminal/chartSettings.js'
 import * as A from '../src/lib/terminal/chartApply.js'
 

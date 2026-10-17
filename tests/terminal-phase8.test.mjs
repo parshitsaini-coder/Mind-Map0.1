@@ -1,10 +1,11 @@
 // Phase 8 (pure logic): commission, slippage, variable spread, and the hand-checked numbers from the
 // final QA checklist (margin / P&L / pip value for forex, gold, JPY and an index; margin block; stop-out;
 // bid-vs-ask SL/TP). Plain Node, no browser.
+import './fixtures/legacyInstruments.js'
 import * as E from '../src/lib/terminal/engine.js'
 import * as L from '../src/lib/terminal/ledger.js'
 import { INSTRUMENTS } from '../src/lib/terminal/instruments.js'
-import { quoteFromMid, setSpreadMode, getSpreadMode, spreadFactor } from '../src/lib/terminal/feed/simulatedFeed.js'
+import { quoteFromMid, setSpreadMode, getSpreadMode, spreadFactor } from '../src/lib/terminal/feed/spread.js'
 
 let fail = 0
 const check = (n, ok, x = '') => { if (!ok) fail++; console.log(`${ok ? '✓' : '✗'} ${n} ${ok ? '' : x}`) }

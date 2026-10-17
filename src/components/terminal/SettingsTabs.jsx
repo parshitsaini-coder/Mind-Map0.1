@@ -275,8 +275,8 @@ export function TradingTab() {
         <DistField kind="Tp" label="Default take profit" />
         <NumField key={`mw-${marginWarn}`} label="Margin warning below" hint="The account strip on the chart turns amber under this margin level." value={marginWarn} step="10" onCommit={(t) => commitTrading('marginWarn', t, 50, 1000, 'Margin warning must be between 50 and 1000 %')} suffix="%" />
       </Group>
-      <Group title="Execution costs (simulated)">
-        <Row label="Spread" hint={settings.spreadMode === 'variable' ? 'Widens now and then (about 2× at times, 3–6× in rare spikes).' : 'Every symbol always trades at its normal spread.'}>
+      <Group title="Execution costs">
+        <Row label="Simulated spread over live mid" hint={settings.spreadMode === 'variable' ? 'The live price has no spread, so one is added: it widens now and then (about 2× at times, 3–6× in rare spikes).' : 'The live price has no spread, so a fixed one is added around the live mid price.'}>
           <div className="flex overflow-hidden rounded border" role="radiogroup" aria-label="Spread mode" style={{ borderColor: 'var(--tm-border2)' }}>
             {[['fixed', 'Fixed'], ['variable', 'Variable']].map(([id, label]) => (
               <button key={id} type="button" role="radio" aria-checked={settings.spreadMode === id} onClick={() => set({ spreadMode: id })} className="h-8 px-3 text-[11px] font-semibold" style={{ backgroundColor: settings.spreadMode === id ? '#2563eb' : 'transparent', color: settings.spreadMode === id ? '#fff' : 'var(--tm-muted)' }}>{label}</button>

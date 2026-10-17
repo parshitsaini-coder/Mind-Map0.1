@@ -1,5 +1,6 @@
 // Phase 3: order checks, SL/TP, stop-out and a 20-trade balance reconciliation.
 // Run: node tests/terminal-ledger.test.mjs
+import './fixtures/legacyInstruments.js'
 import { INSTRUMENTS as I } from '../src/lib/terminal/instruments.js'
 import * as E from '../src/lib/terminal/engine.js'
 import * as L from '../src/lib/terminal/ledger.js'

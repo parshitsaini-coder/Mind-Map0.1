@@ -1,7 +1,9 @@
 import { memo, useMemo, useState } from 'react'
 import { ArrowLeft, BookOpen, Check, Download } from 'lucide-react'
 import { useTerminalStore } from '../../store/terminalStore'
-import { INSTRUMENTS, SYMBOLS } from '../../lib/terminal/instruments'
+import { instOf } from '../../lib/terminal/instruments'
+import { useLiveHistory } from './hooks'
+import { simulatedCount } from '../../lib/terminal/liveMigration'
 import * as S from '../../lib/terminal/stats'
 import { journalKey } from '../../lib/terminal/journal'
 import { StatsView, AccountView } from './StatsAccount'
@@ -25,7 +27,7 @@ function downloadCsv(rows) {
 }
 
 const TradeRow = memo(function TradeRow({ h, sent }) {
-  const inst = INSTRUMENTS[h.symbol]
+  const inst = instOf(h.symbol)
   const d = inst?.digits ?? 5
   return (
     <div className="border-b px-3 py-2" style={{ borderColor: BORDER }}>
@@ -56,7 +58,9 @@ const TradeRow = memo(function TradeRow({ h, sent }) {
 })
 
 function Inner() {
-  const history = useTerminalStore((s) => s.history)
+  const history = useLiveHistory()
+  const showSim = useTerminalStore((s) => s.showSimulated)
+  const nSim = simulatedCount(useTerminalStore((s) => s.history))
   const journaled = useTerminalStore((s) => s.journaled)
   const startBalance = useTerminalStore((s) => s.account.startBalance)
   const [tab, setTab] = useState('trades')
@@ -83,9 +87,12 @@ function Inner() {
 
       {tab !== 'account' && (
         <div className="no-scrollbar flex shrink-0 items-center gap-2 overflow-x-auto border-b px-3 py-2" style={{ borderColor: BORDER, backgroundColor: 'var(--tm-panel2)' }}>
-          <select aria-label="Filter symbol" value={f.symbol} onChange={set('symbol')} className={sel} style={{ borderColor: BORDER }}>
-            <option value="all">All symbols</option>{SYMBOLS.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          {nSim > 0 && (
+            <label className="flex shrink-0 cursor-pointer items-center gap-1 text-[11px] text-slate-300" title="Trades made before live prices (simulated). Hidden from stats by default.">
+              <input type="checkbox" data-testid="show-simulated" checked={showSim} onChange={(e) => useTerminalStore.getState().setShowSimulated(e.target.checked)} />
+              Include old practice trades ({nSim})
+            </label>
+          )}
           <select aria-label="Filter side" value={f.side} onChange={set('side')} className={sel} style={{ borderColor: BORDER }}>
             <option value="all">Buy &amp; sell</option><option value="buy">Buy</option><option value="sell">Sell</option>
           </select>

@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTerminalStore } from '../../store/terminalStore'
 import { TIMEFRAMES, INSTRUMENTS } from '../../lib/terminal/instruments'
+import { useLiveHistory } from './hooks'
 import { tzOffsetSec } from '../../lib/terminal/chartSettings'
 import { fmtMoney } from './format'
 
 // Hover tooltip for the execution arrows: price, lots and P/L of the trade(s) on the bar under the cursor.
 export default function ExecTooltip({ chartRef, symbol, timeframe, tz }) {
   const show = useTerminalStore((s) => s.chartSettings.trading.showExecutions)
-  const history = useTerminalStore((s) => s.history)
+  const history = useLiveHistory()
   const positions = useTerminalStore((s) => s.positions)
   const [tip, setTip] = useState(null)
   const dataRef = useRef([])

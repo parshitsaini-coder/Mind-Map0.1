@@ -1,6 +1,6 @@
 // Pure trading maths for the demo terminal. No React, no state, no I/O —
 // everything here is unit-tested in tests/terminal-engine.test.mjs.
-import { DEFAULT_RATES } from './instruments.js'
+import { DEFAULT_RATES, instOf } from './instruments.js'
 
 const round = (n, d) => {
   const f = 10 ** d
@@ -67,7 +67,7 @@ export function accountMetrics({ balance, positions, quotes, instruments, levera
   let usedMargin = 0
   const perPosition = {}
   for (const p of positions) {
-    const inst = instruments[p.symbol]
+    const inst = instruments[p.symbol] || instOf(p.symbol)
     const q = quotes[p.symbol]
     if (!inst || !q) continue
     const exit = p.side === 'buy' ? q.bid : q.ask

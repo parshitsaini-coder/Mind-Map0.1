@@ -2,6 +2,7 @@
 // break-even magnet, default SL/TP distances, custom partial close, margin state, undo stack, pill spreading,
 // settings defaults, and "overlay number == ledger number" for forex, gold, JPY and index.
 // Run through ./tests/run.sh (it imports the ledger).
+import './fixtures/legacyInstruments.js'
 import * as O from '../src/lib/terminal/chartOrders.js'
 import * as E from '../src/lib/terminal/engine.js'
 import * as L from '../src/lib/terminal/ledger.js'

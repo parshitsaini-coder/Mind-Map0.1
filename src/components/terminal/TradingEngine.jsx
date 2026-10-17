@@ -2,7 +2,8 @@ import { useEffect, useMemo } from 'react'
 import { useTerminalStore } from '../../store/terminalStore'
 import { watch } from '../../lib/terminal/quoteHub'
 import { markSeen, getLastSeen } from '../../lib/terminal/lastSeen'
-import { useQuotes } from './hooks'
+import { canTrigger } from '../../lib/terminal/feed/feedStatus'
+import { useQuotes, useFeedStatus } from './hooks'
 
 const MIN_GAP_SEC = 120
 
@@ -29,9 +30,12 @@ export default function TradingEngine({ symbol, extra }) {
   }, [history, autoJournal])
 
   const quotes = useQuotes()
+  const feed = useFeedStatus()
+  // SL / TP / pending fills / stop-out only run on FRESH prices: never while delayed, offline or closed.
+  const fresh = canTrigger(feed.state)
   useEffect(() => {
-    useTerminalStore.getState().tick(quotes)
-  }, [quotes])
+    if (fresh) useTerminalStore.getState().tick(quotes)
+  }, [quotes, fresh])
 
   useEffect(() => {
     const catchUp = () => {

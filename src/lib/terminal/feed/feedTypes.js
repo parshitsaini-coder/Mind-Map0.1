@@ -1,37 +1,37 @@
-// The data-layer contract (Phase 14). JSDoc only: nothing here runs. Every provider adapter and the browser feed follow it,
-// so the chart, the quote hub and the engine never know which vendor is behind the prices.
+// Feed contract (Phase 14). Everything is async; the browser only ever talks to same-origin /api/*.
 //
-// @typedef {'M1'|'M5'|'M15'|'M30'|'H1'|'H4'|'D1'|'W1'} TfId
+// Candle      { time:number /* UTC seconds, bucket start */, open, high, low, close, volume:number }
+// Tick        { bid, ask, last, ts:number /* UTC seconds */, source:string }
+// FeedStatus  { state:'live'|'delayed'|'offline'|'closed'|'loading', provider:string, lastUpdate:number|null, reason:string|null }
 //
-// @typedef {Object} Candle            one bar, UTC seconds at the START of the bar
-// @property {number} time
-// @property {number} open @property {number} high @property {number} low @property {number} close
-// @property {number} volume           0 when the provider has none (forex / metals)
+// interface Feed {
+//   getCandles(symbol, tf, { from?, to?, limit? }): Promise<Candle[]>   oldest first
+//   subscribe(symbol, cb: (tick: Tick) => void): () => void              returns unsubscribe
+//   getQuoteSnapshot(symbol): Promise<Tick>
+//   getStatus(): FeedStatus
+//   searchSymbols(q): Promise<{ symbol, name }[]>
+// }
 //
-// @typedef {Object} Tick              what subscribe() delivers
-// @property {number|null} bid         null when the provider only has a last price
-// @property {number|null} ask
-// @property {number} last             last / mid price
-// @property {number} ts               provider timestamp, ms since epoch (UTC)
-// @property {string} source           'twelvedata' | 'finnhub' | ...
-// @property {boolean} [marketOpen]    provider's own opinion, when it gives one
-// @property {number} [dayOpen] @property {number} [prevClose]
-//
-// @typedef {'live'|'delayed'|'offline'|'closed'|'connecting'} FeedState
-// @typedef {{state: FeedState, source: string|null, lastTickMs: number|null, reason?: string}} FeedStatus
-//
-// @typedef {Object} FeedError
-// @property {'bad_request'|'unsupported_symbol'|'rate_limited'|'quota'|'plan'|'auth'|'upstream'|'not_configured'} code
-// @property {number} status           the HTTP status we answer with
-// @property {string} message          safe to show to the person
-// @property {number} [retryAfter]     seconds
-//
-// Browser side (all async):
-//   getCandles(symbol, tf, {from?, to?, limit?}) -> Promise<Candle[]>      ascending by time, de-duplicated
-//   subscribe(symbol, cb: (tick: Tick) => void)  -> unsubscribe function   ref-counted by the quote hub
-//   getQuoteSnapshot(symbols)                    -> Promise<Record<string, Tick>>
-//   getStatus()                                  -> FeedStatus
-//   searchSymbols(q)                             -> Promise<{symbol, name, type}[]>
-//
-// Server side: GET /api/candles /api/quote /api/symbols /api/health. The browser never talks to a vendor.
-export {}
+// Typed errors (same codes on the server and in the browser).
+export const FEED_ERRORS = {
+  BAD_REQUEST: { status: 400, message: 'Invalid request' },
+  SYMBOL_NOT_ALLOWED: { status: 400, message: 'Only XAUUSD is available' },
+  NO_KEY: { status: 503, message: 'Data provider key is not configured on the server' },
+  QUOTA: { status: 429, message: 'Data provider quota reached — try again later' },
+  RATE_LIMIT: { status: 429, message: 'Too many requests — slow down' },
+  UPSTREAM: { status: 502, message: 'Data provider error' },
+  OFFLINE: { status: 0, message: 'No connection' },
+}
+export class FeedError extends Error {
+  constructor(code, detail) {
+    super(detail || FEED_ERRORS[code]?.message || code)
+    this.code = code
+    this.status = FEED_ERRORS[code]?.status ?? 500
+  }
+}
+export const ALLOWED_SYMBOLS = ['XAUUSD']
+export const FEED_ALLOWED = ALLOWED_SYMBOLS
+// Provider interval names. H4 is built from H1 (see candleStore.aggregate).
+export const TF_INTERVAL = { M1: '1min', M5: '5min', M15: '15min', M30: '30min', H1: '1h', D1: '1day', W1: '1week' }
+export const TF_SECONDS = { M1: 60, M5: 300, M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400, W1: 604800 }
+export const FEED_TFS = Object.keys(TF_SECONDS)
