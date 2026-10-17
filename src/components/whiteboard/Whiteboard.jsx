@@ -2,11 +2,6 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   X,
-  MousePointer2,
-  Type,
-  StickyNote,
-  Pencil,
-  Eraser,
   Undo2,
   Redo2,
   Trash2,
@@ -19,6 +14,10 @@ import {
   ImagePlus,
   Loader2,
   Palette,
+  Copy,
+  Lock,
+  LockOpen,
+  Droplet,
 } from 'lucide-react'
 import { useWhiteboardStore, WHITEBOARD_COLORS, BOARD_BG_PRESETS } from '../../store/whiteboardStore'
 import { useMapStore } from '../../store/mapStore'
@@ -26,18 +25,15 @@ import { useUiStore } from '../../store/uiStore'
 import { uploadNodeImage } from '../../lib/imageUpload'
 import { captureWhiteboardAsDataUrl } from '../../utils/exportImage'
 import WhiteboardElement from './WhiteboardElement'
+import ShapeElement from './ShapeElement'
+import WhiteboardLeftBar from './WhiteboardLeftBar'
+import CursorFx from './CursorFx'
+import { TOOLS as SHAPE_TOOLS, DRAW_SHORTCUTS, shapeBounds } from './drawShapes'
 
-const TOOLS = [
-  { id: 'select', icon: MousePointer2, label: 'Select / move (V)' },
-  { id: 'text', icon: Type, label: 'Add text anywhere (T)' },
-  { id: 'sticky', icon: StickyNote, label: 'Add sticky note (S)' },
-  { id: 'pen', icon: Pencil, label: 'Draw (P)' },
-  { id: 'eraser', icon: Eraser, label: 'Eraser (E)' },
-]
-
-const TOOL_KEYS = { v: 'select', t: 'text', s: 'sticky', p: 'pen', e: 'eraser' }
+const TOOL_KEYS = { v: 'select', t: 'text', s: 'sticky', p: 'pen', e: 'eraser', m: 'measure' }
 
 const ERASE_RADIUS = 16
+const DRAW_COLORS = ['#2563eb', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899', '#242423', '#ffffff']
 
 function ToolButton({ icon: Icon, label, active, onClick, disabled }) {
   return (
@@ -55,6 +51,7 @@ function ToolButton({ icon: Icon, label, active, onClick, disabled }) {
 }
 
 function getElementBounds(el) {
+  if (el.type === 'shape') return shapeBounds(el)
   if (el.type === 'path') {
     const xs = el.points.map((p) => p.x)
     const ys = el.points.map((p) => p.y)
@@ -181,6 +178,69 @@ function SelectionToolbar({ element, pan, zoom }) {
     setPickerOpen(false)
   }
 
+  if (element.type === 'shape') {
+    const spec = SHAPE_TOOLS[element.tool]
+    const wb = useWhiteboardStore.getState()
+    const LS = ['solid', 'dashed', 'dotted']
+    const nextLs = LS[(LS.indexOf(element.lineStyle || 'solid') + 1) % LS.length]
+    const w = element.strokeWidth || 2
+    const sep = <div className="mx-0.5 h-4 w-px" style={{ backgroundColor: 'var(--color-sage)' }} />
+    return (
+      <div
+        className="absolute z-10 flex items-center gap-1 rounded-md border px-1.5 py-1 shadow-lg"
+        style={{ left, top: Math.max(4, top), backgroundColor: 'var(--color-cream)', borderColor: 'var(--color-sage)' }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {DRAW_COLORS.map((c) => (
+          <button
+            key={c}
+            onClick={() => wb.setElementColor(element.id, c)}
+            className={`h-4 w-4 shrink-0 rounded-full border ${element.color === c ? 'ring-2 ring-[var(--color-accent)] ring-offset-1' : ''}`}
+            style={{ backgroundColor: c, borderColor: 'var(--color-slate)' }}
+            title={c}
+          />
+        ))}
+        <CustomColorSwatch value={element.color || '#2563eb'} onChange={(c) => wb.setElementColor(element.id, c)} />
+        {sep}
+        {!spec?.glyph && (
+          <>
+            <button onClick={() => wb.setElementStyle(element.id, { strokeWidth: Math.max(1, w - 1) })} title="Thinner line" className="rounded p-0.5 hover:bg-[var(--color-sage)]">
+              <Minus size={11} />
+            </button>
+            <span className="w-4 select-none text-center text-[10px]">{w}</span>
+            <button onClick={() => wb.setElementStyle(element.id, { strokeWidth: Math.min(12, w + 1) })} title="Thicker line" className="rounded p-0.5 hover:bg-[var(--color-sage)]">
+              <Plus size={11} />
+            </button>
+            <button onClick={() => wb.setElementStyle(element.id, { lineStyle: nextLs })} title={`Line style: ${element.lineStyle || 'solid'} (click to change)`} className="rounded px-1 text-[10px] font-bold hover:bg-[var(--color-sage)]">
+              {element.lineStyle === 'dashed' ? '– –' : element.lineStyle === 'dotted' ? '···' : '——'}
+            </button>
+          </>
+        )}
+        {spec?.fill !== undefined && (
+          <button onClick={() => wb.setElementStyle(element.id, { fill: !element.fill })} title="Toggle fill" className={`rounded p-0.5 ${element.fill ? 'bg-[var(--color-accent)]' : 'hover:bg-[var(--color-sage)]'}`}>
+            <Droplet size={12} />
+          </button>
+        )}
+        {(spec?.text || spec?.glyph || spec?.n === 2 || spec?.n === 3) && (
+          <>
+            <button onClick={() => wb.bumpFontSize(element.id, -2)} title="Smaller text / icon" className="rounded px-1 text-[10px] font-bold hover:bg-[var(--color-sage)]">A−</button>
+            <button onClick={() => wb.bumpFontSize(element.id, 2)} title="Bigger text / icon" className="rounded px-1 text-[10px] font-bold hover:bg-[var(--color-sage)]">A+</button>
+          </>
+        )}
+        {sep}
+        <button onClick={() => wb.duplicateElement(element.id)} title="Duplicate" className="rounded p-0.5 hover:bg-[var(--color-sage)]">
+          <Copy size={12} />
+        </button>
+        <button onClick={() => wb.toggleElementFlag(element.id, 'locked')} title={element.locked ? 'Unlock' : 'Lock'} className="rounded p-0.5 hover:bg-[var(--color-sage)]">
+          {element.locked ? <Lock size={12} /> : <LockOpen size={12} />}
+        </button>
+        <button onClick={() => wb.deleteElement(element.id)} title="Delete (Del)" className="rounded p-0.5 text-red-600 hover:bg-red-500/10">
+          <Trash2 size={12} />
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div
       className="absolute z-10 flex items-center gap-1 rounded-md border px-1.5 py-1 shadow-lg"
@@ -245,6 +305,33 @@ function SelectionToolbar({ element, pan, zoom }) {
   )
 }
 
+// Ruler overlay for the Measure tool: shaded box, diagonal, and a read-out.
+function MeasureOverlay({ m, zoom }) {
+  const { a, b } = m
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  const dist = Math.hypot(dx, dy)
+  const ang = (-Math.atan2(dy, dx) * 180) / Math.PI
+  const label = `Δx ${Math.round(dx)}  Δy ${Math.round(-dy)}  ·  ${Math.round(dist)} px  ·  ${Math.round(ang * 10) / 10}°`
+  const fs = 12 / zoom
+  const tw = label.length * fs * 0.56 + 14 / zoom
+  const th = fs * 1.9
+  const up = dy > 0 ? 1 : -1
+  const col = dy <= 0 ? '#089981' : '#f23645'
+  return (
+    <svg style={{ position: 'absolute', left: 0, top: 0, width: 1, height: 1, overflow: 'visible', pointerEvents: 'none' }}>
+      <rect x={Math.min(a.x, b.x)} y={Math.min(a.y, b.y)} width={Math.abs(dx)} height={Math.abs(dy)} fill={col} fillOpacity={0.12} stroke={col} strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${3 / zoom}`} />
+      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={col} strokeWidth={1.5 / zoom} />
+      <circle cx={a.x} cy={a.y} r={3 / zoom} fill={col} />
+      <circle cx={b.x} cy={b.y} r={3 / zoom} fill={col} />
+      <rect x={b.x - tw / 2} y={b.y + up * (14 / zoom) - th / 2} width={tw} height={th} rx={4 / zoom} fill={col} />
+      <text x={b.x} y={b.y + up * (14 / zoom) + fs * 0.35} textAnchor="middle" fontSize={fs} fontWeight={600} fill="#fff" fontFamily="system-ui, sans-serif">
+        {label}
+      </text>
+    </svg>
+  )
+}
+
 export default function Whiteboard() {
   const isOpen = useWhiteboardStore((s) => s.isOpen)
   const elements = useWhiteboardStore((s) => s.elements)
@@ -256,6 +343,10 @@ export default function Whiteboard() {
   const zoom = useWhiteboardStore((s) => s.zoom)
   const history = useWhiteboardStore((s) => s.history)
   const boardColor = useWhiteboardStore((s) => s.boardColor)
+  const drawTool = useWhiteboardStore((s) => s.drawTool)
+  const cursorMode = useWhiteboardStore((s) => s.cursorMode)
+  const lockAll = useWhiteboardStore((s) => s.lockAll)
+  const hideAll = useWhiteboardStore((s) => s.hideAll)
 
   const [addToNodeOpen, setAddToNodeOpen] = useState(false)
   const [savingToNode, setSavingToNode] = useState(false)
@@ -296,6 +387,24 @@ export default function Whiteboard() {
   const erasedThisStroke = useRef(new Set())
   const [justCreatedId, setJustCreatedId] = useState(null)
 
+  // Shape drawing state. `draft` is the shape being placed (points clicked so
+  // far + the live cursor point); mirrored in a ref so window-level key
+  // handlers always see the latest value.
+  const [draft, setDraftState] = useState(null)
+  const draftRef = useRef(null)
+  const setDraft = (d) => {
+    draftRef.current = d
+    setDraftState(d)
+  }
+  const [measure, setMeasure] = useState(null) // { a, b, done, down }
+  const measureRef = useRef(null)
+  const setMeasureBoth = (m) => {
+    measureRef.current = m
+    setMeasure(m)
+  }
+  const [zoomBox, setZoomBox] = useState(null) // screen-space rubber band
+  const [editShapeId, setEditShapeId] = useState(null)
+
   const toBoardCoords = useCallback(
     (clientX, clientY) => {
       const rect = canvasRef.current.getBoundingClientRect()
@@ -304,21 +413,96 @@ export default function Whiteboard() {
     [pan, zoom]
   )
 
-  const hitTest = useCallback((bx, by) => {
-    const els = useWhiteboardStore.getState().elements
-    // Walk from topmost (last-drawn) down so overlapping elements erase the
-    // one actually on top first.
-    for (let i = els.length - 1; i >= 0; i--) {
-      const el = els[i]
-      if (el.type === 'path') {
-        const hit = el.points.some((p) => Math.hypot(p.x - bx, p.y - by) < ERASE_RADIUS / zoom)
-        if (hit) return el.id
-      } else {
-        if (bx >= el.x && bx <= el.x + el.width && by >= el.y && by <= el.y + el.height) return el.id
+  const hitTest = useCallback(
+    (bx, by, cx, cy) => {
+      const store = useWhiteboardStore.getState()
+      const els = store.elements
+      // Shapes: ask the browser which fat-stroke hit path is under the cursor.
+      const dom = cx != null ? document.elementFromPoint(cx, cy)?.closest?.('[data-wb-id]') : null
+      if (dom) {
+        const id = dom.getAttribute('data-wb-id')
+        const el = els.find((e) => e.id === id)
+        if (el && !el.locked && !store.lockAll) return id
       }
-    }
-    return null
-  }, [zoom])
+      // Walk from topmost (last-drawn) down so overlapping elements erase the
+      // one actually on top first.
+      for (let i = els.length - 1; i >= 0; i--) {
+        const el = els[i]
+        if (el.type === 'shape' || el.hidden || el.locked || store.lockAll) continue
+        if (el.type === 'path') {
+          const hit = el.points.some((p) => Math.hypot(p.x - bx, p.y - by) < ERASE_RADIUS / zoom)
+          if (hit) return el.id
+        } else {
+          if (bx >= el.x && bx <= el.x + el.width && by >= el.y && by <= el.y + el.height) return el.id
+        }
+      }
+      return null
+    },
+    [zoom]
+  )
+
+  // Magnet: snap a point to the closest existing anchor (shape points, stroke
+  // ends, note corners/centres) within a few pixels.
+  const snapPoint = (pt) => {
+    const store = useWhiteboardStore.getState()
+    if (store.magnet === 'off') return pt
+    const radius = (store.magnet === 'weak' ? 10 : 30) / zoom
+    const cand = []
+    store.elements.forEach((el) => {
+      if (el.hidden) return
+      if (el.type === 'shape') el.points.forEach((p) => cand.push(p))
+      else if (el.type === 'path') cand.push(el.points[0], el.points[el.points.length - 1])
+      else cand.push({ x: el.x, y: el.y }, { x: el.x + el.width, y: el.y }, { x: el.x, y: el.y + el.height }, { x: el.x + el.width, y: el.y + el.height }, { x: el.x + el.width / 2, y: el.y + el.height / 2 })
+    })
+    let best = null
+    let bd = radius
+    cand.forEach((c) => {
+      if (!c) return
+      const d = Math.hypot(c.x - pt.x, c.y - pt.y)
+      if (d < bd) {
+        bd = d
+        best = c
+      }
+    })
+    return best ? { x: best.x, y: best.y } : pt
+  }
+
+  const finishDraft = (d, pts) => {
+    const spec = SHAPE_TOOLS[d.tool]
+    const store = useWhiteboardStore.getState()
+    const id = store.addElement({
+      type: 'shape',
+      tool: d.tool,
+      points: pts,
+      color: store.drawColor,
+      strokeWidth: Math.max(1, store.strokeWidth),
+      lineStyle: 'solid',
+      fill: !!spec.fill,
+      fillOpacity: 0.18,
+      fontSize: d.tool === 'emoji' ? 36 : 12,
+      ...(d.tool === 'emoji' ? { emoji: store.glyph } : {}),
+      ...(spec.text ? { text: '' } : {}),
+    })
+    setDraft(null)
+    if (spec.text) setEditShapeId(id)
+    if (store.stayDrawing) store.selectElement(null)
+    else store.setTool('select')
+  }
+
+  // Drops trailing duplicate points (a double-click registers two mousedowns).
+  const dedupe = (pts) => {
+    const out = [...pts]
+    while (out.length > 1 && Math.hypot(out[out.length - 1].x - out[out.length - 2].x, out[out.length - 1].y - out[out.length - 2].y) < 4 / zoom) out.pop()
+    return out
+  }
+
+  const finishOpenDraft = () => {
+    const d = draftRef.current
+    if (!d) return
+    const pts = dedupe(d.pts)
+    if (pts.length >= 2) finishDraft(d, pts)
+    else setDraft(null)
+  }
 
   const handleCanvasMouseDown = (e) => {
     // Elements handle their own mousedown for the 'select' tool and call
@@ -333,6 +517,32 @@ export default function Whiteboard() {
       // Panning by dragging empty canvas is intentionally disabled — the
       // board background stays fixed (see the wheel handler below and the
       // black boundary border), so nothing needs to start here.
+    } else if (tool === 'draw') {
+      const spec = SHAPE_TOOLS[drawTool]
+      if (!spec?.render || e.button !== 0) return
+      // Keep focus where it is — the inline text editor (opened right after placing) must not lose it to the mousedown default.
+      e.preventDefault()
+      const pt = snapPoint({ x, y })
+      const d = draftRef.current
+      if (!d) {
+        if (spec.n === 1) {
+          finishDraft({ tool: drawTool }, [pt])
+          return
+        }
+        setDraft({ tool: drawTool, pts: [pt], cur: pt, down: { x: e.clientX, y: e.clientY }, dragged: false })
+      } else {
+        const pts = [...d.pts, pt]
+        if (spec.n && pts.length >= spec.n) finishDraft(d, pts)
+        else setDraft({ ...d, pts, cur: pt, down: null, dragged: false })
+      }
+    } else if (tool === 'measure') {
+      const pt = snapPoint({ x, y })
+      const m = measureRef.current
+      if (m && !m.done && !m.down) setMeasureBoth({ ...m, b: pt, done: true })
+      else setMeasureBoth({ a: pt, b: pt, done: false, down: { x: e.clientX, y: e.clientY } })
+    } else if (tool === 'zoom') {
+      const rect = canvasRef.current.getBoundingClientRect()
+      setZoomBox({ x0: e.clientX - rect.left, y0: e.clientY - rect.top, x1: e.clientX - rect.left, y1: e.clientY - rect.top })
     } else if (tool === 'text') {
       const id = store.addElement({ type: 'text', x: x - 80, y: y - 16, width: 170, height: 40, content: '', color: store.color, fontSize: 15 })
       setJustCreatedId(id)
@@ -342,12 +552,19 @@ export default function Whiteboard() {
       setJustCreatedId(id)
       store.setTool('select')
     } else if (tool === 'pen') {
-      const id = store.addElement({ type: 'path', points: [{ x, y }], color: store.color, strokeWidth: store.strokeWidth })
+      const hl = store.penKind === 'highlighter'
+      const id = store.addElement({
+        type: 'path',
+        points: [{ x, y }],
+        color: store.color,
+        strokeWidth: hl ? Math.max(14, store.strokeWidth * 4) : store.strokeWidth,
+        ...(hl ? { opacity: 0.35, highlight: true } : {}),
+      })
       drawState.current = id
     } else if (tool === 'eraser') {
       erasingRef.current = true
       erasedThisStroke.current = new Set()
-      const hitId = hitTest(x, y)
+      const hitId = hitTest(x, y, e.clientX, e.clientY)
       if (hitId && !erasedThisStroke.current.has(hitId)) {
         erasedThisStroke.current.add(hitId)
         store.deleteElement(hitId)
@@ -361,18 +578,84 @@ export default function Whiteboard() {
       useWhiteboardStore.getState().appendPointToPath(drawState.current, { x, y })
     } else if (erasingRef.current) {
       const { x, y } = toBoardCoords(e.clientX, e.clientY)
-      const hitId = hitTest(x, y)
+      const hitId = hitTest(x, y, e.clientX, e.clientY)
       if (hitId && !erasedThisStroke.current.has(hitId)) {
         erasedThisStroke.current.add(hitId)
         useWhiteboardStore.getState().deleteElement(hitId)
       }
     }
+
+    const d = draftRef.current
+    if (d) {
+      const { x, y } = toBoardCoords(e.clientX, e.clientY)
+      const cur = snapPoint({ x, y })
+      const dragged = d.dragged || (d.down ? Math.hypot(e.clientX - d.down.x, e.clientY - d.down.y) > 5 : false)
+      setDraft({ ...d, cur, dragged })
+    }
+    const m = measureRef.current
+    if (m && !m.done) {
+      const { x, y } = toBoardCoords(e.clientX, e.clientY)
+      setMeasureBoth({ ...m, b: snapPoint({ x, y }) })
+    }
+    setZoomBox((zb) => {
+      if (!zb) return zb
+      const rect = canvasRef.current.getBoundingClientRect()
+      return { ...zb, x1: e.clientX - rect.left, y1: e.clientY - rect.top }
+    })
   }
 
   const handleCanvasMouseUp = () => {
     drawState.current = null
     erasingRef.current = false
+
+    const d = draftRef.current
+    if (d && d.down) {
+      const spec = SHAPE_TOOLS[d.tool]
+      if (d.dragged && spec?.n >= 2 && d.pts.length === 1) {
+        const pts = [...d.pts, d.cur]
+        if (spec.n === 2) finishDraft(d, pts)
+        else setDraft({ ...d, pts, down: null, dragged: false })
+      } else {
+        setDraft({ ...d, down: null })
+      }
+    }
+    const m = measureRef.current
+    if (m && m.down) {
+      const moved = Math.hypot(m.b.x - m.a.x, m.b.y - m.a.y) * zoom > 5
+      setMeasureBoth({ ...m, down: null, done: moved })
+    }
+    setZoomBox((zb) => {
+      if (!zb) return null
+      const rect = canvasRef.current.getBoundingClientRect()
+      const w = Math.abs(zb.x1 - zb.x0)
+      const h = Math.abs(zb.y1 - zb.y0)
+      if (w > 12 && h > 12) {
+        const bx0 = (Math.min(zb.x0, zb.x1) - pan.x) / zoom
+        const by0 = (Math.min(zb.y0, zb.y1) - pan.y) / zoom
+        const bw = w / zoom
+        const bh = h / zoom
+        const nz = Math.min(3, Math.max(0.25, Math.min(rect.width / bw, rect.height / bh)))
+        const store = useWhiteboardStore.getState()
+        store.setZoom(nz)
+        store.setPan({ x: rect.width / 2 - (bx0 + bw / 2) * nz, y: rect.height / 2 - (by0 + bh / 2) * nz })
+        store.setTool('select')
+      }
+      return null
+    })
   }
+
+  const handleCanvasDoubleClick = () => {
+    const d = draftRef.current
+    if (d && SHAPE_TOOLS[d.tool]?.n === 0) finishOpenDraft()
+  }
+
+  // Leaving the select tool throws away any half-placed shape / measurement.
+  useEffect(() => {
+    if (tool !== 'draw') setDraft(null)
+    if (tool !== 'measure') setMeasureBoth(null)
+    if (tool !== 'zoom') setZoomBox(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tool, drawTool])
 
   // Native (non-passive) wheel listener so preventDefault reliably stops the
   // page from scrolling while zooming the board. Plain scroll no longer pans
@@ -402,8 +685,38 @@ export default function Whiteboard() {
       const isTyping = tag === 'TEXTAREA' || tag === 'INPUT'
       const store = useWhiteboardStore.getState()
       if (e.key === 'Escape') {
+        // An open toolbar flyout handles its own Escape (see WhiteboardLeftBar).
+        if (document.querySelector('[data-wbfly]')) return
         e.stopPropagation()
+        if (isTyping) {
+          e.target.blur?.()
+          return
+        }
+        // First Escape cancels a half-drawn shape / measurement / armed tool; the next closes the board.
+        if (draftRef.current) {
+          setDraft(null)
+          return
+        }
+        if (measureRef.current) {
+          setMeasureBoth(null)
+          return
+        }
+        if (store.tool !== 'select') {
+          store.setTool('select')
+          return
+        }
         store.close()
+        return
+      }
+      if (!isTyping && e.key === 'Enter' && draftRef.current) {
+        e.preventDefault()
+        finishOpenDraft()
+        return
+      }
+      if (!isTyping && e.altKey && !e.ctrlKey && !e.metaKey && DRAW_SHORTCUTS[e.code]) {
+        e.preventDefault()
+        e.stopPropagation()
+        store.setDrawTool(DRAW_SHORTCUTS[e.code])
         return
       }
       if (!isTyping && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
@@ -425,18 +738,48 @@ export default function Whiteboard() {
         store.deleteElement(store.selectedId)
         return
       }
-      if (!isTyping && TOOL_KEYS[e.key.toLowerCase()]) {
+      if (!isTyping && !e.ctrlKey && !e.metaKey && !e.altKey && TOOL_KEYS[e.key.toLowerCase()]) {
         e.stopPropagation()
         store.setTool(TOOL_KEYS[e.key.toLowerCase()])
       }
     }
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
-  }, [isOpen])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, zoom])
 
   if (!isOpen) return null
 
   const selectedElement = elements.find((e) => e.id === selectedId)
+  const draftSpec = draft ? SHAPE_TOOLS[draft.tool] : null
+  const draftPts = draft
+    ? (() => {
+        const arr = [...draft.pts]
+        const n = draftSpec.n || arr.length + 1
+        while (arr.length < n) arr.push(draft.cur)
+        return arr
+      })()
+    : null
+  const editShape = editShapeId ? elements.find((e) => e.id === editShapeId) : null
+  const armedSpec = tool === 'draw' ? SHAPE_TOOLS[drawTool] : null
+  const showAll = !hideAll
+
+  const dotCursor =
+    "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16'><circle cx='8' cy='8' r='3' fill='%23242423' stroke='white' stroke-width='1.5'/></svg>\") 8 8, auto"
+  const canvasCursor =
+    tool === 'select'
+      ? cursorMode === 'cross'
+        ? 'crosshair'
+        : cursorMode === 'dot'
+          ? dotCursor
+          : cursorMode === 'demo'
+            ? 'none'
+            : 'default'
+      : tool === 'eraser'
+        ? 'cell'
+        : tool === 'pen' || tool === 'draw' || tool === 'measure' || tool === 'zoom'
+          ? 'crosshair'
+          : 'copy'
 
   return (
     <AnimatePresence>
@@ -457,12 +800,6 @@ export default function Whiteboard() {
           </span>
           <div className="mx-0.5 hidden h-5 w-px shrink-0 sm:block" style={{ backgroundColor: 'var(--color-sage)' }} />
 
-          <div className="flex shrink-0 items-center gap-0.5 rounded-md border p-0.5" style={{ borderColor: 'var(--color-sage)' }}>
-            {TOOLS.map((t) => (
-              <ToolButton key={t.id} icon={t.icon} label={t.label} active={tool === t.id} onClick={() => useWhiteboardStore.getState().setTool(t.id)} />
-            ))}
-          </div>
-
           <div className="flex shrink-0 items-center gap-1">
             {WHITEBOARD_COLORS.map((c) => (
               <button
@@ -476,7 +813,7 @@ export default function Whiteboard() {
             <CustomColorSwatch value={color} onChange={(c) => useWhiteboardStore.getState().setColor(c)} size="h-5 w-5" />
           </div>
 
-          {tool === 'pen' && (
+          {(tool === 'pen' || tool === 'draw') && (
             <div className="hidden shrink-0 items-center gap-1 md:flex">
               <span className="text-[10px] text-[var(--color-slate)]">Width</span>
               <input
@@ -488,6 +825,12 @@ export default function Whiteboard() {
                 className="w-16 accent-[var(--color-accent)]"
               />
             </div>
+          )}
+
+          {armedSpec && (
+            <span className="hidden max-w-[260px] shrink-0 truncate text-[10px] italic text-[var(--color-slate)] lg:inline" title="Esc cancels">
+              {armedSpec.name} — {armedSpec.n === 1 ? 'click to place' : armedSpec.n === 0 ? 'click points, double-click or Enter to finish' : `drag, or click ${armedSpec.n} points`}
+            </span>
           )}
 
           <div className="mx-0.5 h-5 w-px shrink-0" style={{ backgroundColor: 'var(--color-sage)' }} />
@@ -537,6 +880,9 @@ export default function Whiteboard() {
           </div>
         </div>
 
+        <div className="flex min-h-0 flex-1">
+        <WhiteboardLeftBar />
+
         {/* Canvas */}
         <div
           ref={canvasRef}
@@ -544,40 +890,129 @@ export default function Whiteboard() {
           onMouseMove={handleCanvasMouseMove}
           onMouseUp={handleCanvasMouseUp}
           onMouseLeave={handleCanvasMouseUp}
+          onDoubleClick={handleCanvasDoubleClick}
           className="relative min-h-0 flex-1 overflow-hidden select-none"
           style={{
             backgroundColor: boardColor || 'var(--color-bg-main)',
             border: '3px solid #000000',
-            cursor: tool === 'select' ? 'default' : tool === 'eraser' ? 'cell' : tool === 'pen' ? 'crosshair' : 'copy',
+            cursor: canvasCursor,
           }}
         >
           <div
             className="whiteboard-elements-layer"
             style={{ position: 'absolute', top: 0, left: 0, width: 0, height: 0, transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0' }}
           >
-            {elements.map((el) => (
-              <WhiteboardElement
-                key={el.id}
-                element={el}
-                isSelected={selectedId === el.id}
-                tool={tool}
+            {showAll &&
+              elements
+                .filter((el) => !el.hidden)
+                .map((el) =>
+                  el.type === 'shape' ? (
+                    <ShapeElement
+                      key={el.id}
+                      element={el}
+                      isSelected={selectedId === el.id}
+                      tool={tool}
+                      zoom={zoom}
+                      locked={lockAll || el.locked}
+                      onSelect={(id) => useWhiteboardStore.getState().selectElement(id)}
+                      onEditText={setEditShapeId}
+                    />
+                  ) : (
+                    <WhiteboardElement
+                      key={el.id}
+                      element={el}
+                      isSelected={selectedId === el.id}
+                      tool={tool}
+                      zoom={zoom}
+                      locked={lockAll || el.locked}
+                      onSelect={(id) => useWhiteboardStore.getState().selectElement(id)}
+                      autoFocusEdit={justCreatedId === el.id}
+                    />
+                  )
+                )}
+
+            {/* Shape being placed */}
+            {draft && draftSpec && (
+              <ShapeElement
+                preview
+                tool="draw"
                 zoom={zoom}
-                onSelect={(id) => useWhiteboardStore.getState().selectElement(id)}
-                autoFocusEdit={justCreatedId === el.id}
+                onSelect={() => {}}
+                element={{
+                  id: '__draft',
+                  type: 'shape',
+                  tool: draft.tool,
+                  points: draftPts,
+                  color: useWhiteboardStore.getState().drawColor,
+                  strokeWidth: Math.max(1, strokeWidth),
+                  fill: !!draftSpec.fill,
+                  fillOpacity: 0.18,
+                  fontSize: draft.tool === 'emoji' ? 36 : 12,
+                  emoji: useWhiteboardStore.getState().glyph,
+                  text: draftSpec.text ? 'Text' : undefined,
+                }}
               />
-            ))}
+            )}
+
+            {/* Ruler */}
+            {measure && <MeasureOverlay m={measure} zoom={zoom} />}
           </div>
 
-          {selectedElement && tool === 'select' && <SelectionToolbar element={selectedElement} pan={pan} zoom={zoom} />}
+          {/* Hover guides / laser pointer */}
+          {tool === 'select' && (cursorMode === 'cross' || cursorMode === 'demo') && <CursorFx containerRef={canvasRef} mode={cursorMode} />}
+
+          {/* Zoom-to-area rubber band */}
+          {zoomBox && (
+            <div
+              className="pointer-events-none absolute border-2 border-dashed"
+              style={{
+                left: Math.min(zoomBox.x0, zoomBox.x1),
+                top: Math.min(zoomBox.y0, zoomBox.y1),
+                width: Math.abs(zoomBox.x1 - zoomBox.x0),
+                height: Math.abs(zoomBox.y1 - zoomBox.y0),
+                borderColor: 'var(--color-accent)',
+                backgroundColor: 'rgba(37,99,235,0.08)',
+              }}
+            />
+          )}
+
+          {/* Text editor for shapes that carry text (callout, pin, flag note…) */}
+          {editShape && SHAPE_TOOLS[editShape.tool] && (
+            <textarea
+              autoFocus
+              rows={2}
+              value={editShape.text || ''}
+              placeholder="Type…"
+              onMouseDown={(e) => e.stopPropagation()}
+              onChange={(e) => useWhiteboardStore.getState().updateElementBurst(editShape.id, { text: e.target.value })}
+              onBlur={() => setEditShapeId(null)}
+              onKeyDown={(e) => {
+                e.stopPropagation()
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  e.currentTarget.blur()
+                }
+              }}
+              className="absolute z-20 resize-none rounded border-2 bg-white px-1.5 py-1 text-[12px] font-semibold text-[#242423] shadow-lg outline-none"
+              style={(() => {
+                const spec = SHAPE_TOOLS[editShape.tool]
+                const at = spec.textAt ? spec.textAt(editShape.points) : editShape.points[0]
+                return { left: pan.x + at.x * zoom, top: pan.y + at.y * zoom, width: 170, transform: 'translate(-20%, -120%)', borderColor: 'var(--color-accent)' }
+              })()}
+            />
+          )}
+
+          {selectedElement && showAll && tool === 'select' && <SelectionToolbar element={selectedElement} pan={pan} zoom={zoom} />}
 
           {elements.length === 0 && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <p className="max-w-xs text-center text-xs text-[var(--color-slate)]">
-                Pick a tool above — <strong>Text</strong> or <strong>Sticky note</strong> to write anywhere, <strong>Pen</strong> to draw. Select
-                a note afterwards to attach it to any node in your mind map. 📌
+                Pick a tool on the left — lines, Fibonacci, patterns, shapes, <strong>Text</strong>, <strong>Sticky note</strong>, brushes, emojis and
+                more. Select a note afterwards to attach it to any node in your mind map. 📌
               </p>
             </div>
           )}
+        </div>
         </div>
       </motion.div>
     </AnimatePresence>

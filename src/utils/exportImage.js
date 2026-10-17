@@ -81,6 +81,13 @@ export async function exportMapAsPng(nodes, filename = 'mindmap.png') {
 }
 
 function getWhiteboardElementBounds(el) {
+  if (el.type === 'shape') {
+    // Drawing tools (see components/whiteboard/drawShapes.jsx): bounds from anchor points, padded for labels/glyphs.
+    const xs = el.points.map((p) => p.x)
+    const ys = el.points.map((p) => p.y)
+    const pad = el.tool === 'emoji' ? (el.fontSize || 36) / 2 : 90
+    return { x: Math.min(...xs) - pad, y: Math.min(...ys) - pad, width: Math.max(...xs) - Math.min(...xs) + pad * 2, height: Math.max(...ys) - Math.min(...ys) + pad * 2 }
+  }
   if (el.type === 'path') {
     const xs = el.points.map((p) => p.x)
     const ys = el.points.map((p) => p.y)

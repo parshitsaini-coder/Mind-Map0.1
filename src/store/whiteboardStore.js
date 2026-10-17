@@ -37,10 +37,21 @@ export const BOARD_BG_PRESETS = [
 
 const initialState = {
   isOpen: false,
-  elements: [], // { id, type: 'text'|'sticky'|'path', x, y, width, height, content, color, fontSize, points, strokeWidth }
+  elements: [], // { id, type: 'text'|'sticky'|'path'|'shape' (tool, points, lineStyle, fill, text…), x, y, width, height, content, color, fontSize, points, strokeWidth }
   selectedId: null,
-  tool: 'select', // 'select' | 'text' | 'sticky' | 'pen' | 'eraser'
+  tool: 'select', // 'select' | 'text' | 'sticky' | 'pen' | 'eraser' | 'draw' | 'measure' | 'zoom'
+  drawTool: 'trend', // which shape tool is armed while tool === 'draw' (see drawShapes.jsx)
+  cursorMode: 'arrow', // 'arrow' | 'cross' | 'dot' | 'demo' — how the pointer looks in select mode
+  penKind: 'brush', // 'brush' | 'highlighter'
+  magnet: 'off', // 'off' | 'weak' | 'strong' — snap new points to existing points/corners
+  stayDrawing: false, // keep the drawing tool armed after each shape
+  lockAll: false,
+  hideAll: false,
+  drawFavs: [], // pinned tool ids shown in the bar
+  lastInGroup: {}, // group id -> last tool used from that group's flyout
   color: WHITEBOARD_COLORS[0],
+  drawColor: '#2563eb',
+  glyph: '😀', // emoji/icon currently armed in the Icons panel
   strokeWidth: 3,
   pan: { x: 0, y: 0 },
   zoom: 1,
@@ -56,8 +67,23 @@ export const useWhiteboardStore = create(
       open: () => set({ isOpen: true }),
       close: () => set({ isOpen: false, selectedId: null, tool: 'select' }),
 
-      setTool: (tool) => set({ tool, selectedId: tool === 'select' ? get().selectedId : null }),
-      setColor: (color) => set({ color }),
+      setTool: (tool) => set({ tool, selectedId: tool === 'select' ? get().selectedId : null, hideAll: tool === 'select' || tool === 'zoom' || tool === 'measure' ? get().hideAll : false }),
+      setColor: (color) => set({ color, drawColor: color }),
+      setDrawColor: (drawColor) => set({ drawColor }),
+      setGlyph: (glyph) => set({ glyph }),
+      // Arms a shape tool from the left bar (also un-hides the board so you can see what you draw).
+      setDrawTool: (drawTool) => set({ tool: 'draw', drawTool, selectedId: null, hideAll: false }),
+      setCursorMode: (cursorMode) => set({ cursorMode, tool: 'select' }),
+      setPenKind: (penKind) => set({ penKind, tool: 'pen', selectedId: null, hideAll: false }),
+      setMagnet: (magnet) => set({ magnet }),
+      setStayDrawing: (stayDrawing) => set({ stayDrawing }),
+      setLockAll: (lockAll) => set({ lockAll }),
+      setHideAll: (hideAll) => set({ hideAll, selectedId: hideAll ? null : get().selectedId }),
+      toggleFav: (id) => {
+        const f = get().drawFavs
+        set({ drawFavs: f.includes(id) ? f.filter((x) => x !== id) : [...f, id] })
+      },
+      rememberInGroup: (group, id) => set({ lastInGroup: { ...get().lastInGroup, [group]: id } }),
       setStrokeWidth: (strokeWidth) => set({ strokeWidth }),
       setPan: (pan) => set({ pan }),
       setZoom: (zoom) => set({ zoom: Math.min(3, Math.max(0.25, zoom)) }),
@@ -130,10 +156,39 @@ export const useWhiteboardStore = create(
       bumpFontSize: (id, delta) => {
         get().pushSnapshotBurst()
         set({
-          elements: get().elements.map((e) =>
-            e.id === id ? { ...e, fontSize: Math.min(36, Math.max(10, (e.fontSize || 14) + delta)) } : e
-          ),
+          elements: get().elements.map((e) => {
+            if (e.id !== id) return e
+            const emoji = e.tool === 'emoji'
+            const cur = e.fontSize || (e.type === 'shape' ? (emoji ? 36 : 12) : 14)
+            return { ...e, fontSize: Math.min(emoji ? 140 : 36, Math.max(emoji ? 14 : 8, cur + (emoji ? delta * 4 : delta))) }
+          }),
         })
+      },
+      // Style tweaks from the selection bar / object tree (width, dash, fill, flags…).
+      setElementStyle: (id, patch) => {
+        get().pushSnapshotBurst()
+        set({ elements: get().elements.map((e) => (e.id === id ? { ...e, ...patch } : e)) })
+      },
+      toggleElementFlag: (id, flag) =>
+        set({ elements: get().elements.map((e) => (e.id === id ? { ...e, [flag]: !e[flag] } : e)) }),
+      clearDrawings: () => {
+        if (!get().elements.some((e) => e.type === 'shape' || e.type === 'path')) return
+        get().pushSnapshot()
+        set({ elements: get().elements.filter((e) => e.type !== 'shape' && e.type !== 'path'), selectedId: null })
+      },
+      duplicateElement: (id) => {
+        const el = get().elements.find((e) => e.id === id)
+        if (!el) return
+        get().pushSnapshot()
+        const nid = nextElementId()
+        const shift = (p) => ({ x: p.x + 24, y: p.y + 24 })
+        const copy = { ...el, id: nid, locked: false }
+        if (el.points) copy.points = el.points.map(shift)
+        else {
+          copy.x = el.x + 24
+          copy.y = el.y + 24
+        }
+        set({ elements: [...get().elements, copy], selectedId: nid })
       },
 
       deleteElement: (id) => {
@@ -152,7 +207,19 @@ export const useWhiteboardStore = create(
       name: 'mindmap-whiteboard-storage',
       // Only the actual drawing survives a refresh — open/selection/tool
       // state and undo history are transient per-session concerns.
-      partialize: (state) => ({ elements: state.elements, color: state.color, strokeWidth: state.strokeWidth, boardColor: state.boardColor }),
+      partialize: (state) => ({
+        elements: state.elements,
+        color: state.color,
+        drawColor: state.drawColor,
+        strokeWidth: state.strokeWidth,
+        boardColor: state.boardColor,
+        drawFavs: state.drawFavs,
+        magnet: state.magnet,
+        stayDrawing: state.stayDrawing,
+        penKind: state.penKind,
+        lastInGroup: state.lastInGroup,
+        glyph: state.glyph,
+      }),
     }
   )
 )

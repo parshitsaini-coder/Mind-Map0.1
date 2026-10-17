@@ -6,7 +6,7 @@ import { useWhiteboardStore } from '../../store/whiteboardStore'
 // interactions. Coordinates are all in board space — the parent canvas
 // applies the pan/zoom transform once, so children here just use their raw
 // x/y/points and divide client deltas by the current zoom.
-export default function WhiteboardElement({ element, isSelected, tool, zoom, onSelect, autoFocusEdit }) {
+export default function WhiteboardElement({ element, isSelected, tool, zoom, onSelect, autoFocusEdit, locked }) {
   const [editing, setEditing] = useState(false)
   const textareaRef = useRef(null)
 
@@ -25,6 +25,7 @@ export default function WhiteboardElement({ element, isSelected, tool, zoom, onS
     if (tool !== 'select' || editing) return
     e.stopPropagation()
     onSelect(element.id)
+    if (locked) return
     const startClientX = e.clientX
     const startClientY = e.clientY
     const store = useWhiteboardStore.getState()
@@ -56,6 +57,7 @@ export default function WhiteboardElement({ element, isSelected, tool, zoom, onS
   const startResize = (e) => {
     e.stopPropagation()
     onSelect(element.id)
+    if (locked) return
     const startClientX = e.clientX
     const startClientY = e.clientY
     const startW = element.width
@@ -89,7 +91,7 @@ export default function WhiteboardElement({ element, isSelected, tool, zoom, onS
     const h = Math.max(...ys) - Math.min(...ys) + 24
     return (
       <svg
-        style={{ position: 'absolute', left: minX, top: minY, width: w, height: h, overflow: 'visible', cursor: tool === 'select' ? 'move' : 'default' }}
+        style={{ position: 'absolute', left: minX, top: minY, width: w, height: h, overflow: 'visible', cursor: tool === 'select' && !locked ? 'move' : 'default' }}
         onMouseDown={startDrag}
         onClick={(e) => {
           if (tool === 'select') {
@@ -104,6 +106,7 @@ export default function WhiteboardElement({ element, isSelected, tool, zoom, onS
           d={d}
           fill="none"
           stroke={element.color}
+          strokeOpacity={element.opacity ?? 1}
           strokeWidth={element.strokeWidth}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -191,7 +194,7 @@ export default function WhiteboardElement({ element, isSelected, tool, zoom, onS
         </span>
       )}
 
-      {isSelected && tool === 'select' && (
+      {isSelected && tool === 'select' && !locked && (
         <div
           onMouseDown={startResize}
           title="Resize"
