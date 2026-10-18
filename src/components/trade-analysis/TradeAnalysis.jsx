@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, SlidersHorizontal, Settings, ChevronLeft, ChevronRight, Table2, LineChart, Wallet, Target, List, LayoutGrid, FileDown, Loader2, Share2, ScanSearch } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { applyFilters } from '../../utils/tradeFilters'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import TradeForm from './TradeForm'
@@ -198,6 +199,8 @@ export default function TradeAnalysis() {
   const trades = useTradeAnalysisStore((s) => s.trades)
   const validationRules = useTradeAnalysisStore((s) => s.validationRules)
   const validationCategories = useTradeAnalysisStore((s) => s.validationCategories)
+  // Header stat pills follow the active Filters popover selection.
+  const filteredForStats = useMemo(() => applyFilters(trades, filters), [trades, filters])
   const [rulesModalOpen, setRulesModalOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [reportBusy, setReportBusy] = useState(false)
@@ -364,7 +367,7 @@ export default function TradeAnalysis() {
               onChange={(v) => useTradeAnalysisStore.getState().setActiveView(v)}
             />
 
-            <StatsPills trades={trades} />
+            <StatsPills trades={filteredForStats} />
 
             {/* Report button lives outside the table-only group below so
                 it's reachable from both Table and Analysis view — it acts

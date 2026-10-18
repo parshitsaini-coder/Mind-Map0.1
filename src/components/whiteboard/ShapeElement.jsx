@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useWhiteboardStore } from '../../store/whiteboardStore'
-import { TOOLS, build, shapeBounds } from './drawShapes'
+import { TOOLS, build, shapeBounds, lineExtras } from './drawShapes'
 
 const DASH = { solid: undefined, dashed: '9 6', dotted: '2 6' }
 
@@ -18,20 +18,33 @@ export default function ShapeElement({ element, isSelected, tool, zoom, onSelect
     dash: DASH[element.lineStyle],
     fill: !!element.fill,
     fo: element.fillOpacity ?? 0.18,
+    fc: element.fillColor,
     text: element.text,
     fs: element.fontSize || (element.tool === 'emoji' ? 36 : 12),
     emoji: element.emoji,
   }
 
   const visible = useMemo(
-    () => (spec?.render ? build(opts, (H) => spec.render(pts, H)) : null),
+    () =>
+      spec?.render
+        ? build(opts, (H) => {
+            spec.render(pts, H)
+            if (spec.lineLike) lineExtras(element, pts, H)
+          })
+        : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [spec, pts, opts.c, opts.w, opts.dash, opts.fill, opts.fo, opts.text, opts.fs, opts.emoji]
+    [spec, pts, opts.c, opts.w, opts.dash, opts.fill, opts.fo, opts.fc, opts.text, opts.fs, opts.emoji, element.arrowStart, element.arrowEnd, element.extendL, element.extendR]
   )
   const hitPass = useMemo(
-    () => (spec?.render && !preview ? build({ ...opts, hit: true }, (H) => spec.render(pts, H)) : null),
+    () =>
+      spec?.render && !preview
+        ? build({ ...opts, hit: true }, (H) => {
+            spec.render(pts, H)
+            if (spec.lineLike) lineExtras(element, pts, H)
+          })
+        : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [spec, pts, opts.w, opts.fill, opts.text, opts.fs, opts.emoji, preview]
+    [spec, pts, opts.w, opts.fill, opts.text, opts.fs, opts.emoji, preview, element.arrowStart, element.arrowEnd, element.extendL, element.extendR]
   )
 
   if (!spec?.render || !pts?.length) return null
@@ -86,9 +99,9 @@ export default function ShapeElement({ element, isSelected, tool, zoom, onSelect
   return (
     <svg
       data-wb-id={element.id}
-      style={{ position: 'absolute', left: 0, top: 0, width: 1, height: 1, overflow: 'visible', pointerEvents: 'none', opacity: preview ? 0.85 : 1 }}
+      style={{ position: 'absolute', left: 0, top: 0, width: 1, height: 1, overflow: 'visible', pointerEvents: 'none', opacity: (element.opacity ?? 1) * (preview ? 0.85 : 1) }}
     >
-      <g>{visible}</g>
+      <g className={preview ? undefined : 'wb-shape-in'}>{visible}</g>
       {hitPass && (
         <g
           onMouseDown={startDrag}
@@ -110,7 +123,7 @@ export default function ShapeElement({ element, isSelected, tool, zoom, onSelect
       )}
       {isSelected && !preview && (
         <g style={{ pointerEvents: 'none' }}>
-          <rect x={b.x - 6} y={b.y - 6} width={b.width + 12} height={b.height + 12} fill="none" stroke="var(--color-accent)" strokeDasharray="4 3" strokeWidth={1.2 / zoom} rx={4} />
+          <rect x={b.x - 6} y={b.y - 6} width={b.width + 12} height={b.height + 12} fill="none" stroke="var(--color-accent)" strokeDasharray="4 3" strokeWidth={1.2 / zoom} rx={4} className="wb-ants" />
         </g>
       )}
       {isSelected && !preview && tool === 'select' && !locked &&
@@ -123,6 +136,7 @@ export default function ShapeElement({ element, isSelected, tool, zoom, onSelect
             fill="#fff"
             stroke="var(--color-accent)"
             strokeWidth={1.6 / zoom}
+            className="wb-handle"
             style={{ pointerEvents: 'all', cursor: 'crosshair' }}
             onMouseDown={startHandleDrag(i)}
           />

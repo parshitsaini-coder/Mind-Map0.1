@@ -42,7 +42,7 @@ export default function TabsBar() {
     >
       <button
         onClick={openDashboard}
-        title="All projects"
+        data-tip="All projects"
         className="flex shrink-0 items-center justify-center rounded-md p-1 hover:bg-white/50"
       >
         <LayoutGrid size={13} color="var(--color-ink)" />
@@ -61,7 +61,7 @@ export default function TabsBar() {
               exit={{ opacity: 0, scale: 0.9 }}
               transition={{ duration: 0.14 }}
               onClick={() => handleSwitch(id)}
-              title={project.name}
+              data-tip={project.name}
               className={`group flex shrink-0 items-center gap-1 rounded-t-md px-2 py-0.5 text-[10px] transition-colors ${
                 active ? 'font-medium' : 'text-[var(--color-slate)]/70 hover:bg-white/40'
               }`}
@@ -73,7 +73,7 @@ export default function TabsBar() {
                 tabIndex={-1}
                 onClick={(e) => handleClose(e, id)}
                 className="rounded-sm p-0.5 opacity-0 hover:bg-black/10 group-hover:opacity-100"
-                title="Close tab"
+                data-tip="Close tab"
               >
                 <X size={11} />
               </span>
@@ -83,7 +83,7 @@ export default function TabsBar() {
       </AnimatePresence>
       <button
         onClick={openDashboard}
-        title="New project"
+        data-tip="New project"
         className="flex shrink-0 items-center justify-center rounded-md p-1 hover:bg-white/50"
       >
         <Plus size={13} color="var(--color-ink)" />

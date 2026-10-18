@@ -14,10 +14,6 @@ import {
   ImagePlus,
   Loader2,
   Palette,
-  Copy,
-  Lock,
-  LockOpen,
-  Droplet,
 } from 'lucide-react'
 import { useWhiteboardStore, WHITEBOARD_COLORS, BOARD_BG_PRESETS } from '../../store/whiteboardStore'
 import { useMapStore } from '../../store/mapStore'
@@ -28,12 +24,12 @@ import WhiteboardElement from './WhiteboardElement'
 import ShapeElement from './ShapeElement'
 import WhiteboardLeftBar from './WhiteboardLeftBar'
 import CursorFx from './CursorFx'
+import ShapeToolbar from './ShapeToolbar'
 import { TOOLS as SHAPE_TOOLS, DRAW_SHORTCUTS, shapeBounds } from './drawShapes'
 
 const TOOL_KEYS = { v: 'select', t: 'text', s: 'sticky', p: 'pen', e: 'eraser', m: 'measure' }
 
 const ERASE_RADIUS = 16
-const DRAW_COLORS = ['#2563eb', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899', '#242423', '#ffffff']
 
 function ToolButton({ icon: Icon, label, active, onClick, disabled }) {
   return (
@@ -161,7 +157,7 @@ function NodePicker({ onPick, onClose }) {
 
 // Floating mini-toolbar that hovers just above the selected element —
 // recolor, resize font (text/sticky), attach to a node, delete.
-function SelectionToolbar({ element, pan, zoom }) {
+function SelectionToolbar({ element, pan, zoom, canvasRef }) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const bounds = getElementBounds(element)
   const left = pan.x + bounds.x * zoom
@@ -178,68 +174,7 @@ function SelectionToolbar({ element, pan, zoom }) {
     setPickerOpen(false)
   }
 
-  if (element.type === 'shape') {
-    const spec = SHAPE_TOOLS[element.tool]
-    const wb = useWhiteboardStore.getState()
-    const LS = ['solid', 'dashed', 'dotted']
-    const nextLs = LS[(LS.indexOf(element.lineStyle || 'solid') + 1) % LS.length]
-    const w = element.strokeWidth || 2
-    const sep = <div className="mx-0.5 h-4 w-px" style={{ backgroundColor: 'var(--color-sage)' }} />
-    return (
-      <div
-        className="absolute z-10 flex items-center gap-1 rounded-md border px-1.5 py-1 shadow-lg"
-        style={{ left, top: Math.max(4, top), backgroundColor: 'var(--color-cream)', borderColor: 'var(--color-sage)' }}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        {DRAW_COLORS.map((c) => (
-          <button
-            key={c}
-            onClick={() => wb.setElementColor(element.id, c)}
-            className={`h-4 w-4 shrink-0 rounded-full border ${element.color === c ? 'ring-2 ring-[var(--color-accent)] ring-offset-1' : ''}`}
-            style={{ backgroundColor: c, borderColor: 'var(--color-slate)' }}
-            title={c}
-          />
-        ))}
-        <CustomColorSwatch value={element.color || '#2563eb'} onChange={(c) => wb.setElementColor(element.id, c)} />
-        {sep}
-        {!spec?.glyph && (
-          <>
-            <button onClick={() => wb.setElementStyle(element.id, { strokeWidth: Math.max(1, w - 1) })} title="Thinner line" className="rounded p-0.5 hover:bg-[var(--color-sage)]">
-              <Minus size={11} />
-            </button>
-            <span className="w-4 select-none text-center text-[10px]">{w}</span>
-            <button onClick={() => wb.setElementStyle(element.id, { strokeWidth: Math.min(12, w + 1) })} title="Thicker line" className="rounded p-0.5 hover:bg-[var(--color-sage)]">
-              <Plus size={11} />
-            </button>
-            <button onClick={() => wb.setElementStyle(element.id, { lineStyle: nextLs })} title={`Line style: ${element.lineStyle || 'solid'} (click to change)`} className="rounded px-1 text-[10px] font-bold hover:bg-[var(--color-sage)]">
-              {element.lineStyle === 'dashed' ? '– –' : element.lineStyle === 'dotted' ? '···' : '——'}
-            </button>
-          </>
-        )}
-        {spec?.fill !== undefined && (
-          <button onClick={() => wb.setElementStyle(element.id, { fill: !element.fill })} title="Toggle fill" className={`rounded p-0.5 ${element.fill ? 'bg-[var(--color-accent)]' : 'hover:bg-[var(--color-sage)]'}`}>
-            <Droplet size={12} />
-          </button>
-        )}
-        {(spec?.text || spec?.glyph || spec?.n === 2 || spec?.n === 3) && (
-          <>
-            <button onClick={() => wb.bumpFontSize(element.id, -2)} title="Smaller text / icon" className="rounded px-1 text-[10px] font-bold hover:bg-[var(--color-sage)]">A−</button>
-            <button onClick={() => wb.bumpFontSize(element.id, 2)} title="Bigger text / icon" className="rounded px-1 text-[10px] font-bold hover:bg-[var(--color-sage)]">A+</button>
-          </>
-        )}
-        {sep}
-        <button onClick={() => wb.duplicateElement(element.id)} title="Duplicate" className="rounded p-0.5 hover:bg-[var(--color-sage)]">
-          <Copy size={12} />
-        </button>
-        <button onClick={() => wb.toggleElementFlag(element.id, 'locked')} title={element.locked ? 'Unlock' : 'Lock'} className="rounded p-0.5 hover:bg-[var(--color-sage)]">
-          {element.locked ? <Lock size={12} /> : <LockOpen size={12} />}
-        </button>
-        <button onClick={() => wb.deleteElement(element.id)} title="Delete (Del)" className="rounded p-0.5 text-red-600 hover:bg-red-500/10">
-          <Trash2 size={12} />
-        </button>
-      </div>
-    )
-  }
+  if (element.type === 'shape' || element.type === 'path') return <ShapeToolbar element={element} pan={pan} zoom={zoom} bounds={bounds} canvasRef={canvasRef} />
 
   return (
     <div
@@ -649,6 +584,12 @@ export default function Whiteboard() {
     if (d && SHAPE_TOOLS[d.tool]?.n === 0) finishOpenDraft()
   }
 
+  useEffect(() => {
+    const h = (e) => setEditShapeId(e.detail)
+    window.addEventListener('wb-edit-shape', h)
+    return () => window.removeEventListener('wb-edit-shape', h)
+  }, [])
+
   // Leaving the select tool throws away any half-placed shape / measurement.
   useEffect(() => {
     if (tool !== 'draw') setDraft(null)
@@ -1002,7 +943,7 @@ export default function Whiteboard() {
             />
           )}
 
-          {selectedElement && showAll && tool === 'select' && <SelectionToolbar element={selectedElement} pan={pan} zoom={zoom} />}
+          {selectedElement && showAll && tool === 'select' && <SelectionToolbar element={selectedElement} pan={pan} zoom={zoom} canvasRef={canvasRef} />}
 
           {elements.length === 0 && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">

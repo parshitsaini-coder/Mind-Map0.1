@@ -36,6 +36,7 @@ import {
   Activity,
 } from 'lucide-react'
 import { useState, useRef } from 'react'
+import HoverTip from './HoverTip'
 import { useMapStore } from '../../store/mapStore'
 import { useUiStore } from '../../store/uiStore'
 import { useWhiteboardStore } from '../../store/whiteboardStore'
@@ -51,7 +52,8 @@ import { downloadMapBackup, readMapBackup } from '../../utils/exportImportBackup
 const IconBtn = ({ icon: Icon, label, onClick, active }) => (
   <button
     onClick={onClick}
-    title={label}
+    data-tip={label}
+    aria-label={label}
     className={`flex shrink-0 items-center justify-center rounded-md p-1 transition-colors ${
       active ? 'bg-[var(--color-accent)]' : 'hover:bg-[var(--color-sage)]'
     }`}
@@ -161,6 +163,7 @@ export default function TopToolbar() {
       className="no-scrollbar flex h-8 shrink-0 items-center gap-1 border-b px-2 max-md:overflow-x-auto max-md:overscroll-x-contain"
       style={{ backgroundColor: 'var(--color-cream)', borderColor: 'var(--color-sage)', WebkitOverflowScrolling: 'touch' }}
     >
+      <HoverTip />
       {/* Section 14 — responsive pass: this cluster is the widest part of the
           toolbar (11 icons). On narrow/mobile viewports it scrolls
           horizontally instead of wrapping or clipping, so the undo/redo/

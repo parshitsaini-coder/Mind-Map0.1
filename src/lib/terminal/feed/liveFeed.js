@@ -156,10 +156,14 @@ export function createLiveFeed({ fetchImpl, now = () => Date.now(), timers = { s
     }
     let out = to ? have.filter((c) => c.time < to) : have
     out = fillGaps(out, TF_SECONDS[src], { isOpen: isMarketOpen })
+    // Drop flat (open=high=low=close) bars that sit in closed-market hours — weekend / maintenance
+    // placeholders drew a dashed line across the gap and stretched the time axis with blank days.
+    out = out.filter((c) => !(c.open === c.high && c.high === c.low && c.low === c.close && !isMarketOpen(c.time)))
     if (tf === 'H4') out = aggregate(out, TF_SECONDS.H4)
     // fold the live price into the forming candle
     const mm = m(symbol)
-    if (!to && mm.last != null && mm.lastUpdate) out = applyTick(out, mm.last, mm.lastUpdate, TF_SECONDS[tf])
+    // (not while the market is closed: that would start a fake flat candle at "now")
+    if (!to && mm.last != null && mm.lastUpdate && (mm.providerOpen ?? isMarketOpen(mm.lastUpdate))) out = applyTick(out, mm.last, mm.lastUpdate, TF_SECONDS[tf])
     return out.length > limit ? out.slice(out.length - limit) : out
   }
   const peek = (symbol) => tickOf(symbol)

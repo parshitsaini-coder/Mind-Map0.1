@@ -16,6 +16,7 @@ import ChartFx from './ChartFx'
 import ExecTooltip from './ExecTooltip'
 import { setTz } from './chartConst'
 import { createLiveBar } from '../../lib/terminal/liveBar'
+import { isMarketOpen } from '../../lib/terminal/marketHours'
 
 const CLASSES = { Candlestick: CandlestickSeries, Bar: BarSeries, Line: LineSeries, Area: AreaSeries, Baseline: BaselineSeries }
 
@@ -144,6 +145,8 @@ function ChartView({ symbol, timeframe, chartType, onQuote, active, index, showL
         const bucket = bucketOf(q.ts || q.time, tfSec)
         const px = q.bid
         const isNew = !last || bucket > last.time
+        // Market closed (weekend / break): don't open a new flat candle — just keep the header quote fresh.
+        if (isNew && last && !isMarketOpen(bucket)) { if (activeRef.current) onQuote(q); return }
         if (isNew) {
           prevClose = last ? last.close : null
           if (ha) { haPrev = haLast; prevShownClose = haLast ? haLast.close : null } else prevShownClose = last ? last.close : null

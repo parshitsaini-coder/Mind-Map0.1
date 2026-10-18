@@ -169,6 +169,16 @@ export const useWhiteboardStore = create(
         get().pushSnapshotBurst()
         set({ elements: get().elements.map((e) => (e.id === id ? { ...e, ...patch } : e)) })
       },
+      reorderElement: (id, mode) => {
+        const els = [...get().elements]
+        const i = els.findIndex((e) => e.id === id)
+        if (i < 0) return
+        get().pushSnapshot()
+        const [el] = els.splice(i, 1)
+        const j = mode === 'front' ? els.length : mode === 'back' ? 0 : mode === 'forward' ? Math.min(els.length, i + 1) : Math.max(0, i - 1)
+        els.splice(j, 0, el)
+        set({ elements: els })
+      },
       toggleElementFlag: (id, flag) =>
         set({ elements: get().elements.map((e) => (e.id === id ? { ...e, [flag]: !e[flag] } : e)) }),
       clearDrawings: () => {

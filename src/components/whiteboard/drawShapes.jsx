@@ -71,7 +71,7 @@ export function build(o, fn) {
     ? { stroke: 'transparent', strokeWidth: Math.max(o.w, 12), fill: 'none', pointerEvents: 'stroke', strokeLinecap: 'round', strokeLinejoin: 'round' }
     : { stroke: o.c, strokeWidth: o.w, fill: 'none', strokeDasharray: o.dash, strokeLinecap: 'round', strokeLinejoin: 'round', pointerEvents: 'none' }
   const fs = o.fs || 12
-  const fillP = (color) => (hit ? { fill: 'transparent', pointerEvents: 'all' } : { fill: color || o.c, fillOpacity: o.fo, pointerEvents: 'none' })
+  const fillP = (color) => (hit ? { fill: 'transparent', pointerEvents: 'all' } : { fill: color || o.fc || o.c, fillOpacity: o.fo, pointerEvents: 'none' })
   const H = {
     o,
     fs,
@@ -287,10 +287,10 @@ const textShape = (fn) => (p, H) => fn(p, H, H.o.text || 'Text')
 // native — not a shape: maps onto an existing board tool ({tool, penKind})
 export const TOOLS = {
   // ── Lines ───────────────────────────────────────────────────────────────
-  trend: { name: 'Trend line', icon: TrendingUp, n: 2, render: (p, H) => H.line(p[0], p[1]) },
+  trend: { name: 'Trend line', icon: TrendingUp, n: 2, lineLike: true, render: (p, H) => H.line(p[0], p[1]) },
   ray: { name: 'Ray', icon: MoveUpRight, n: 2, render: (p, H) => H.line(p[0], rayEnd(p[0], p[1])) },
   info: {
-    name: 'Info line', icon: Info, n: 2,
+    name: 'Info line', icon: Info, n: 2, lineLike: true,
     render: (p, H) => {
       H.line(p[0], p[1])
       const d = sub(p[1], p[0])
@@ -318,7 +318,7 @@ export const TOOLS = {
     },
   },
   arrow: {
-    name: 'Arrow', icon: ArrowUpRight, n: 2,
+    name: 'Arrow', icon: ArrowUpRight, n: 2, lineLike: true,
     render: (p, H) => {
       H.line(p[0], p[1])
       H.arrowHead(p[0], p[1])
@@ -892,7 +892,7 @@ export const TOOLS = {
     },
   },
   curve: {
-    name: 'Curve', icon: Spline, n: 2,
+    name: 'Curve', icon: Spline, n: 2, lineLike: true,
     render: (p, H) => {
       const m = mid(p[0], p[1])
       const d = sub(p[1], p[0])
@@ -901,7 +901,7 @@ export const TOOLS = {
     },
   },
   doublecurve: {
-    name: 'Double curve', icon: ChartSpline, n: 2,
+    name: 'Double curve', icon: ChartSpline, n: 2, lineLike: true,
     render: (p, H) => {
       const mx = (p[0].x + p[1].x) / 2
       H.path(`M ${p[0].x} ${p[0].y} C ${mx} ${p[0].y} ${mx} ${p[1].y} ${p[1].x} ${p[1].y}`)
@@ -1060,6 +1060,18 @@ export const GLYPHS = {
 
 // Alt+key shortcuts (TradingView-style).
 export const DRAW_SHORTCUTS = { KeyT: 'trend', KeyH: 'hline', KeyV: 'vline', KeyC: 'crossline', KeyF: 'fib', KeyP: 'pitchfork', KeyR: 'rect', KeyA: 'arrow' }
+
+// Arrow heads / extensions chosen in the edit toolbar (line-like tools only).
+export function lineExtras(el, pts, H) {
+  if (pts.length < 2) return
+  const a = pts[0]
+  const b = pts[pts.length === 2 ? 1 : pts.length - 1]
+  if (el.arrowEnd) H.arrowHead(pts[pts.length - 2], b)
+  if (el.arrowStart) H.arrowHead(pts[1], a)
+  const u = unit(sub(b, a))
+  if (el.extendR) H.line(b, add(b, mul(u, EXT)), { opacity: 0.9 })
+  if (el.extendL) H.line(a, add(a, mul(u, -EXT)), { opacity: 0.9 })
+}
 
 export function toolSpec(id) {
   return TOOLS[id]

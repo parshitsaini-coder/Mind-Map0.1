@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect } from 'react'
+import { lazy, Suspense, useState, useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Star, X as XIcon, Bold, Italic, Underline, Minus, Plus, Link2, ArrowUpRight, PenSquare, Pin, TrendingUp } from 'lucide-react'
 import { useMapStore } from '../../store/mapStore'
@@ -215,6 +215,42 @@ export default function NodeInspector() {
       }
     } finally {
       setImageUploading(false)
+    }
+  }
+
+  // Right-click menu on the Image zone: paste from clipboard / browse / remove.
+  const [imgMenu, setImgMenu] = useState(null) // { x, y }
+  const imgFileRef = useRef(null)
+
+  useEffect(() => {
+    if (!imgMenu) return undefined
+    const close = () => setImgMenu(null)
+    const esc = (e) => e.key === 'Escape' && close()
+    window.addEventListener('pointerdown', close)
+    window.addEventListener('keydown', esc)
+    window.addEventListener('scroll', close, true)
+    return () => {
+      window.removeEventListener('pointerdown', close)
+      window.removeEventListener('keydown', esc)
+      window.removeEventListener('scroll', close, true)
+    }
+  }, [imgMenu])
+
+  const pasteImageFromClipboard = async () => {
+    setImgMenu(null)
+    try {
+      const items = await navigator.clipboard.read()
+      for (const item of items) {
+        const type = item.types.find((t) => t.startsWith('image/'))
+        if (type) {
+          const blob = await item.getType(type)
+          uploadImageFile(new File([blob], `pasted-${Date.now()}.${type.split('/')[1] || 'png'}`, { type }))
+          return
+        }
+      }
+      useUiStore.getState().showToast('Clipboard me image nahi mili — pehle image copy karo.')
+    } catch {
+      useUiStore.getState().showToast('Browser ne clipboard access roka — click karke Ctrl+V dabao.')
     }
   }
 
@@ -881,7 +917,15 @@ export default function NodeInspector() {
 
         {/* Section 4.3 — image upload into nodes. Accepts click-to-browse,
             drag-and-drop, and Ctrl+V paste (see the paste listener above). */}
-        <div onDrop={handleImageDrop} onDragOver={(e) => e.preventDefault()}>
+        <div
+          onDrop={handleImageDrop}
+          onDragOver={(e) => e.preventDefault()}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            setImgMenu({ x: Math.min(e.clientX, window.innerWidth - 210), y: Math.min(e.clientY, window.innerHeight - 140) })
+          }}
+        >
+          <input ref={imgFileRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
           <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--color-slate)]">Image</p>
           {imageUploading ? (
             <p className="text-[10px] text-[var(--color-slate)]">Uploading…</p>
@@ -938,10 +982,47 @@ export default function NodeInspector() {
           ) : (
             <label className="flex cursor-pointer flex-col items-center gap-0.5 rounded-md border border-dashed border-[var(--color-slate)] px-2 py-2 text-center text-[10px] text-[var(--color-slate)] hover:bg-[var(--color-sage)]/30">
               <span>Upload image</span>
-              <span className="text-[9px] opacity-70">or drag &amp; drop / paste (Ctrl+V)</span>
+              <span className="text-[9px] opacity-70">or drag &amp; drop / paste (Ctrl+V) / right-click</span>
               <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
             </label>
           )}
+          <AnimatePresence>
+            {imgMenu && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: -4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ type: 'spring', stiffness: 520, damping: 30 }}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="fixed z-[300] w-[200px] overflow-hidden rounded-lg border py-1 shadow-2xl"
+                style={{ left: imgMenu.x, top: imgMenu.y, transformOrigin: 'top left', backgroundColor: 'var(--color-cream)', borderColor: 'var(--color-sage)' }}
+              >
+                <button onClick={pasteImageFromClipboard} className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium hover:bg-[var(--color-sage)]/60">
+                  📋 Paste image <span className="ml-auto text-[10px] opacity-60">Ctrl+V</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setImgMenu(null)
+                    imgFileRef.current?.click()
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium hover:bg-[var(--color-sage)]/60"
+                >
+                  📁 Upload from device…
+                </button>
+                {selectedNode.data.image && (
+                  <button
+                    onClick={() => {
+                      setImgMenu(null)
+                      updateNodeData(selectedNode.id, { image: null })
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-red-600 hover:bg-red-500/10"
+                  >
+                    🗑 Remove image
+                  </button>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
           {selectedNode.data.image && !imageUploading && !selectedNode.data.image.startsWith('data:') && (
             <p className="mt-1 text-[9px] text-[var(--color-slate)]">✓ Hosted — will show up in share links.</p>
           )}
