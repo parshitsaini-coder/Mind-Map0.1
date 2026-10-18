@@ -3,7 +3,7 @@
 // - subscribe(symbol, cb)                ONE polling loop per symbol, pauses when the tab is hidden
 // - getStatus() / subscribeStatus(cb)    live | delayed | offline | closed | loading + reason
 import { FeedError, FEED_ALLOWED, TF_SECONDS } from './feedTypes.js'
-import { mergeCandles, applyTick, fillGaps, aggregate, sourceTf, memGet, memPut, idbLoad, idbSave, bucketOf } from './candleStore.js'
+import { mergeCandles, applyTick, fillGaps, dropIdle, aggregate, sourceTf, memGet, memPut, idbLoad, idbSave, bucketOf } from './candleStore.js'
 import { connectionState, backoffMs } from './feedStatus.js'
 import { isMarketOpen } from '../marketHours.js'
 import { quoteFromMid } from './spread.js'
@@ -155,15 +155,15 @@ export function createLiveFeed({ fetchImpl, now = () => Date.now(), timers = { s
       try { have = await inflightC.get(key) } catch (e) { if (!have.length) throw e } // offline: fall back to what we stored
     }
     let out = to ? have.filter((c) => c.time < to) : have
-    out = fillGaps(out, TF_SECONDS[src], { isOpen: isMarketOpen })
     // Drop flat (open=high=low=close) bars that sit in closed-market hours — weekend / maintenance
     // placeholders drew a dashed line across the gap and stretched the time axis with blank days.
-    out = out.filter((c) => !(c.open === c.high && c.high === c.low && c.low === c.close && !isMarketOpen(c.time)))
+    out = dropIdle(out, { isOpen: isMarketOpen })
+    out = fillGaps(out, TF_SECONDS[src], { isOpen: isMarketOpen })
     if (tf === 'H4') out = aggregate(out, TF_SECONDS.H4)
     // fold the live price into the forming candle
     const mm = m(symbol)
     // (not while the market is closed: that would start a fake flat candle at "now")
-    if (!to && mm.last != null && mm.lastUpdate && (mm.providerOpen ?? isMarketOpen(mm.lastUpdate))) out = applyTick(out, mm.last, mm.lastUpdate, TF_SECONDS[tf])
+    if (!to && mm.last != null && mm.lastUpdate && Math.floor(Date.now() / 1000) - mm.lastUpdate < 600 && isMarketOpen() && (mm.providerOpen ?? true)) out = applyTick(out, mm.last, mm.lastUpdate, TF_SECONDS[tf])
     return out.length > limit ? out.slice(out.length - limit) : out
   }
   const peek = (symbol) => tickOf(symbol)

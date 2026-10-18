@@ -48,6 +48,26 @@ export function fillGaps(candles, tfSec, { maxGap = 5, isOpen = () => true } = {
   return out
 }
 
+// Remove "idle" placeholder bars that providers emit while a market is shut (weekend / maintenance):
+// flat bars (open≈high≈low≈close). A flat bar is dropped when it sits in closed hours, OR when it is part of
+// a run of 2+ flat bars at the same price (no trading happened — also catches a provider whose session
+// hours differ from our calendar). A single isolated flat bar in open hours is real and kept.
+export function dropIdle(candles, { isOpen = () => true } = {}) {
+  const flat = (c) => c.high - c.low <= Math.max(1e-9, Math.abs(c.close) * 2e-6) && Math.abs(c.open - c.close) <= Math.max(1e-9, Math.abs(c.close) * 2e-6)
+  const out = []
+  for (let i = 0; i < candles.length; ) {
+    const c = candles[i]
+    if (!flat(c)) { out.push(c); i++; continue }
+    let j = i + 1
+    while (j < candles.length && flat(candles[j]) && Math.abs(candles[j].close - c.close) <= Math.max(1e-9, Math.abs(c.close) * 2e-6)) j++
+    const run = candles.slice(i, j)
+    if (run.length < 2) { if (isOpen(c.time)) out.push(c) }
+    // runs of 2+ are idle → dropped
+    i = j
+  }
+  return out
+}
+
 // Build a higher timeframe from a lower one (e.g. H4 from H1). Buckets are aligned to UTC.
 export function aggregate(candles, targetSec) {
   const out = []

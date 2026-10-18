@@ -37,12 +37,72 @@ function ToolButton({ icon: Icon, label, active, onClick, disabled }) {
       onClick={onClick}
       title={label}
       disabled={disabled}
-      className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:opacity-30 ${
+      className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors disabled:opacity-30 ${
         active ? 'bg-[var(--color-accent)]' : 'hover:bg-[var(--color-sage)]'
       }`}
     >
-      <Icon size={14} color="var(--color-ink)" />
+      <Icon size={12} color="var(--color-ink)" />
     </button>
+  )
+}
+
+// Tools pinned (⭐) from the left bar's flyouts, mirrored in the top bar for one-click access.
+function PinnedTools() {
+  const favs = useWhiteboardStore((s) => s.drawFavs)
+  const tool = useWhiteboardStore((s) => s.tool)
+  const drawTool = useWhiteboardStore((s) => s.drawTool)
+  const penKind = useWhiteboardStore((s) => s.penKind)
+  const list = favs.filter((id) => SHAPE_TOOLS[id])
+  if (!list.length) return null
+  const isActive = (id) => {
+    const spec = SHAPE_TOOLS[id]
+    if (spec.native?.tool === 'pen') return tool === 'pen' && penKind === spec.native.penKind
+    if (spec.native) return tool === spec.native.tool
+    return tool === 'draw' && drawTool === id
+  }
+  const pick = (id) => {
+    const st = useWhiteboardStore.getState()
+    const spec = SHAPE_TOOLS[id]
+    if (spec.native?.tool === 'pen') st.setPenKind(spec.native.penKind)
+    else if (spec.native) st.setTool(spec.native.tool)
+    else st.setDrawTool(id)
+  }
+  return (
+    <>
+      <div className="mx-0.5 h-4 w-px shrink-0" style={{ backgroundColor: 'var(--color-sage)' }} />
+      <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto" data-testid="wb-pinned">
+        <AnimatePresence initial={false}>
+          {list.map((id) => {
+            const Icon = SHAPE_TOOLS[id].icon
+            const active = isActive(id)
+            return (
+              <motion.button
+                key={id}
+                layout
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0, opacity: 0 }}
+                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.85 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 26 }}
+                onClick={() => pick(id)}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  useWhiteboardStore.getState().toggleFav(id)
+                }}
+                title={`${SHAPE_TOOLS[id].name} (pinned — right-click to unpin)`}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors"
+                style={{ backgroundColor: active ? 'var(--color-accent)' : undefined }}
+                onMouseEnter={(e) => { if (!active) e.currentTarget.style.backgroundColor = 'var(--color-sage)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = active ? 'var(--color-accent)' : '' }}
+              >
+                <Icon size={12} color="var(--color-ink)" />
+              </motion.button>
+            )
+          })}
+        </AnimatePresence>
+      </div>
+    </>
   )
 }
 
@@ -733,13 +793,13 @@ export default function Whiteboard() {
       >
         {/* Toolbar */}
         <div
-          className="flex h-11 shrink-0 items-center gap-2 border-b px-2"
+          className="flex h-8 shrink-0 items-center gap-1.5 border-b px-2"
           style={{ backgroundColor: 'var(--color-cream)', borderColor: 'var(--color-sage)' }}
         >
-          <span className="hidden shrink-0 items-center gap-1 text-xs font-semibold sm:flex" style={{ color: 'var(--color-ink)' }}>
+          <span className="hidden shrink-0 items-center gap-1 text-[11px] font-semibold sm:flex" style={{ color: 'var(--color-ink)' }}>
             📝 Whiteboard
           </span>
-          <div className="mx-0.5 hidden h-5 w-px shrink-0 sm:block" style={{ backgroundColor: 'var(--color-sage)' }} />
+          <div className="mx-0.5 hidden h-4 w-px shrink-0 sm:block" style={{ backgroundColor: 'var(--color-sage)' }} />
 
           <div className="flex shrink-0 items-center gap-1">
             {WHITEBOARD_COLORS.map((c) => (
@@ -747,11 +807,11 @@ export default function Whiteboard() {
                 key={c}
                 onClick={() => useWhiteboardStore.getState().setColor(c)}
                 title={c}
-                className={`h-5 w-5 shrink-0 rounded-full border ${color === c ? 'ring-2 ring-[var(--color-accent)] ring-offset-1' : ''}`}
+                className={`h-4 w-4 shrink-0 rounded-full border ${color === c ? 'ring-2 ring-[var(--color-accent)] ring-offset-1' : ''}`}
                 style={{ backgroundColor: c, borderColor: 'var(--color-slate)' }}
               />
             ))}
-            <CustomColorSwatch value={color} onChange={(c) => useWhiteboardStore.getState().setColor(c)} size="h-5 w-5" />
+            <CustomColorSwatch value={color} onChange={(c) => useWhiteboardStore.getState().setColor(c)} size="h-4 w-4" />
           </div>
 
           {(tool === 'pen' || tool === 'draw') && (
@@ -774,7 +834,7 @@ export default function Whiteboard() {
             </span>
           )}
 
-          <div className="mx-0.5 h-5 w-px shrink-0" style={{ backgroundColor: 'var(--color-sage)' }} />
+          <div className="mx-0.5 h-4 w-px shrink-0" style={{ backgroundColor: 'var(--color-sage)' }} />
           <ToolButton icon={Undo2} label="Undo (Ctrl+Z)" disabled={!history.past.length} onClick={() => useWhiteboardStore.getState().undo()} />
           <ToolButton icon={Redo2} label="Redo (Ctrl+Y)" disabled={!history.future.length} onClick={() => useWhiteboardStore.getState().redo()} />
           <ToolButton
@@ -798,14 +858,16 @@ export default function Whiteboard() {
             {addToNodeOpen && <NodePicker onPick={handleAddWhiteboardToNode} onClose={() => setAddToNodeOpen(false)} />}
           </div>
 
+          <PinnedTools />
+
           <div className="ml-auto flex shrink-0 items-center gap-1">
             <ToolButton icon={ZoomOut} label="Zoom out" onClick={() => useWhiteboardStore.getState().setZoom(zoom - 0.15)} />
-            <span className="w-9 select-none text-center text-[10px]" style={{ color: 'var(--color-slate)' }}>
+            <span className="w-8 select-none text-center text-[9.5px]" style={{ color: 'var(--color-slate)' }}>
               {Math.round(zoom * 100)}%
             </span>
             <ToolButton icon={ZoomIn} label="Zoom in" onClick={() => useWhiteboardStore.getState().setZoom(zoom + 0.15)} />
             <ToolButton icon={RotateCcw} label="Reset view" onClick={() => useWhiteboardStore.getState().resetView()} />
-            <div className="mx-0.5 h-5 w-px" style={{ backgroundColor: 'var(--color-sage)' }} />
+            <div className="mx-0.5 h-4 w-px" style={{ backgroundColor: 'var(--color-sage)' }} />
             <div className="relative">
               <ToolButton icon={Palette} label="Whiteboard background color" active={bgPickerOpen} onClick={() => setBgPickerOpen((v) => !v)} />
               {bgPickerOpen && (
@@ -816,7 +878,7 @@ export default function Whiteboard() {
                 />
               )}
             </div>
-            <div className="mx-0.5 h-5 w-px" style={{ backgroundColor: 'var(--color-sage)' }} />
+            <div className="mx-0.5 h-4 w-px" style={{ backgroundColor: 'var(--color-sage)' }} />
             <ToolButton icon={X} label="Close whiteboard (Esc)" onClick={() => useWhiteboardStore.getState().close()} />
           </div>
         </div>
