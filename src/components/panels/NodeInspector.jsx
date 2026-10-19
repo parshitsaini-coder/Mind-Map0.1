@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { lazy, Suspense, useState, useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Star, X as XIcon, Bold, Italic, Underline, Minus, Plus, Link2, ArrowUpRight, PenSquare, Pin, TrendingUp } from 'lucide-react'
@@ -221,10 +222,14 @@ export default function NodeInspector() {
   // Right-click menu on the Image zone: paste from clipboard / browse / remove.
   const [imgMenu, setImgMenu] = useState(null) // { x, y }
   const imgFileRef = useRef(null)
+  const imgMenuRef = useRef(null)
 
   useEffect(() => {
     if (!imgMenu) return undefined
-    const close = () => setImgMenu(null)
+    const close = (e) => {
+      if (e?.target && imgMenuRef.current?.contains(e.target)) return
+      setImgMenu(null)
+    }
     const esc = (e) => e.key === 'Escape' && close()
     window.addEventListener('pointerdown', close)
     window.addEventListener('keydown', esc)
@@ -986,15 +991,16 @@ export default function NodeInspector() {
               <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
             </label>
           )}
+          {createPortal(
           <AnimatePresence>
             {imgMenu && (
               <motion.div
+                ref={imgMenuRef}
                 initial={{ opacity: 0, scale: 0.9, y: -4 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ type: 'spring', stiffness: 520, damping: 30 }}
-                onPointerDown={(e) => e.stopPropagation()}
-                className="fixed z-[300] w-[200px] overflow-hidden rounded-lg border py-1 shadow-2xl"
+                className="fixed z-[9999] w-[200px] overflow-hidden rounded-lg border py-1 shadow-2xl"
                 style={{ left: imgMenu.x, top: imgMenu.y, transformOrigin: 'top left', backgroundColor: 'var(--color-cream)', borderColor: 'var(--color-sage)' }}
               >
                 <button onClick={pasteImageFromClipboard} className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium hover:bg-[var(--color-sage)]/60">
@@ -1022,7 +1028,9 @@ export default function NodeInspector() {
                 )}
               </motion.div>
             )}
-          </AnimatePresence>
+          </AnimatePresence>,
+          document.body
+          )}
           {selectedNode.data.image && !imageUploading && !selectedNode.data.image.startsWith('data:') && (
             <p className="mt-1 text-[9px] text-[var(--color-slate)]">✓ Hosted — will show up in share links.</p>
           )}
