@@ -1,6 +1,31 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
+
+// Debounced localStorage: serialising every trade (some carry base64
+// images) on every store change blocked the main thread while typing.
+// Writes are coalesced to one per 400ms and flushed when the tab hides.
+const debouncedStorage = (() => {
+  let timer = null
+  let pending = null
+  const flush = () => {
+    if (timer) { clearTimeout(timer); timer = null }
+    if (pending) {
+      const [k, v] = pending
+      pending = null
+      try { localStorage.setItem(k, v) } catch { /* quota */ }
+    }
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', () => { if (document.hidden) flush() })
+  }
+  return {
+    getItem: (k) => { flush(); return localStorage.getItem(k) },
+    setItem: (k, v) => { pending = [k, v]; if (!timer) timer = setTimeout(flush, 400) },
+    removeItem: (k) => { pending = null; localStorage.removeItem(k) },
+  }
+})()
 
 // Section — Trade Analysis. A separate full-screen feature (own overlay,
 // own left "new trade" form, own entries table) for logging trades against
@@ -622,6 +647,7 @@ export const useTradeAnalysisStore = create(
     }),
     {
       name: 'mindmap-trade-analysis-storage',
+      storage: createJSONStorage(() => debouncedStorage),
       // Open/editing/cloud-status state is transient per-session;
       // sidebarOpen mirrors whiteboardStore's own partialize (small UI
       // prefs are worth remembering, unlike isOpen/editingTradeId).

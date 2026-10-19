@@ -273,7 +273,7 @@ body {
     linear-gradient(125deg, #eef3fb, #dbe6f7, #c9d7ee, #e3ecfa, #eef3fb);
   background-size: 180% 180%, 180% 180%, 180% 180%, 180% 180%, 320% 320%;
   background-color: #e6edf9;
-  animation: taLiquidFlow 22s ease-in-out infinite;
+  /* static: animating background-position repaints the full screen every frame */
 }
 
 /* Frosted blur on every rounded "card"-shaped element inside the Liquid
@@ -281,14 +281,39 @@ body {
    flowing color behind actually reads as glass rather than plain
    translucency. Broad on purpose: this theme is meant to feel glassy
    everywhere, not just on a couple of hand-picked containers. */
-[data-ta-theme="liquidglass"] .rounded-2xl,
-[data-ta-theme="liquidglass"] .rounded-xl,
-[data-ta-theme="liquidglass"] .rounded-lg,
-[data-ta-theme="liquidglass"] .rounded-md,
-[data-ta-theme="liquidglass"] .rounded-full,
-[data-ta-theme="liquidglass"] .rounded {
-  backdrop-filter: blur(18px) saturate(130%);
-  -webkit-backdrop-filter: blur(18px) saturate(130%);
+/* Blur only on a handful of big containers (overlays, popovers, bars).
+   Applying backdrop-filter to every rounded element made the card grid
+   and form re-blur on each scroll/hover frame and hang. */
+[data-ta-theme="liquidglass"] .ta-sticky-nav,
+[data-ta-theme="liquidglass"] [role="dialog"],
+[data-ta-theme="liquidglass"] [role="menu"],
+[data-ta-theme="liquidglass"] [role="listbox"] {
+  backdrop-filter: blur(14px) saturate(130%);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+}
+
+/* Trade cards: skip layout/paint of off-screen cards, CSS-only hover. */
+.ta-trade-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 210px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.ta-trade-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px -6px rgba(64, 61, 57, 0.22);
+}
+.ta-thumb { transition: transform 0.15s ease; }
+.ta-thumb:hover { transform: scale(1.12); }
+@keyframes taCelebrate {
+  from { opacity: 0; transform: translateY(0) scale(0.4); }
+  40% { opacity: 1; transform: translateY(-10px) scale(1.3); }
+  to { opacity: 0; transform: translateY(-10px) scale(1); }
+}
+.ta-celebrate { animation: taCelebrate 0.9s ease-out forwards; }
+
+/* Backdrop animation is decorative: stop it when the tab is busy/reduced. */
+@media (prefers-reduced-motion: reduce) {
+  .ta-liquid-bg, .ta-clay-bg { animation: none !important; }
 }
 
 /* A soft light edge along the top of every bordered glass panel, the way
@@ -350,7 +375,7 @@ body {
     linear-gradient(150deg, color-mix(in srgb, var(--ta-bg) 92%, #ffffff 8%), var(--ta-bg) 45%, color-mix(in srgb, var(--ta-bg) 88%, var(--ta-accent) 12%) 100%);
   background-size: 160% 160%, 160% 160%, 100% 100%;
   background-color: var(--ta-bg);
-  animation: taClayDrift 26s ease-in-out infinite;
+
 }
 
 /* Bigger, puffier corners on every shape in the overlay. */

@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { memo, useCallback, useMemo, useRef, useState } from 'react'
+import { motion } from 'framer-motion'
 import { ImagePlus, Pencil, Trash2, Camera, PartyPopper, StickyNote, ListChecks } from 'lucide-react'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useUiStore } from '../../store/uiStore'
@@ -11,192 +11,55 @@ import { TYPE_BADGE_STYLE, TIMEFRAME_BADGE_STYLE, TIMEFRAME_DEFAULT_STYLE } from
 import { symbolForType } from '../../utils/currency'
 import { applyFilters } from '../../utils/tradeFilters'
 
-// Card-grid alternative to TradesTable's horizontal rows — same data, same
-// store actions, just laid out as a responsive grid of cards (3-up on a
-// wide screen, fewer as it narrows) instead of a wide scrolling table.
-// Toggled from the top bar's List/Cards switch (TradeAnalysis.jsx), backed
-// by tradeAnalysisStore's `entriesView`.
-export default function TradeCards() {
-  const trades = useTradeAnalysisStore((s) => s.trades)
-  const validationRules = useTradeAnalysisStore((s) => s.validationRules)
-  const filters = useTradeAnalysisStore((s) => s.filters)
-  const editingTradeId = useTradeAnalysisStore((s) => s.editingTradeId)
-  const [expandedNotes, setExpandedNotes] = useState(() => new Set())
-  const [uploadingResultId, setUploadingResultId] = useState(null)
-  const resultInputRefs = useRef({})
-  const [editingPnlId, setEditingPnlId] = useState(null)
+// One card. Memoised with stable callbacks from the parent so typing in the
+// form, opening a popup or editing one card's P&L never re-renders the other
+// cards. All hover/entrance effects are CSS (compositor only) — no per-card
+// framer-motion layout measurement, which is what made big lists hang.
+const TradeCard = memo(function TradeCard({
+  trade, ruleById, isEditing, isCelebrating, uploading,
+  onValidation, onPasteMenu, onPickResult, onStatusChange,
+}) {
+  const [notesExpanded, setNotesExpanded] = useState(false)
+  const [editingPnl, setEditingPnl] = useState(false)
   const [pnlDraft, setPnlDraft] = useState('')
-  const [dragOverResultId, setDragOverResultId] = useState(null)
-  // Right-click "Paste image" popup for an empty Result box: { x, y, trade }
-  const [pasteMenu, setPasteMenu] = useState(null)
-  const [celebrateId, setCelebrateId] = useState(null)
-  // Card whose validation checklist popup is open (ApplyValidationModal),
-  // opened via the small ListChecks button in the card header — lets a
-  // trade's ticks be edited right from the grid, no need to open the
-  // full Edit form.
-  const [validationCardId, setValidationCardId] = useState(null)
-  const validationCardTrade = useMemo(
-    () => trades.find((t) => t.id === validationCardId) || null,
-    [trades, validationCardId]
+  const [dragOver, setDragOver] = useState(false)
+  const inputRef = useRef(null)
+
+  const checkedRules = useMemo(
+    () => (trade.validationRuleIds || []).map((id) => {
+      const r = ruleById.get(id)
+      return r ? { id, ...r } : null
+    }).filter(Boolean),
+    [trade.validationRuleIds, ruleById]
   )
-  const prevStatusRef = useRef(new Map(trades.map((t) => [t.id, t.status])))
 
-  const ruleById = useMemo(() => {
-    const map = new Map()
-    validationRules.forEach((r) => map.set(r.id, { label: r.label, color: r.color }))
-    return map
-  }, [validationRules])
-
-  const filteredTrades = useMemo(() => {
-    return applyFilters(trades, filters)
-      // Newest trade date first. Changing a trade's date (or adding a
-      // new one) re-sorts it into place here rather than leaving it
-      // wherever it happened to sit in the underlying list. Same-day
-      // trades fall back to whichever was created/edited most recently.
-      .sort((a, b) => {
-        if (a.date !== b.date) return a.date < b.date ? 1 : -1
-        return (b.createdAt || 0) - (a.createdAt || 0)
-      })
-  }, [trades, filters])
-
-  const toggleNotes = (id) =>
-    setExpandedNotes((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-
-  const startEditPnl = (trade) => {
-    setEditingPnlId(trade.id)
+  const startEditPnl = () => {
+    setEditingPnl(true)
     setPnlDraft(trade.pnl == null ? '' : String(trade.pnl))
   }
-  const commitPnl = (id) => {
+  const commitPnl = () => {
     const val = pnlDraft.trim()
     const num = val === '' ? null : Number(val)
-    useTradeAnalysisStore.getState().updateTradePnl(id, val === '' || Number.isNaN(num) ? null : num)
-    setEditingPnlId(null)
-  }
-
-  const handleResultImagePick = async (trade, file) => {
-    if (!file) return
-    setUploadingResultId(trade.id)
-    try {
-      const { url, hosted, error } = await uploadTradeImage(file)
-      useTradeAnalysisStore.getState().updateTradeResultImage(trade.id, url, hosted)
-      if (!hosted) {
-        useUiStore
-          .getState()
-          .showToast(error ? 'Result image saved locally — upload failed.' : 'Result image saved locally — connect Cloudinary to host it.')
-      }
-      if (trade.status === 'Target Hit') {
-        setCelebrateId(trade.id)
-        setTimeout(() => setCelebrateId((id) => (id === trade.id ? null : id)), 900)
-      }
-    } finally {
-      setUploadingResultId(null)
-    }
-  }
-
-  const handleStatusChange = (trade, next) => {
-    useTradeAnalysisStore.getState().updateTradeStatus(trade.id, next)
-    if (prevStatusRef.current.get(trade.id) !== next && next === 'Target Hit') {
-      setCelebrateId(trade.id)
-      setTimeout(() => setCelebrateId((id) => (id === trade.id ? null : id)), 900)
-    }
-    prevStatusRef.current.set(trade.id, next)
-  }
-
-  if (trades.length === 0) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center"
-      >
-        <motion.span
-          animate={{ y: [0, -6, 0] }}
-          transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-          className="text-3xl"
-        >
-          📈
-        </motion.span>
-        <p className="text-xs font-semibold" style={{ color: 'var(--ta-ink)' }}>No trades logged yet</p>
-        <p className="max-w-[220px] text-[11px]" style={{ color: 'var(--ta-slate)' }}>
-          Fill in the form on the left and hit Add to log your first trade here.
-        </p>
-      </motion.div>
-    )
-  }
-
-  if (filteredTrades.length === 0) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center"
-      >
-        <motion.span
-          animate={{ rotate: [0, -8, 8, 0] }}
-          transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
-          className="text-3xl"
-        >
-          🔍
-        </motion.span>
-        <p className="text-xs font-semibold" style={{ color: 'var(--ta-ink)' }}>No trades match these filters</p>
-        <p className="max-w-[220px] text-[11px]" style={{ color: 'var(--ta-slate)' }}>
-          Try widening a filter, or clear them all from the Filters button above.
-        </p>
-      </motion.div>
-    )
+    useTradeAnalysisStore.getState().updateTradePnl(trade.id, val === '' || Number.isNaN(num) ? null : num)
+    setEditingPnl(false)
   }
 
   return (
-    <div className="h-full w-full overflow-auto p-2.5">
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-        <AnimatePresence initial={false}>
-          {filteredTrades.map((trade, idx) => {
-            const notesExpanded = expandedNotes.has(trade.id)
-            const checkedRules = (trade.validationRuleIds || [])
-              .map((id) => {
-                const r = ruleById.get(id)
-                return r ? { id, ...r } : null
-              })
-              .filter(Boolean)
-            const isEditing = trade.id === editingTradeId
-            const isCelebrating = trade.id === celebrateId
-
-            return (
-              <motion.div
-                key={trade.id}
-                layout
-                initial={{ opacity: 0, y: 10, scale: 0.97 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.15 } }}
-                transition={{ delay: Math.min(idx, 12) * 0.03, duration: 0.22 }}
-                whileHover={{ y: -2, boxShadow: '0 6px 20px -6px rgba(64,61,57,0.22)' }}
-                className="ta-card-glow relative flex flex-col gap-2 rounded-2xl border p-2.5"
-                style={{
-                  backgroundColor: 'var(--ta-surface)',
-                  borderColor: isEditing ? 'var(--ta-accent)' : 'var(--ta-slate)',
-                }}
-              >
-                <AnimatePresence>
-                  {isCelebrating && (
-                    <motion.span
-                      initial={{ opacity: 0, scale: 0.4, y: 0 }}
-                      animate={{ opacity: 1, scale: 1.3, y: -10 }}
-                      exit={{ opacity: 0, scale: 0.4 }}
-                      transition={{ type: 'spring', stiffness: 300, damping: 14 }}
-                      className="pointer-events-none absolute right-2 top-2 z-10"
-                      style={{ color: '#16a34a' }}
-                    >
-                      <PartyPopper size={14} />
-                    </motion.span>
-                  )}
-                </AnimatePresence>
+    <div
+      className="ta-trade-card ta-card-glow relative flex flex-col gap-2 rounded-2xl border p-2.5"
+      style={{
+        backgroundColor: 'var(--ta-surface)',
+        borderColor: isEditing ? 'var(--ta-accent)' : 'var(--ta-slate)',
+      }}
+    >
+                {isCelebrating && (
+                  <span
+                    className="ta-celebrate pointer-events-none absolute right-2 top-2 z-10"
+                    style={{ color: '#16a34a' }}
+                  >
+                    <PartyPopper size={14} />
+                  </span>
+                )}
 
                 {/* Header — pair/instrument + date, actions top-right */}
                 <div className="flex items-start justify-between gap-1.5">
@@ -207,8 +70,7 @@ export default function TradeCards() {
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-0.5">
-                    <motion.span
-                      initial={{ opacity: 0, scale: 0.85 }}
+                    <span
                       animate={{ opacity: 1, scale: 1 }}
                       whileHover={{
                         scale: 1.06,
@@ -222,27 +84,24 @@ export default function TradeCards() {
                       }}
                     >
                       {trade.date}
-                    </motion.span>
-                    <motion.button
-                      whileTap={{ scale: 0.88 }}
-                      onClick={() => setValidationCardId(trade.id)}
+                    </span>
+                    <button
+                      onClick={() => onValidation(trade.id)}
                       title="Validation"
                       className="rounded p-1 hover:bg-black/5"
                       style={{ color: 'var(--ta-slate)' }}
                     >
                       <ListChecks size={11} />
-                    </motion.button>
-                    <motion.button
-                      whileTap={{ scale: 0.88 }}
+                    </button>
+                    <button
                       onClick={() => useTradeAnalysisStore.getState().setEditingTrade(trade.id)}
                       title="Edit"
                       className="rounded p-1 hover:bg-black/5"
                       style={{ color: 'var(--ta-slate)' }}
                     >
                       <Pencil size={11} />
-                    </motion.button>
-                    <motion.button
-                      whileTap={{ scale: 0.88 }}
+                    </button>
+                    <button
                       onClick={() => {
                         if (!window.confirm('Delete this trade? This cannot be undone.')) return
                         useTradeAnalysisStore.getState().deleteTrade(trade.id)
@@ -252,7 +111,7 @@ export default function TradeCards() {
                       style={{ color: '#dc2626' }}
                     >
                       <Trash2 size={11} />
-                    </motion.button>
+                    </button>
                   </div>
                 </div>
 
@@ -289,29 +148,25 @@ export default function TradeCards() {
 
                 {/* P&L + Status */}
                 <div className="flex items-center justify-between gap-1.5">
-                  {editingPnlId === trade.id ? (
-                    <motion.input
+                  {editingPnl ? (
+                    <input
                       autoFocus
                       type="number"
                       step="any"
                       inputMode="decimal"
                       value={pnlDraft}
                       onChange={(e) => setPnlDraft(e.target.value)}
-                      onBlur={() => commitPnl(trade.id)}
+                      onBlur={() => commitPnl()}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') commitPnl(trade.id)
-                        if (e.key === 'Escape') setEditingPnlId(null)
+                        if (e.key === 'Enter') commitPnl()
+                        if (e.key === 'Escape') setEditingPnl(false)
                       }}
-                      initial={{ scale: 0.95, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
                       className="w-16 rounded border px-1 py-0.5 text-[9px] outline-none"
                       style={{ borderColor: 'var(--ta-accent)', color: 'var(--ta-ink)' }}
                     />
                   ) : (
-                    <motion.button
-                      whileHover={{ scale: 1.06 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => startEditPnl(trade)}
+                    <button
+                      onClick={() => startEditPnl()}
                       title="Click to edit P&L"
                       className="rounded-full px-1.5 py-0.5 text-[8.5px] font-bold transition-colors hover:brightness-95"
                       style={
@@ -327,10 +182,10 @@ export default function TradeCards() {
                       {trade.pnl == null
                         ? '+ Add P&L'
                         : `${trade.pnl > 0 ? '+' : ''}${symbolForType(trade.instrumentType)}${trade.pnl}`}
-                    </motion.button>
+                    </button>
                   )}
 
-                  <StatusDropdown value={trade.status} onChange={(next) => handleStatusChange(trade, next)} />
+                  <StatusDropdown value={trade.status} onChange={(next) => onStatusChange(trade, next)} />
                 </div>
 
                 {/* Screenshot + Result images side by side */}
@@ -338,11 +193,8 @@ export default function TradeCards() {
                   <div className="flex flex-col items-center gap-0.5">
                     <span className="text-[7px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ta-slate)' }}>Setup</span>
                     {trade.screenshotUrl ? (
-                      <motion.button
-                        whileHover={{ scale: 1.12 }}
-                        whileTap={{ scale: 0.95 }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                        className="overflow-hidden rounded"
+                      <button
+                        className="ta-thumb overflow-hidden rounded"
                         onClick={() =>
                           useUiStore
                             .getState()
@@ -352,8 +204,8 @@ export default function TradeCards() {
                         }
                         title="View screenshot"
                       >
-                        <img src={trade.screenshotUrl} alt="Screenshot" className="h-10 w-10 object-cover" />
-                      </motion.button>
+                        <img src={trade.screenshotUrl} alt="Screenshot" loading="lazy" decoding="async" className="h-10 w-10 object-cover" />
+                      </button>
                     ) : (
                       <div
                         className="flex h-10 w-10 items-center justify-center rounded border border-dashed text-[7px]"
@@ -367,11 +219,8 @@ export default function TradeCards() {
                   <div className="flex flex-col items-center gap-0.5">
                     <span className="text-[7px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ta-slate)' }}>Result</span>
                     {trade.resultImageUrl ? (
-                      <motion.button
-                        whileHover={{ scale: 1.12 }}
-                        whileTap={{ scale: 0.95 }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                        className="overflow-hidden rounded"
+                      <button
+                        className="ta-thumb overflow-hidden rounded"
                         onClick={() =>
                           useUiStore
                             .getState()
@@ -381,50 +230,43 @@ export default function TradeCards() {
                         }
                         title="View result image"
                       >
-                        <img src={trade.resultImageUrl} alt="Result" className="h-10 w-10 object-cover" />
-                      </motion.button>
+                        <img src={trade.resultImageUrl} alt="Result" loading="lazy" decoding="async" className="h-10 w-10 object-cover" />
+                      </button>
                     ) : (
                       <>
-                        <motion.button
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => resultInputRefs.current[trade.id]?.click()}
+                        <button
+                          onClick={() => inputRef.current?.click()}
                           onContextMenu={(e) => {
                             e.preventDefault()
-                            setPasteMenu({ x: e.clientX, y: e.clientY, trade })
+                            onPasteMenu({ x: e.clientX, y: e.clientY, trade })
                           }}
                           onDragOver={(e) => {
                             e.preventDefault()
-                            setDragOverResultId(trade.id)
+                            setDragOver(true)
                           }}
-                          onDragLeave={() => setDragOverResultId((id) => (id === trade.id ? null : id))}
+                          onDragLeave={() => setDragOver(false)}
                           onDrop={(e) => {
                             e.preventDefault()
-                            setDragOverResultId(null)
+                            setDragOver(false)
                             const file = e.dataTransfer.files?.[0]
-                            if (file) handleResultImagePick(trade, file)
+                            if (file) onPickResult(trade, file)
                           }}
-                          disabled={uploadingResultId === trade.id}
+                          disabled={uploading}
                           title="Attach result / P&L image — click, drag & drop, or right-click to paste"
-                          animate={{
-                            scale: dragOverResultId === trade.id ? 1.12 : 1,
-                            borderColor: dragOverResultId === trade.id ? 'var(--ta-accent)' : 'var(--ta-slate)',
-                            backgroundColor: dragOverResultId === trade.id ? 'color-mix(in srgb, var(--ta-accent) 14%, transparent)' : 'rgba(0,0,0,0)',
-                          }}
-                          transition={{ duration: 0.15 }}
                           className="flex h-10 w-10 items-center justify-center rounded border border-dashed disabled:opacity-40"
-                          style={{ color: dragOverResultId === trade.id ? 'var(--ta-accent)' : 'var(--ta-slate)' }}
+                          style={{ color: dragOver ? 'var(--ta-accent)' : 'var(--ta-slate)', borderColor: dragOver ? 'var(--ta-accent)' : undefined, transform: dragOver ? 'scale(1.12)' : undefined }}
                         >
-                          {uploadingResultId === trade.id ? <Camera size={13} className="animate-pulse" /> : <ImagePlus size={14} />}
-                        </motion.button>
+                          {uploading ? <Camera size={13} className="animate-pulse" /> : <ImagePlus size={14} />}
+                        </button>
                         <input
-                          ref={(el) => { resultInputRefs.current[trade.id] = el }}
+                          ref={inputRef}
                           type="file"
                           accept="image/*"
                           className="hidden"
                           onChange={(e) => {
                             const file = e.target.files?.[0]
                             e.target.value = ''
-                            handleResultImagePick(trade, file)
+                            onPickResult(trade, file)
                           }}
                         />
                       </>
@@ -494,7 +336,7 @@ export default function TradeCards() {
                 {/* Notes — collapsed to one line, expandable */}
                 {trade.notes && (
                   <button
-                    onClick={() => toggleNotes(trade.id)}
+                    onClick={() => setNotesExpanded((v) => !v)}
                     className={`flex items-start gap-1 rounded-lg px-1.5 py-1 text-left text-[9px] ${notesExpanded ? '' : 'truncate'}`}
                     title={notesExpanded ? 'Click to collapse' : trade.notes}
                     style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }}
@@ -503,10 +345,132 @@ export default function TradeCards() {
                     <span className={notesExpanded ? '' : 'truncate'}>{trade.notes}</span>
                   </button>
                 )}
-              </motion.div>
-            )
-          })}
-        </AnimatePresence>
+    </div>
+  )
+})
+
+export default function TradeCards() {
+  const trades = useTradeAnalysisStore((s) => s.trades)
+  const validationRules = useTradeAnalysisStore((s) => s.validationRules)
+  const filters = useTradeAnalysisStore((s) => s.filters)
+  const editingTradeId = useTradeAnalysisStore((s) => s.editingTradeId)
+  const [uploadingResultId, setUploadingResultId] = useState(null)
+  const [pasteMenu, setPasteMenu] = useState(null)
+  const [celebrateId, setCelebrateId] = useState(null)
+  const [validationCardId, setValidationCardId] = useState(null)
+  const validationCardTrade = useMemo(
+    () => trades.find((t) => t.id === validationCardId) || null,
+    [trades, validationCardId]
+  )
+  const prevStatusRef = useRef(new Map(trades.map((t) => [t.id, t.status])))
+
+  const ruleById = useMemo(() => {
+    const map = new Map()
+    validationRules.forEach((r) => map.set(r.id, { label: r.label, color: r.color }))
+    return map
+  }, [validationRules])
+
+  const filteredTrades = useMemo(() => {
+    return applyFilters(trades, filters).sort((a, b) => {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1
+      return (b.createdAt || 0) - (a.createdAt || 0)
+    })
+  }, [trades, filters])
+
+  const celebrate = useCallback((id) => {
+    setCelebrateId(id)
+    setTimeout(() => setCelebrateId((cur) => (cur === id ? null : cur)), 900)
+  }, [])
+
+  const handleResultImagePick = useCallback(async (trade, file) => {
+    if (!file) return
+    setUploadingResultId(trade.id)
+    try {
+      const { url, hosted, error } = await uploadTradeImage(file)
+      useTradeAnalysisStore.getState().updateTradeResultImage(trade.id, url, hosted)
+      if (!hosted) {
+        useUiStore
+          .getState()
+          .showToast(error ? 'Result image saved locally — upload failed.' : 'Result image saved locally — connect Cloudinary to host it.')
+      }
+      if (trade.status === 'Target Hit') celebrate(trade.id)
+    } finally {
+      setUploadingResultId(null)
+    }
+  }, [celebrate])
+
+  const handleStatusChange = useCallback((trade, next) => {
+    useTradeAnalysisStore.getState().updateTradeStatus(trade.id, next)
+    if (prevStatusRef.current.get(trade.id) !== next && next === 'Target Hit') celebrate(trade.id)
+    prevStatusRef.current.set(trade.id, next)
+  }, [celebrate])
+
+  const openValidation = useCallback((id) => setValidationCardId(id), [])
+  const openPasteMenu = useCallback((m) => setPasteMenu(m), [])
+
+  if (trades.length === 0) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center"
+      >
+        <motion.span
+          animate={{ y: [0, -6, 0] }}
+          transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+          className="text-3xl"
+        >
+          📈
+        </motion.span>
+        <p className="text-xs font-semibold" style={{ color: 'var(--ta-ink)' }}>No trades logged yet</p>
+        <p className="max-w-[220px] text-[11px]" style={{ color: 'var(--ta-slate)' }}>
+          Fill in the form on the left and hit Add to log your first trade here.
+        </p>
+      </motion.div>
+    )
+  }
+
+  if (filteredTrades.length === 0) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center"
+      >
+        <motion.span
+          animate={{ rotate: [0, -8, 8, 0] }}
+          transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+          className="text-3xl"
+        >
+          🔍
+        </motion.span>
+        <p className="text-xs font-semibold" style={{ color: 'var(--ta-ink)' }}>No trades match these filters</p>
+        <p className="max-w-[220px] text-[11px]" style={{ color: 'var(--ta-slate)' }}>
+          Try widening a filter, or clear them all from the Filters button above.
+        </p>
+      </motion.div>
+    )
+  }
+
+  return (
+    <div className="ta-scroll-area h-full w-full overflow-auto p-2.5">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        {filteredTrades.map((trade) => (
+          <TradeCard
+            key={trade.id}
+            trade={trade}
+            ruleById={ruleById}
+            isEditing={trade.id === editingTradeId}
+            isCelebrating={trade.id === celebrateId}
+            uploading={uploadingResultId === trade.id}
+            onValidation={openValidation}
+            onPasteMenu={openPasteMenu}
+            onPickResult={handleResultImagePick}
+            onStatusChange={handleStatusChange}
+          />
+        ))}
       </div>
 
       <ApplyValidationModal

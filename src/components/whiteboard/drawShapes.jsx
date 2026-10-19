@@ -1003,6 +1003,52 @@ export const TOOLS = {
   },
 }
 
+// ── Single candles (20: 10 bullish, 10 bearish). One click drops ONE candle — no label, no extras. ────────
+// Prices are 0–100 units centred on 50; candle = [open, high, low, close].
+const CANDLE_PATTERNS = [
+  // bullish (close above open → green)
+  { id: 'c_bull_full', name: 'Bullish candle', bull: true, k: [22, 80, 18, 78] },
+  { id: 'c_bull_maru', name: 'Bullish marubozu', bull: true, k: [20, 80, 20, 80] },
+  { id: 'c_bull_hammer', name: 'Hammer', bull: true, k: [62, 68, 14, 66] },
+  { id: 'c_bull_invhammer', name: 'Inverted hammer', bull: true, k: [28, 86, 26, 36] },
+  { id: 'c_bull_dragonfly', name: 'Dragonfly doji', bull: true, k: [66, 67, 14, 66.8] },
+  { id: 'c_bull_longdoji', name: 'Long-legged doji', bull: true, k: [50, 86, 14, 50.8] },
+  { id: 'c_bull_spinning', name: 'Spinning top', bull: true, k: [44, 72, 28, 56] },
+  { id: 'c_bull_pin', name: 'Bullish pin bar', bull: true, k: [58, 66, 10, 64] },
+  { id: 'c_bull_open', name: 'Opening marubozu', bull: true, k: [20, 84, 20, 76] },
+  { id: 'c_bull_close', name: 'Closing marubozu', bull: true, k: [24, 80, 14, 80] },
+  // bearish (close below open → red)
+  { id: 'c_bear_full', name: 'Bearish candle', bull: false, k: [78, 82, 20, 22] },
+  { id: 'c_bear_maru', name: 'Bearish marubozu', bull: false, k: [80, 80, 20, 20] },
+  { id: 'c_bear_star', name: 'Shooting star', bull: false, k: [38, 86, 34, 32] },
+  { id: 'c_bear_hanging', name: 'Hanging man', bull: false, k: [68, 70, 16, 62] },
+  { id: 'c_bear_gravestone', name: 'Gravestone doji', bull: false, k: [34, 86, 33, 33.4] },
+  { id: 'c_bear_longdoji', name: 'Long-legged doji', bull: false, k: [50, 86, 14, 49.2] },
+  { id: 'c_bear_spinning', name: 'Spinning top', bull: false, k: [56, 72, 28, 44] },
+  { id: 'c_bear_pin', name: 'Bearish pin bar', bull: false, k: [42, 92, 36, 36] },
+  { id: 'c_bear_open', name: 'Opening marubozu', bull: false, k: [80, 80, 16, 24] },
+  { id: 'c_bear_close', name: 'Closing marubozu', bull: false, k: [76, 86, 20, 20] },
+]
+const CANDLE_W = 22
+const CANDLE_K = 2 // px per price unit
+
+function candleTool(c) {
+  return {
+    name: c.name, icon: c.bull ? ArrowBigUp : ArrowBigDown, n: 1, candle: true,
+    render: (p, H) => {
+      const [o, hi, lo, cl] = c.k
+      const col = cl >= o ? GREEN : RED
+      const y = (price) => p[0].y + (50 - price) * CANDLE_K
+      const x = p[0].x
+      H.line({ x, y: y(hi) }, { x, y: y(lo) }, { stroke: H.o.hit ? undefined : col, strokeWidth: 2.4 })
+      const top = Math.min(y(o), y(cl))
+      const bot = Math.max(y(o), y(cl)) < top + 3 ? top + 3 : Math.max(y(o), y(cl))
+      H.rect({ x: x - CANDLE_W / 2, y: top }, { x: x + CANDLE_W / 2, y: bot }, { stroke: H.o.hit ? undefined : col, ...(H.o.hit ? {} : { fill: col }), strokeWidth: 1, rx: 1.5 })
+    },
+  }
+}
+Object.assign(TOOLS, Object.fromEntries(CANDLE_PATTERNS.map((c) => [c.id, candleTool(c)])))
+
 // ── Toolbar groups (what the flyouts list) ──────────────────────────────────
 export const GROUPS = [
   {
@@ -1044,12 +1090,19 @@ export const GROUPS = [
     ],
   },
   {
+    id: 'candles', name: 'Candles', icon: ChartCandlestick,
+    sections: [
+      { title: 'Bullish candles', tools: CANDLE_PATTERNS.filter((c) => c.bull).map((c) => c.id) },
+      { title: 'Bearish (sell) candles', tools: CANDLE_PATTERNS.filter((c) => !c.bull).map((c) => c.id) },
+    ],
+  },
+  {
     id: 'text', name: 'Text and notes', icon: Type,
     sections: [{ title: 'Text & notes', tools: ['text', 'note', 'arrowup', 'arrowdown', 'anchoredtext', 'pricenote', 'pin', 'table', 'callout', 'comment', 'pricelabel', 'signpost', 'flagnote'] }],
   },
 ]
 
-export const DEFAULT_IN_GROUP = { lines: 'trend', fib: 'fib', patterns: 'xabcd', forecast: 'long', shapes: 'brush', text: 'text' }
+export const DEFAULT_IN_GROUP = { lines: 'trend', fib: 'fib', patterns: 'xabcd', forecast: 'long', shapes: 'brush', candles: 'c_bull_full', text: 'text' }
 
 // Emoji / sticker / icon palettes for the "Icons" panel.
 export const GLYPHS = {
@@ -1090,6 +1143,8 @@ export function shapeBounds(el) {
   if (el.tool === 'emoji') {
     const s = el.fontSize || 36
     x -= s / 2; y -= s / 2; w += s; h += s
+  } else if (TOOLS[el.tool]?.candle) {
+    x -= 20; y -= 105; w += 40; h += 210
   } else if (pts.length === 1) {
     x -= 14; y -= 40; w += 140; h += 50
   }
