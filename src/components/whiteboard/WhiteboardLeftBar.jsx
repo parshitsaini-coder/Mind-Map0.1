@@ -21,7 +21,7 @@ function groupOf(toolId) {
 // A bar button: main click area + an optional small ▸ strip that opens the flyout.
 function BarBtn({ icon: Icon, title, active, onClick, onArrow, badge, testid, disabled, color }) {
   return (
-    <div className="relative flex h-8 w-[46px] shrink-0 items-center" data-flyout-anchor>
+    <div className="wb-barbtn relative flex h-8 w-[46px] shrink-0 items-center" data-flyout-anchor>
       <button
         type="button"
         title={title}
@@ -267,7 +267,7 @@ export default function WhiteboardLeftBar() {
   return (
     <div className="relative flex shrink-0">
       <div
-        className="no-scrollbar flex w-[54px] flex-col items-center gap-0.5 overflow-y-auto border-r py-1"
+        className="wb-leftbar flex w-[54px] flex-col items-center gap-0.5 overflow-y-auto overscroll-contain border-r py-1"
         style={{ backgroundColor: 'var(--color-cream)', borderColor: 'var(--color-sage)' }}
         role="toolbar"
         aria-label="Whiteboard drawing tools"

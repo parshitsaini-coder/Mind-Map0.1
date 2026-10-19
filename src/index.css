@@ -2132,3 +2132,17 @@ body {
 .wb-handle { animation: wb-handle-pop 0.28s ease-out both; transform-box: fill-box; transform-origin: center; }
 .wb-handle:hover { fill: var(--color-accent); }
 @media (prefers-reduced-motion: reduce) { .wb-shape-in, .wb-ants, .wb-handle { animation: none; } }
+
+/* Whiteboard left tool bar: keep every tool reachable on short screens —
+   thin always-visible scrollbar, and tighter buttons when the window is short. */
+.wb-leftbar { scrollbar-width: thin; scrollbar-color: rgba(0,0,0,0.35) transparent; min-height: 0; }
+.wb-leftbar::-webkit-scrollbar { width: 5px; }
+.wb-leftbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.3); border-radius: 4px; }
+@media (max-height: 900px) {
+  .wb-leftbar { gap: 0; padding-top: 2px; padding-bottom: 2px; }
+  .wb-leftbar .wb-barbtn { height: 26px; }
+  .wb-leftbar .wb-barbtn button { height: 100%; }
+}
+@media (max-height: 680px) {
+  .wb-leftbar .wb-barbtn { height: 23px; }
+}
