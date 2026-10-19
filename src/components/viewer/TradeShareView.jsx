@@ -13,7 +13,7 @@ import {
   BarChart3,
   Eye,
 } from 'lucide-react'
-import { fetchTradeShare, incrementTradeShareView } from '../../lib/tradeShare'
+import { fetchTradeShare, registerTradeShareView } from '../../lib/tradeShare'
 import { tradeThemeCssVars, isGlassTheme, isClayTheme } from '../../theme/tradeAnalysisThemes'
 import { splitTradesByCurrency, formatSignedAmount, CURRENCY_GROUP_LABEL } from '../../utils/currency'
 import ViewerTradeCard from './ViewerTradeCard'
@@ -96,7 +96,7 @@ export default function TradeShareView({ shareId }) {
     setState({ status: 'ready', data: result.data, error: null })
     if (!hasCountedRef.current) {
       hasCountedRef.current = true
-      const newCount = await incrementTradeShareView(shareId)
+      const newCount = await registerTradeShareView(shareId)
       if (newCount != null) setViewCount(newCount)
     }
   }, [shareId])

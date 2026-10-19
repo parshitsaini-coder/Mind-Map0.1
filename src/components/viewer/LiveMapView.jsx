@@ -50,6 +50,9 @@ const ERROR_MESSAGES = {
 // auto-poll in the background — the owner's later edits only show up when
 // the visitor taps the refresh button (top-right), so the view never
 // silently jumps to a different state mid-read.
+// Hidden for now — flip to true to bring back the "Save a copy to my Mind Maps" button on shared live maps.
+const SHOW_SAVE_COPY = false
+
 export default function LiveMapView({ shareId }) {
   const [state, setState] = useState({ status: 'loading', data: null, error: null })
   const [refreshing, setRefreshing] = useState(false)
@@ -112,6 +115,7 @@ export default function LiveMapView({ shareId }) {
         themeName={theme_name}
       />
       <div className="fixed right-4 top-4 z-30 flex items-center gap-2">
+        {SHOW_SAVE_COPY && (
         <button
           onClick={handleImport}
           title="Save a copy of this map into your own Mind Maps"
@@ -122,6 +126,7 @@ export default function LiveMapView({ shareId }) {
           {imported ? <Check size={12} /> : <DownloadCloud size={12} />}
           {imported ? 'Saved — opening…' : 'Save a copy to my Mind Maps'}
         </button>
+        )}
         <button
           onClick={handleRefresh}
           title="Refresh to see the latest edits"

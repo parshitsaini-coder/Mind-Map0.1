@@ -1,7 +1,7 @@
 import { memo, useState } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronRight, ChevronDown, CheckSquare, Square, Star, FileText, ListChecks, TrendingUp, CalendarDays, EyeOff } from 'lucide-react'
+import { ChevronRight, ChevronDown, CheckSquare, Square, Star, FileText, ListChecks, TrendingUp, CalendarDays, EyeOff, Link2, Pin } from 'lucide-react'
 import { useViewerStore } from '../../store/viewerStore'
 import { useUiStore } from '../../store/uiStore'
 import { ICONS } from '../../theme/iconSet'
@@ -97,6 +97,10 @@ function ViewerNode({ id, data }) {
   // CustomNode's version, this isn't clickable — a visitor has no way to
   // "reveal" content the owner chose to keep private, so it's just a
   // static placeholder, not a button.
+  // Style Library — same custom look as the editor's CustomNode: gradient fill, custom border, glow, animation class.
+  const border = data.customBorder
+  const glowShadow = data.glowColor ? `0 0 10px 2px ${data.glowColor}55` : null
+
   if (data.hidden) {
     return (
       <motion.div
@@ -120,12 +124,19 @@ function ViewerNode({ id, data }) {
     <motion.div
       initial={{ opacity: 0, scale: 0.7 }}
       animate={{ opacity: 1, scale: 1 }}
+      whileHover={{ scale: 1.02 }}
       transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-      className={`relative flex flex-col border text-xs font-medium shadow-sm ${shapeClass[data.shape] || 'rounded-md'}`}
+      className={`group relative flex flex-col border text-xs font-medium shadow-sm ${shapeClass[data.shape] || 'rounded-md'} ${data.animationClass || ''}`}
       style={{
-        backgroundColor: data.color || 'var(--color-cream)',
-        borderColor: 'var(--color-slate)',
-        borderWidth: 1,
+        background: data.customBg || data.color || 'var(--color-cream)',
+        backgroundSize: data.bgSize,
+        borderColor: border?.color || 'var(--color-slate)',
+        borderWidth: border?.width ?? 1,
+        borderStyle: border?.style || 'solid',
+        boxShadow: glowShadow || undefined,
+        '--sonar-color': data.glowColor ? `${data.glowColor}8c` : undefined,
+        opacity: data.opacity != null ? data.opacity : undefined,
+        borderRadius: data.borderRadius != null ? `${data.borderRadius}px` : undefined,
         color: data.textColor || 'var(--color-ink)',
         minWidth: (appliedChecklists.length > 0 ? 180 : hasImage ? 96 : 90) * sizeScale,
         minHeight: hasImage ? 72 * sizeScale : undefined,
@@ -266,15 +277,29 @@ function ViewerNode({ id, data }) {
               e.stopPropagation()
               toggleCollapse(id)
             }}
-            className="nodrag nopan pointer-events-auto absolute -right-5 top-1/2 z-10 flex h-5 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-[var(--color-cream)] shadow hover:bg-[var(--color-sage)]"
+            className="nodrag nopan pointer-events-auto absolute -right-5 top-1/2 z-10 flex h-5 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-[var(--color-cream)] shadow transition-transform hover:scale-110 hover:bg-[var(--color-sage)] active:scale-75"
             title={data.collapsed ? `Expand (${childCount} hidden)` : 'Collapse branch'}
           >
-            {data.collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+            <motion.span
+              key={data.collapsed ? 'collapsed' : 'expanded'}
+              initial={{ rotate: -90, opacity: 0 }}
+              animate={{ rotate: 0, opacity: 1 }}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
+              className="flex"
+            >
+              {data.collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+            </motion.span>
           </button>
         )}
 
         {hasExtras && (
           <FileText size={11} className="absolute -top-1.5 right-3" color="var(--color-slate)" title="Has notes/attachments" />
+        )}
+        {(data.links || []).length > 0 && (
+          <Link2 size={11} className="absolute -top-1.5 right-8" color="var(--color-slate)" title={`Linked to ${data.links.length} node${data.links.length > 1 ? 's' : ''}`} />
+        )}
+        {(data.whiteboardNotes || []).length > 0 && (
+          <Pin size={11} className="absolute -top-1.5 right-[52px]" color="var(--color-slate)" title={`${data.whiteboardNotes.length} whiteboard note${data.whiteboardNotes.length > 1 ? 's' : ''} attached`} />
         )}
       </div>
 
@@ -355,17 +380,17 @@ function ViewerNode({ id, data }) {
 
       {badges.priority && (
         <span
-          className="absolute -left-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white"
+          className="badge-pop absolute -left-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white"
           style={{ backgroundColor: 'var(--color-ink)' }}
         >
           {badges.priority}
         </span>
       )}
       {badges.star && (
-        <Star size={12} className="absolute -bottom-1.5 -left-1.5" fill="var(--color-accent)" color="var(--color-ink)" />
+        <Star size={12} className="badge-pop absolute -bottom-1.5 -left-1.5" fill="var(--color-accent)" color="var(--color-ink)" />
       )}
       {typeof badges.progress === 'number' && badges.progress > 0 && (
-        <span className="absolute -bottom-2 -right-2">
+        <span className="badge-pop absolute -bottom-2 -right-2">
           <ProgressRing percent={badges.progress} />
         </span>
       )}

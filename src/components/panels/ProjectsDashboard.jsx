@@ -1,10 +1,66 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Plus, FolderOpen, Trash2, Pencil, Check, X } from 'lucide-react'
 import MindNodeIcon from '../common/MindNodeIcon'
 import { useProjectsStore, readProjectData } from '../../store/projectsStore'
 import { useMapStore } from '../../store/mapStore'
 import DeleteConfirmModal from './DeleteConfirmModal'
+import { computeHidden } from '../../utils/graphUtils'
+
+// Live preview of a whole mind map: every (visible) node + connector drawn as a small SVG, auto-fitted to the card.
+const firstColor = (bg) => (typeof bg === 'string' ? bg.match(/#[0-9a-f]{3,8}\b|rgba?\([^)]*\)/i)?.[0] : null)
+
+function MapThumbnail({ nodes, edges }) {
+  const model = useMemo(() => {
+    if (!nodes?.length) return null
+    const { hiddenNodeIds, hiddenEdgeIds } = computeHidden(nodes, edges || [], { revealManualHidden: true })
+    const vis = nodes.filter((n) => !hiddenNodeIds.has(n.id) && n.type !== 'boundaryGroup')
+    if (!vis.length) return null
+    const boxes = new Map()
+    for (const n of vis) {
+      const d = n.data || {}
+      const sc = d.sizeScale || 1
+      const label = String(d.label ?? '')
+      const w = n.measured?.width || n.width || Math.max(90, Math.min(260, label.length * 7 + 28)) * sc
+      const h = n.measured?.height || n.height || 30 * sc
+      boxes.set(n.id, { x: n.position.x, y: n.position.y, w, h, d, label })
+    }
+    const all = [...boxes.values()]
+    const minX = Math.min(...all.map((b) => b.x)), minY = Math.min(...all.map((b) => b.y))
+    const maxX = Math.max(...all.map((b) => b.x + b.w)), maxY = Math.max(...all.map((b) => b.y + b.h))
+    const pad = 24
+    const lines = (edges || [])
+      .filter((e) => !hiddenEdgeIds.has(e.id) && boxes.has(e.source) && boxes.has(e.target))
+      .map((e) => {
+        const a = boxes.get(e.source), b = boxes.get(e.target)
+        const x1 = a.x + a.w, y1 = a.y + a.h / 2, x2 = b.x, y2 = b.y + b.h / 2
+        const dx = Math.max(30, Math.abs(x2 - x1) / 2)
+        return { id: e.id, d: `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`, cross: e.type === 'crossEdge' }
+      })
+    return { boxes: [...boxes.entries()], lines, vb: `${minX - pad} ${minY - pad} ${maxX - minX + pad * 2} ${maxY - minY + pad * 2}` }
+  }, [nodes, edges])
+
+  if (!model) return <MindNodeIcon size={22} color="var(--color-accent)" />
+  return (
+    <svg viewBox={model.vb} preserveAspectRatio="xMidYMid meet" className="h-full w-full" aria-hidden>
+      {model.lines.map((l) => (
+        <path key={l.id} d={l.d} fill="none" stroke="#7b8794" strokeWidth={2.2} strokeDasharray={l.cross ? '6 5' : undefined} opacity={0.75} />
+      ))}
+      {model.boxes.map(([id, b]) => {
+        const fill = b.d.customBg ? firstColor(b.d.customBg) || b.d.color : b.d.color
+        const r = b.d.shape === 'oval' ? b.h / 2 : b.d.shape === 'no-border' ? 0 : 6
+        return (
+          <g key={id} opacity={b.d.opacity ?? 1}>
+            <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={r} fill={fill || '#f5f5f0'} stroke={b.d.customBorder?.color || '#5c6b7a'} strokeWidth={b.d.shape === 'no-border' ? 0 : 1.4} strokeDasharray={b.d.customBorder?.style === 'dashed' ? '5 3' : undefined} />
+            <text x={b.x + b.w / 2} y={b.y + b.h / 2} textAnchor="middle" dominantBaseline="central" fontSize={Math.min(13 * (b.d.sizeScale || 1), b.h * 0.42)} fill={b.d.textColor || '#242423'} fontFamily="Inter, system-ui, sans-serif">
+              {b.label.length > 22 ? `${b.label.slice(0, 21)}…` : b.label}
+            </text>
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
 
 function formatDate(ts) {
   if (!ts) return ''
@@ -34,12 +90,12 @@ function ProjectCard({ project, isActive, onOpen, onRename, onDelete }) {
     >
       <button
         onClick={() => onOpen(project.id)}
-        className="flex h-24 w-full flex-col items-center justify-center gap-1"
-        style={{ backgroundColor: 'var(--color-cream)' }}
+        className="relative flex h-36 w-full items-center justify-center p-1.5 transition-colors hover:brightness-95"
+        style={{ backgroundColor: 'var(--color-bg-main, #ecebe4)' }}
         title="Open project"
       >
-        <MindNodeIcon size={22} color="var(--color-accent)" />
-        <span className="text-[10px] text-[var(--color-slate)]/70">
+        <MapThumbnail nodes={data?.nodes} edges={data?.edges} />
+        <span className="absolute bottom-1 right-1.5 rounded-full bg-black/55 px-1.5 py-px text-[9px] font-medium text-white">
           {nodeCount} {nodeCount === 1 ? 'node' : 'nodes'}
         </span>
       </button>

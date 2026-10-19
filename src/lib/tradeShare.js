@@ -83,6 +83,29 @@ export async function incrementTradeShareView(id) {
   return typeof data === 'number' ? data : null
 }
 
+// Unique-visitor counting. A browser that has already opened this link is never counted again — reloads,
+// Refresh clicks and re-opens all reuse the remembered flag in localStorage. A repeat visit shows the live total
+// through the optional get_trade_share_view_count RPC (see SUPABASE_SETUP.md) and otherwise the last count this
+// browser saw. Returns the number to display (or null if unknown).
+const seenKey = (id) => `mm-tshare-seen:${id}`
+const readSeen = (id) => {
+  try { const v = localStorage.getItem(seenKey(id)); return v == null ? null : Number(v) || 0 } catch { return null }
+}
+const writeSeen = (id, n) => { try { localStorage.setItem(seenKey(id), String(n ?? 0)) } catch { /* private mode */ } }
+
+export async function registerTradeShareView(id) {
+  if (!isSupabaseConfigured || !id) return null
+  const seen = readSeen(id)
+  if (seen !== null) {
+    const { data, error } = await supabase.rpc('get_trade_share_view_count', { share_id: id })
+    if (!error && typeof data === 'number') { writeSeen(id, data); return data }
+    return seen || null
+  }
+  const n = await incrementTradeShareView(id)
+  writeSeen(id, n ?? 0)
+  return n
+}
+
 // Owner-side read for the Share popup's "Your active links" list — a plain
 // SELECT (not the RPC above) because the caller IS the owner here, and RLS's
 // "Owner manages own trade shares" policy already scopes this to rows where

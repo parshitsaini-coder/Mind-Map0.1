@@ -296,6 +296,23 @@ grant execute on function public.increment_trade_share_view(text) to anon, authe
 > grant execute on function public.increment_trade_share_view(text) to anon, authenticated;
 > ```
 
+> **Optional — live total for returning visitors.** Each browser is now counted only once per link. A returning
+> visitor sees the last number their browser saw; run this to let them see the live total too (read-only, no
+> increment):
+>
+> ```sql
+> create or replace function public.get_trade_share_view_count(share_id text)
+> returns integer
+> language sql
+> security definer
+> set search_path = public
+> as $$
+>   select view_count from public.trade_shares where id = share_id;
+> $$;
+>
+> grant execute on function public.get_trade_share_view_count(text) to anon, authenticated;
+> ```
+
 Creating a trade-share link requires being signed in (same as a live mind-
 map link), so the Share popup inside Trade Analysis prompts sign-in if
 needed. Every time someone opens the link (once per page-load — refreshing
