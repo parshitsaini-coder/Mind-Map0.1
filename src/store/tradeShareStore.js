@@ -50,22 +50,28 @@ export const useTradeShareStore = create(
       // Keeps every active link in step with the owner's trades: re-applies
       // each link's saved filters to the current trades and uploads the
       // result when it changed. Called (debounced) from App on any edit.
-      syncActiveLinks: async ({ userId, trades, validationRules }) => {
+      // Returns { found, updated, error } so callers (the "Sync now" button)
+      // can tell the person exactly what happened.
+      syncActiveLinks: async ({ userId, trades, validationRules, force = false }) => {
         const rows = await fetchOwnActiveTradeShares(userId)
+        const result = { found: rows.length, updated: 0, error: null }
         for (const row of rows) {
           const shared = applyFilters(trades, row.filters || {})
           const ruleIds = new Set(shared.flatMap((t) => t.validationRuleIds || []))
           const rules = validationRules.filter((r) => ruleIds.has(r.id))
           const payload = JSON.stringify([shared, rules])
-          if (lastSynced.get(row.id) === payload) continue
+          if (!force && lastSynced.get(row.id) === payload) continue
           const { error } = await updateTradeShareData(row.id, { trades: shared, validationRules: rules })
           if (error) {
             console.warn('[trade share sync]', row.id, error)
+            result.error = error
             if (!warned) { warned = true; useUiStore.getState().showToast(`Share link sync failed: ${error}`) }
           } else {
             lastSynced.set(row.id, payload)
+            result.updated += 1
           }
         }
+        return result
       },
 
       end: async (id) => {

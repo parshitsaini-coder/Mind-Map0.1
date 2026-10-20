@@ -253,6 +253,14 @@ $$;
 
 grant execute on function public.get_trade_share(text) to anon, authenticated;
 
+-- Live links auto-update from the owner's app with a plain UPDATE on this
+-- table. If "Sync now" in the Share popup says the update was blocked (0
+-- rows), run this to (re)create the owner policy and grants:
+--   drop policy if exists "Owner manages own trade shares" on public.trade_shares;
+--   create policy "Owner manages own trade shares" on public.trade_shares
+--     for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+--   grant select, insert, update, delete on public.trade_shares to authenticated;
+
 -- Powers the "N views" counter a visitor sees on the shared page, and the
 -- per-link view count the owner sees in the Share popup. SECURITY DEFINER
 -- + its own function (rather than folding this into get_trade_share) so

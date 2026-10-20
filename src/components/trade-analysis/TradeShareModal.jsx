@@ -65,6 +65,21 @@ export default function TradeShareModal({ open, onClose }) {
   const toggleAuthModal = useUiStore((s) => s.toggleAuthModal)
   const showToast = useUiStore((s) => s.showToast)
   const createLink = useTradeShareStore((s) => s.create)
+  const [syncing, setSyncing] = useState(false)
+  const handleSyncNow = async () => {
+    if (!authUser || syncing) return
+    setSyncing(true)
+    const st = useTradeAnalysisStore.getState()
+    const r = await useTradeShareStore.getState().syncActiveLinks({
+      userId: authUser.id, trades: st.trades, validationRules: st.validationRules, force: true,
+    })
+    setSyncing(false)
+    showToast(
+      r.error ? `Sync failed: ${r.error}`
+        : r.found === 0 ? 'No active links found on the server for this account.'
+        : `Synced ${r.updated} of ${r.found} live link${r.found === 1 ? '' : 's'}.`
+    )
+  }
   const endLink = useTradeShareStore((s) => s.end)
   const refreshViewCounts = useTradeShareStore((s) => s.refreshViewCounts)
   // Pull the latest "who's viewed this" counts as soon as the popup opens —
@@ -599,6 +614,24 @@ export default function TradeShareModal({ open, onClose }) {
                     </Tap>
                   )}
                 </motion.div>
+
+            {/* Push latest edits to every live link on this account */}
+            {authUser && (
+              <div className="flex items-center gap-2 border-t pt-2.5" style={{ borderColor: 'var(--ta-slate)' }}>
+                <p className="min-w-0 flex-1 text-[9.5px]" style={{ color: 'var(--ta-slate)' }}>
+                  Live links update automatically after edits. Use this to push your latest trades right now.
+                </p>
+                <motion.button
+                  whileTap={{ scale: 0.94 }}
+                  onClick={handleSyncNow}
+                  disabled={syncing}
+                  className="shrink-0 rounded px-2.5 py-1 text-[10px] font-semibold disabled:opacity-50"
+                  style={{ backgroundColor: '#111', color: '#f6ecd0' }}
+                >
+                  {syncing ? 'Syncing…' : 'Sync now'}
+                </motion.button>
+              </div>
+            )}
 
             {/* Your active links */}
                 {activeLinks.length > 0 && (
