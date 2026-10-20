@@ -122,6 +122,16 @@ const readSeen = (id) => {
 }
 const writeSeen = (id, n) => { try { localStorage.setItem(seenKey(id), String(n ?? 0)) } catch { /* private mode */ } }
 
+// Read-only: the current server-side count (no increment). Used by the shared
+// page's auto-refresh so the badge keeps up with other visitors.
+export async function fetchTradeShareViewCount(id) {
+  if (!isSupabaseConfigured || !id) return null
+  const { data, error } = await supabase.rpc('get_trade_share_view_count', { share_id: id })
+  if (error || typeof data !== 'number') return null
+  writeSeen(id, data)
+  return data
+}
+
 export async function registerTradeShareView(id) {
   if (!isSupabaseConfigured || !id) return null
   const seen = readSeen(id)

@@ -13,7 +13,7 @@ import {
   BarChart3,
   Eye,
 } from 'lucide-react'
-import { fetchTradeShare, registerTradeShareView } from '../../lib/tradeShare'
+import { fetchTradeShare, registerTradeShareView, fetchTradeShareViewCount } from '../../lib/tradeShare'
 import { tradeThemeCssVars, isGlassTheme, isClayTheme } from '../../theme/tradeAnalysisThemes'
 import { splitTradesByCurrency, formatSignedAmount, CURRENCY_GROUP_LABEL } from '../../utils/currency'
 import ViewerTradeCard from './ViewerTradeCard'
@@ -111,7 +111,8 @@ export default function TradeShareView({ shareId }) {
   useEffect(() => {
     const poll = async () => {
       if (document.hidden) return
-      const result = await fetchTradeShare(shareId)
+      const [result, count] = await Promise.all([fetchTradeShare(shareId), fetchTradeShareViewCount(shareId)])
+      if (count != null) setViewCount(count)
       if (result.data) {
         setState((prev) =>
           prev.status === 'ready' && JSON.stringify(prev.data) === JSON.stringify(result.data)
@@ -129,6 +130,8 @@ export default function TradeShareView({ shareId }) {
     if (refreshing) return
     setRefreshing(true)
     await load()
+    const c = await fetchTradeShareViewCount(shareId)
+    if (c != null) setViewCount(c)
     setTimeout(() => setRefreshing(false), 400)
   }
 
