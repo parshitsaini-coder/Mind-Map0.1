@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   GripHorizontal, PaintBucket, Type, Layers, Copy, Lock, LockOpen, Eye, EyeOff, Trash2, BringToFront, SendToBack, ArrowUp, ArrowDown,
-  MoveUpRight, Check, Pencil,
+  MoveUpRight, Check, Pencil, Maximize2,
 } from 'lucide-react'
 import { useWhiteboardStore } from '../../store/whiteboardStore'
 import { TOOLS } from './drawShapes'
@@ -302,6 +302,28 @@ export default function ShapeToolbar({ element, pan, zoom, bounds, canvasRef }) 
             ))}
           </div>,
           180
+        )}
+
+      {/* Candle size — width (thick/thin) and height (tall/short) */}
+      {spec?.candle &&
+        pop(
+          'csize',
+          <IconBtn title="Candle size" active={open === 'csize'} onClick={() => toggle('csize')}>
+            <Maximize2 size={15} />
+          </IconBtn>,
+          <>
+            <Slider label="Width" value={element.candleW ?? 1} min={0.4} max={3} step={0.1} suffix="%" onChange={(v) => set({ candleW: v })} />
+            <Slider label="Height" value={element.candleH ?? 1} min={0.4} max={4} step={0.1} suffix="%" onChange={(v) => set({ candleH: v })} />
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.95 }}
+              onClick={() => set({ candleW: 1, candleH: 1 })}
+              className="mt-2 flex w-full items-center justify-center rounded-md bg-[var(--color-accent)] py-1.5 text-[11px] font-semibold"
+            >
+              Reset size
+            </motion.button>
+          </>,
+          214
         )}
 
       {/* Text */}

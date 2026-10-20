@@ -54,17 +54,28 @@ export async function createTradeShare({ userId, trades, validationRules, filter
 // `filters` is read from the row when the caller doesn't have it.
 export async function updateTradeShareData(id, { trades, validationRules }) {
   if (!isSupabaseConfigured || !id) return { error: 'not-configured' }
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('trade_shares')
     .update({ trades, validation_rules: validationRules, updated_at: new Date().toISOString() })
     .eq('id', id)
-  return { error: error?.message }
+    .select('id')
+  if (error) return { error: error.message }
+  if (!data || data.length === 0) return { error: 'Update blocked (0 rows) — check the trade_shares RLS policy in SUPABASE_SETUP.md.' }
+  return {}
 }
 
-export async function fetchOwnTradeShareFilters(id) {
-  if (!isSupabaseConfigured || !id) return null
-  const { data } = await supabase.from('trade_shares').select('filters').eq('id', id).maybeSingle()
-  return data?.filters || null
+// Every live link this account owns, straight from the server — so syncing
+// never depends on this browser having remembered the link locally.
+export async function fetchOwnActiveTradeShares(userId) {
+  if (!isSupabaseConfigured || !userId) return []
+  const { data, error } = await supabase
+    .from('trade_shares')
+    .select('id, filters, expires_at, ended_at')
+    .eq('user_id', userId)
+    .is('ended_at', null)
+  if (error || !data) return []
+  const now = Date.now()
+  return data.filter((r) => !r.expires_at || new Date(r.expires_at).getTime() > now)
 }
 
 export async function endTradeShare(id) {

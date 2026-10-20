@@ -22,6 +22,8 @@ function ShapeElement({ element, isSelected, tool, zoom, onSelect, onEditText, p
     text: element.text,
     fs: element.fontSize || (element.tool === 'emoji' ? 36 : 12),
     emoji: element.emoji,
+    cw: element.candleW,
+    ch: element.candleH,
   }
 
   const visible = useMemo(
@@ -33,7 +35,7 @@ function ShapeElement({ element, isSelected, tool, zoom, onSelect, onEditText, p
           })
         : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [spec, pts, opts.c, opts.w, opts.dash, opts.fill, opts.fo, opts.fc, opts.text, opts.fs, opts.emoji, element.arrowStart, element.arrowEnd, element.extendL, element.extendR]
+    [spec, pts, opts.c, opts.w, opts.dash, opts.fill, opts.fo, opts.fc, opts.text, opts.fs, opts.emoji, opts.cw, opts.ch, element.arrowStart, element.arrowEnd, element.extendL, element.extendR]
   )
   const hitPass = useMemo(
     () =>

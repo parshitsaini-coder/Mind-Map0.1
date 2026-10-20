@@ -642,6 +642,13 @@ export const TOOLS = {
       H.line(q[4], q[6], { ...dashed, ...faint })
     }),
   },
+  elliottfree: {
+    name: 'Elliott wave — free (no labels, any length)', icon: Activity, n: 0,
+    render: (p, H) => {
+      H.poly(p, undefined, false)
+      p.forEach((q) => H.dot(q, 3))
+    },
+  },
   elliottimpulse: { name: 'Elliott impulse wave (12345)', icon: Activity, n: 6, render: labelled(['(0)', '(1)', '(2)', '(3)', '(4)', '(5)']) },
   elliottcorrection: { name: 'Elliott correction wave (ABC)', icon: Activity, n: 4, render: labelled(['(0)', '(A)', '(B)', '(C)']) },
   elliotttriangle: { name: 'Elliott triangle wave (ABCDE)', icon: Activity, n: 6, render: labelled(['(0)', '(A)', '(B)', '(C)', '(D)', '(E)']) },
@@ -1017,6 +1024,11 @@ const CANDLE_PATTERNS = [
   { id: 'c_bull_pin', name: 'Bullish pin bar', bull: true, k: [58, 66, 10, 64] },
   { id: 'c_bull_open', name: 'Opening marubozu', bull: true, k: [20, 84, 20, 76] },
   { id: 'c_bull_close', name: 'Closing marubozu', bull: true, k: [24, 80, 14, 80] },
+  { id: 'c_bull_small', name: 'Small bullish', bull: true, k: [42, 58, 38, 54] },
+  { id: 'c_bull_lowshadow', name: 'Bullish long lower shadow', bull: true, k: [56, 62, 8, 60] },
+  { id: 'c_bull_upshadow', name: 'Bullish long upper shadow', bull: true, k: [30, 92, 28, 40] },
+  { id: 'c_bull_tall', name: 'Tall bullish', bull: true, k: [14, 86, 12, 86] },
+  { id: 'c_bull_doji', name: 'Doji (bull)', bull: true, k: [50, 70, 30, 50.6] },
   // bearish (close below open → red)
   { id: 'c_bear_full', name: 'Bearish candle', bull: false, k: [78, 82, 20, 22] },
   { id: 'c_bear_maru', name: 'Bearish marubozu', bull: false, k: [80, 80, 20, 20] },
@@ -1028,6 +1040,11 @@ const CANDLE_PATTERNS = [
   { id: 'c_bear_pin', name: 'Bearish pin bar', bull: false, k: [42, 92, 36, 36] },
   { id: 'c_bear_open', name: 'Opening marubozu', bull: false, k: [80, 80, 16, 24] },
   { id: 'c_bear_close', name: 'Closing marubozu', bull: false, k: [76, 86, 20, 20] },
+  { id: 'c_bear_small', name: 'Small bearish', bull: false, k: [54, 58, 38, 42] },
+  { id: 'c_bear_lowshadow', name: 'Bearish long lower shadow', bull: false, k: [62, 66, 8, 56] },
+  { id: 'c_bear_upshadow', name: 'Bearish long upper shadow', bull: false, k: [40, 92, 26, 30] },
+  { id: 'c_bear_tall', name: 'Tall bearish', bull: false, k: [86, 88, 14, 14] },
+  { id: 'c_bear_doji', name: 'Doji (bear)', bull: false, k: [50, 70, 30, 49.4] },
 ]
 const CANDLE_W = 11
 const CANDLE_K = 1.05 // px per price unit (small, chart-sized candles)
@@ -1055,12 +1072,14 @@ function candleTool(c) {
     render: (p, H) => {
       const [o, hi, lo, cl] = c.k
       const col = cl >= o ? GREEN : RED
-      const y = (price) => p[0].y + (50 - price) * CANDLE_K
+      const kx = H.o.cw ?? 1
+      const ky = (H.o.ch ?? 1) * CANDLE_K
+      const y = (price) => p[0].y + (50 - price) * ky
       const x = p[0].x
-      H.line({ x, y: y(hi) }, { x, y: y(lo) }, { stroke: H.o.hit ? undefined : col, strokeWidth: 1.6 })
+      H.line({ x, y: y(hi) }, { x, y: y(lo) }, { stroke: H.o.hit ? undefined : col, strokeWidth: Math.max(1, 1.6 * Math.min(kx, 1.6)) })
       const top = Math.min(y(o), y(cl))
       const bot = Math.max(y(o), y(cl)) < top + 2 ? top + 2 : Math.max(y(o), y(cl))
-      H.rect({ x: x - CANDLE_W / 2, y: top }, { x: x + CANDLE_W / 2, y: bot }, { stroke: H.o.hit ? undefined : col, ...(H.o.hit ? {} : { fill: col }), strokeWidth: 1, rx: 1.5 })
+      H.rect({ x: x - (CANDLE_W * kx) / 2, y: top }, { x: x + (CANDLE_W * kx) / 2, y: bot }, { stroke: H.o.hit ? undefined : col, ...(H.o.hit ? {} : { fill: col }), strokeWidth: 1, rx: 1.5 })
     },
   }
 }
@@ -1087,7 +1106,7 @@ export const GROUPS = [
     id: 'patterns', name: 'Patterns', icon: Hash,
     sections: [
       { title: 'Chart patterns', tools: ['xabcd', 'cypher', 'headshoulders', 'abcd', 'trianglepattern', 'threedrives'] },
-      { title: 'Elliott waves', tools: ['elliottimpulse', 'elliottcorrection', 'elliotttriangle', 'elliottdouble', 'elliotttriple'] },
+      { title: 'Elliott waves', tools: ['elliottfree', 'elliottimpulse', 'elliottcorrection', 'elliotttriangle', 'elliottdouble', 'elliotttriple'] },
       { title: 'Cycles', tools: ['cyclic', 'timecycles', 'sine'] },
     ],
   },
@@ -1161,7 +1180,7 @@ export function shapeBounds(el) {
     const s = el.fontSize || 36
     x -= s / 2; y -= s / 2; w += s; h += s
   } else if (TOOLS[el.tool]?.candle) {
-    x -= 12; y -= 58; w += 24; h += 116
+    { const kw = el.candleW ?? 1; const kh = el.candleH ?? 1; x -= 12 * kw; y -= 58 * kh; w += 24 * kw; h += 116 * kh }
   } else if (pts.length === 1) {
     x -= 14; y -= 40; w += 140; h += 50
   }

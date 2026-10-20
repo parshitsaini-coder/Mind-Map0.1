@@ -311,9 +311,18 @@ export default function App() {
       clearTimeout(tradeShareSyncTimeout.current)
       tradeShareSyncTimeout.current = setTimeout(() => {
         const { trades, validationRules } = useTradeAnalysisStore.getState()
-        if (trades.length > 0) useTradeShareStore.getState().syncActiveLinks({ trades, validationRules })
+        if (trades.length > 0) useTradeShareStore.getState().syncActiveLinks({ userId: user.id, trades, validationRules })
       }, 2000)
     })
+    // One sync shortly after sign-in / load, even with no edits, so links
+    // are brought up to date the moment the owner opens the app.
+    if (user) {
+      clearTimeout(tradeShareSyncTimeout.current)
+      tradeShareSyncTimeout.current = setTimeout(() => {
+        const { trades, validationRules } = useTradeAnalysisStore.getState()
+        if (trades.length > 0) useTradeShareStore.getState().syncActiveLinks({ userId: user.id, trades, validationRules })
+      }, 4000)
+    }
     return () => {
       clearTimeout(tradeSaveTimeout.current)
       clearTimeout(tradeShareSyncTimeout.current)

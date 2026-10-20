@@ -1,10 +1,12 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { createTradeShare, endTradeShare, fetchTradeShareViewCounts, updateTradeShareData, fetchOwnTradeShareFilters } from '../lib/tradeShare'
+import { createTradeShare, endTradeShare, fetchTradeShareViewCounts, updateTradeShareData, fetchOwnActiveTradeShares } from '../lib/tradeShare'
+import { useUiStore } from './uiStore'
 import { applyFilters } from '../utils/tradeFilters'
 
 // Last payload pushed per link — skips network writes when nothing changed.
 const lastSynced = new Map()
+let warned = false
 
 // Remembers every Trade Analysis share link this browser has created — just
 // the small pointer (id/expiry/summary), never the trade snapshot itself —
@@ -48,24 +50,21 @@ export const useTradeShareStore = create(
       // Keeps every active link in step with the owner's trades: re-applies
       // each link's saved filters to the current trades and uploads the
       // result when it changed. Called (debounced) from App on any edit.
-      syncActiveLinks: async ({ trades, validationRules }) => {
-        const links = get().activeLinks()
-        for (const l of links) {
-          let filters = l.filters
-          if (!filters) {
-            filters = await fetchOwnTradeShareFilters(l.id)
-            if (!filters) continue
-            set((s) => ({ links: s.links.map((x) => (x.id === l.id ? { ...x, filters } : x)) }))
-          }
-          const shared = applyFilters(trades, filters)
+      syncActiveLinks: async ({ userId, trades, validationRules }) => {
+        const rows = await fetchOwnActiveTradeShares(userId)
+        for (const row of rows) {
+          const shared = applyFilters(trades, row.filters || {})
           const ruleIds = new Set(shared.flatMap((t) => t.validationRuleIds || []))
           const rules = validationRules.filter((r) => ruleIds.has(r.id))
           const payload = JSON.stringify([shared, rules])
-          if (lastSynced.get(l.id) === payload) continue
-          const prev = lastSynced.get(l.id)
-          lastSynced.set(l.id, payload)
-          const { error } = await updateTradeShareData(l.id, { trades: shared, validationRules: rules })
-          if (error) { if (prev === undefined) lastSynced.delete(l.id); else lastSynced.set(l.id, prev) }
+          if (lastSynced.get(row.id) === payload) continue
+          const { error } = await updateTradeShareData(row.id, { trades: shared, validationRules: rules })
+          if (error) {
+            console.warn('[trade share sync]', row.id, error)
+            if (!warned) { warned = true; useUiStore.getState().showToast(`Share link sync failed: ${error}`) }
+          } else {
+            lastSynced.set(row.id, payload)
+          }
         }
       },
 
