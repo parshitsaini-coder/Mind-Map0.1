@@ -327,6 +327,8 @@ function MeasureOverlay({ m, zoom }) {
   )
 }
 
+const selectEl = (id) => useWhiteboardStore.getState().selectElement(id)
+
 export default function Whiteboard() {
   const isOpen = useWhiteboardStore((s) => s.isOpen)
   const elements = useWhiteboardStore((s) => s.elements)
@@ -387,9 +389,21 @@ export default function Whiteboard() {
   // handlers always see the latest value.
   const [draft, setDraftState] = useState(null)
   const draftRef = useRef(null)
+  const draftRaf = useRef(0)
   const setDraft = (d) => {
     draftRef.current = d
+    if (draftRaf.current) { cancelAnimationFrame(draftRaf.current); draftRaf.current = 0 }
     setDraftState(d)
+  }
+  // Mouse-move updates: the ref is always current, React state is flushed at
+  // most once per frame so a fast drag doesn't re-render the board 100+/s.
+  const setDraftSoft = (d) => {
+    draftRef.current = d
+    if (draftRaf.current) return
+    draftRaf.current = requestAnimationFrame(() => {
+      draftRaf.current = 0
+      setDraftState(draftRef.current)
+    })
   }
   const [measure, setMeasure] = useState(null) // { a, b, done, down }
   const measureRef = useRef(null)
@@ -585,7 +599,7 @@ export default function Whiteboard() {
       const { x, y } = toBoardCoords(e.clientX, e.clientY)
       const cur = snapPoint({ x, y })
       const dragged = d.dragged || (d.down ? Math.hypot(e.clientX - d.down.x, e.clientY - d.down.y) > 5 : false)
-      setDraft({ ...d, cur, dragged })
+      setDraftSoft({ ...d, cur, dragged })
     }
     const m = measureRef.current
     if (m && !m.done) {
@@ -903,7 +917,7 @@ export default function Whiteboard() {
         >
           <div
             className="whiteboard-elements-layer"
-            style={{ position: 'absolute', top: 0, left: 0, width: 0, height: 0, transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0' }}
+            style={{ position: 'absolute', top: 0, left: 0, width: 0, height: 0, transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', willChange: 'transform' }}
           >
             {showAll &&
               elements
@@ -914,10 +928,10 @@ export default function Whiteboard() {
                       key={el.id}
                       element={el}
                       isSelected={selectedId === el.id}
-                      tool={tool}
+                      tool={tool === 'select' ? 'select' : 'other'}
                       zoom={zoom}
                       locked={lockAll || el.locked}
-                      onSelect={(id) => useWhiteboardStore.getState().selectElement(id)}
+                      onSelect={selectEl}
                       onEditText={setEditShapeId}
                     />
                   ) : (
@@ -925,10 +939,10 @@ export default function Whiteboard() {
                       key={el.id}
                       element={el}
                       isSelected={selectedId === el.id}
-                      tool={tool}
+                      tool={tool === 'select' ? 'select' : 'other'}
                       zoom={zoom}
                       locked={lockAll || el.locked}
-                      onSelect={(id) => useWhiteboardStore.getState().selectElement(id)}
+                      onSelect={selectEl}
                       autoFocusEdit={justCreatedId === el.id}
                     />
                   )

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import { useWhiteboardStore } from '../../store/whiteboardStore'
 import { TOOLS, build, shapeBounds, lineExtras } from './drawShapes'
 
@@ -8,7 +8,7 @@ const DASH = { solid: undefined, dashed: '9 6', dotted: '2 6' }
 // click-through; a second transparent "hit" pass with fat strokes handles drag,
 // select, double-click-to-edit and the eraser (`data-wb-id`). Selected shapes
 // show a dashed box plus a draggable handle on every anchor point.
-export default function ShapeElement({ element, isSelected, tool, zoom, onSelect, onEditText, preview, locked }) {
+function ShapeElement({ element, isSelected, tool, zoom, onSelect, onEditText, preview, locked }) {
   const spec = TOOLS[element.tool]
   const pts = element.points
 
@@ -144,3 +144,5 @@ export default function ShapeElement({ element, isSelected, tool, zoom, onSelect
     </svg>
   )
 }
+
+export default memo(ShapeElement)

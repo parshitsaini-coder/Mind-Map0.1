@@ -1,5 +1,29 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
+
+// Coalesce localStorage writes (a drag fires dozens of store updates/sec and
+// serialising every element each time blocked the main thread).
+const debouncedStorage = (() => {
+  let timer = null
+  let pending = null
+  const flush = () => {
+    if (timer) { clearTimeout(timer); timer = null }
+    if (pending) {
+      const [k, v] = pending
+      pending = null
+      try { localStorage.setItem(k, v) } catch { /* quota */ }
+    }
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', () => { if (document.hidden) flush() })
+  }
+  return {
+    getItem: (k) => { flush(); return localStorage.getItem(k) },
+    setItem: (k, v) => { pending = [k, v]; if (!timer) timer = setTimeout(flush, 400) },
+    removeItem: (k) => { pending = null; localStorage.removeItem(k) },
+  }
+})()
 
 // Section — Whiteboard. A free-form infinite canvas, separate from the mind
 // map tree, where text boxes, sticky notes, and freehand pen strokes can be
@@ -215,6 +239,7 @@ export const useWhiteboardStore = create(
     }),
     {
       name: 'mindmap-whiteboard-storage',
+      storage: createJSONStorage(() => debouncedStorage),
       // Only the actual drawing survives a refresh — open/selection/tool
       // state and undo history are transient per-session concerns.
       partialize: (state) => ({

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { memo, useState, useRef, useEffect } from 'react'
 import { useWhiteboardStore } from '../../store/whiteboardStore'
 
 // Renders one whiteboard element (a free-positioned text box, a sticky note,
@@ -6,7 +6,7 @@ import { useWhiteboardStore } from '../../store/whiteboardStore'
 // interactions. Coordinates are all in board space — the parent canvas
 // applies the pan/zoom transform once, so children here just use their raw
 // x/y/points and divide client deltas by the current zoom.
-export default function WhiteboardElement({ element, isSelected, tool, zoom, onSelect, autoFocusEdit, locked }) {
+function WhiteboardElement({ element, isSelected, tool, zoom, onSelect, autoFocusEdit, locked }) {
   const [editing, setEditing] = useState(false)
   const textareaRef = useRef(null)
 
@@ -214,3 +214,5 @@ export default function WhiteboardElement({ element, isSelected, tool, zoom, onS
     </div>
   )
 }
+
+export default memo(WhiteboardElement)

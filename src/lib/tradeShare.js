@@ -49,6 +49,24 @@ export async function createTradeShare({ userId, trades, validationRules, filter
   return { id: data.id, expiresAt: data.expires_at }
 }
 
+// Owner-side: push the latest trades into an existing live link so the
+// shared page reflects edits (status, P&L, images…) without a new link.
+// `filters` is read from the row when the caller doesn't have it.
+export async function updateTradeShareData(id, { trades, validationRules }) {
+  if (!isSupabaseConfigured || !id) return { error: 'not-configured' }
+  const { error } = await supabase
+    .from('trade_shares')
+    .update({ trades, validation_rules: validationRules, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  return { error: error?.message }
+}
+
+export async function fetchOwnTradeShareFilters(id) {
+  if (!isSupabaseConfigured || !id) return null
+  const { data } = await supabase.from('trade_shares').select('filters').eq('id', id).maybeSingle()
+  return data?.filters || null
+}
+
 export async function endTradeShare(id) {
   if (!isSupabaseConfigured || !id) return
   await supabase.from('trade_shares').update({ ended_at: new Date().toISOString() }).eq('id', id)

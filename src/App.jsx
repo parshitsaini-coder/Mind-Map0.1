@@ -23,6 +23,7 @@ import { useMapStore } from './store/mapStore'
 import { useProjectsStore, readProjectData } from './store/projectsStore'
 import { useAuthStore } from './store/authStore'
 import { useTradeAnalysisStore } from './store/tradeAnalysisStore'
+import { useTradeShareStore } from './store/tradeShareStore'
 import { useStrategyTesterStore } from './store/strategyTesterStore'
 import { useLiveShareStore } from './store/liveShareStore'
 import { applyThemeVars } from './theme/tokens'
@@ -40,6 +41,7 @@ export default function App() {
   const user = useAuthStore((s) => s.user)
   const authInitialized = useAuthStore((s) => s.initialized)
   const tradeSaveTimeout = useRef(null)
+  const tradeShareSyncTimeout = useRef(null)
   const hasLoadedTradesForUser = useRef(null)
   const strategyTesterSaveTimeout = useRef(null)
   const hasLoadedStrategyTesterForUser = useRef(null)
@@ -305,9 +307,16 @@ export default function App() {
       tradeSaveTimeout.current = setTimeout(() => {
         useTradeAnalysisStore.getState().saveToCloud(user.id)
       }, 1200)
+      // Keep any live share links in step with the edited trades.
+      clearTimeout(tradeShareSyncTimeout.current)
+      tradeShareSyncTimeout.current = setTimeout(() => {
+        const { trades, validationRules } = useTradeAnalysisStore.getState()
+        if (trades.length > 0) useTradeShareStore.getState().syncActiveLinks({ trades, validationRules })
+      }, 2000)
     })
     return () => {
       clearTimeout(tradeSaveTimeout.current)
+      clearTimeout(tradeShareSyncTimeout.current)
       unsubscribe()
     }
   }, [user, authInitialized])

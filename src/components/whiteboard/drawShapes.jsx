@@ -1029,20 +1029,37 @@ const CANDLE_PATTERNS = [
   { id: 'c_bear_open', name: 'Opening marubozu', bull: false, k: [80, 80, 16, 24] },
   { id: 'c_bear_close', name: 'Closing marubozu', bull: false, k: [76, 86, 20, 20] },
 ]
-const CANDLE_W = 22
-const CANDLE_K = 2 // px per price unit
+const CANDLE_W = 11
+const CANDLE_K = 1.05 // px per price unit (small, chart-sized candles)
+
+// Toolbar/flyout icon: a tiny drawing of the actual candle shape.
+function candleIcon(c) {
+  const [o, hi, lo, cl] = c.k
+  const col = cl >= o ? GREEN : RED
+  return function CandleGlyph({ size = 14 }) {
+    const sy = (v) => 23 - (v - 6) * (22 / 88) // price 6..94 -> y 22..2
+    const top = Math.min(sy(o), sy(cl))
+    const bh = Math.max(Math.abs(sy(o) - sy(cl)), 1.6)
+    return (
+      <svg width={size * 1.3} height={size * 1.3} viewBox="0 0 24 24" aria-hidden="true">
+        <line x1="12" y1={sy(hi)} x2="12" y2={sy(lo)} stroke={col} strokeWidth="1.8" strokeLinecap="round" />
+        <rect x="6.5" y={top} width="11" height={bh} rx="1" fill={col} stroke={col} strokeWidth="0.6" />
+      </svg>
+    )
+  }
+}
 
 function candleTool(c) {
   return {
-    name: c.name, icon: c.bull ? ArrowBigUp : ArrowBigDown, n: 1, candle: true,
+    name: c.name, icon: candleIcon(c), n: 1, candle: true,
     render: (p, H) => {
       const [o, hi, lo, cl] = c.k
       const col = cl >= o ? GREEN : RED
       const y = (price) => p[0].y + (50 - price) * CANDLE_K
       const x = p[0].x
-      H.line({ x, y: y(hi) }, { x, y: y(lo) }, { stroke: H.o.hit ? undefined : col, strokeWidth: 2.4 })
+      H.line({ x, y: y(hi) }, { x, y: y(lo) }, { stroke: H.o.hit ? undefined : col, strokeWidth: 1.6 })
       const top = Math.min(y(o), y(cl))
-      const bot = Math.max(y(o), y(cl)) < top + 3 ? top + 3 : Math.max(y(o), y(cl))
+      const bot = Math.max(y(o), y(cl)) < top + 2 ? top + 2 : Math.max(y(o), y(cl))
       H.rect({ x: x - CANDLE_W / 2, y: top }, { x: x + CANDLE_W / 2, y: bot }, { stroke: H.o.hit ? undefined : col, ...(H.o.hit ? {} : { fill: col }), strokeWidth: 1, rx: 1.5 })
     },
   }
@@ -1144,7 +1161,7 @@ export function shapeBounds(el) {
     const s = el.fontSize || 36
     x -= s / 2; y -= s / 2; w += s; h += s
   } else if (TOOLS[el.tool]?.candle) {
-    x -= 20; y -= 105; w += 40; h += 210
+    x -= 12; y -= 58; w += 24; h += 116
   } else if (pts.length === 1) {
     x -= 14; y -= 40; w += 140; h += 50
   }

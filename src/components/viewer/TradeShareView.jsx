@@ -105,6 +105,26 @@ export default function TradeShareView({ shareId }) {
     load()
   }, [load])
 
+  // Silent auto-refresh: pull the owner's latest edits every 20s and when
+  // the tab becomes visible again. Errors are ignored here so a blip never
+  // replaces a good page with an error screen.
+  useEffect(() => {
+    const poll = async () => {
+      if (document.hidden) return
+      const result = await fetchTradeShare(shareId)
+      if (result.data) {
+        setState((prev) =>
+          prev.status === 'ready' && JSON.stringify(prev.data) === JSON.stringify(result.data)
+            ? prev
+            : { status: 'ready', data: result.data, error: null }
+        )
+      }
+    }
+    const t = setInterval(poll, 20000)
+    document.addEventListener('visibilitychange', poll)
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', poll) }
+  }, [shareId])
+
   const handleRefresh = async () => {
     if (refreshing) return
     setRefreshing(true)
