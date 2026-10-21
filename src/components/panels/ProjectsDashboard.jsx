@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import { useAuthStore } from '../../store/authStore'
+import { useUiStore } from '../../store/uiStore'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Plus, FolderOpen, Trash2, Pencil, Check, X } from 'lucide-react'
 import MindNodeIcon from '../common/MindNodeIcon'
@@ -149,6 +151,19 @@ export default function ProjectsDashboard() {
   // confirmation (or null when no delete is in progress) so
   // DeleteConfirmModal can be mounted/unmounted around it.
   const [pendingDelete, setPendingDelete] = useState(null)
+  const authUser = useAuthStore((s) => s.user)
+  const [restoring, setRestoring] = useState(false)
+  const handleRestore = async () => {
+    if (!authUser || restoring) return
+    setRestoring(true)
+    const r = await useProjectsStore.getState().syncWithCloud(authUser.id)
+    setRestoring(false)
+    useUiStore.getState().showToast(
+      r?.error ? `Cloud sync failed: ${r.error}`
+        : r?.count === 0 ? 'Cloud me is account ke koi mind map nahi mile.'
+        : `Cloud me ${r?.count} mind maps mile — ${r?.added} naye add hue.`
+    )
+  }
 
   if (!dashboardOpen) return null
 
@@ -205,6 +220,20 @@ export default function ProjectsDashboard() {
               </button>
             )}
           </div>
+
+          {authUser && (
+            <div className="mb-3 flex items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-[11px]" style={{ borderColor: 'var(--color-sage)', color: 'var(--color-slate)' }}>
+              <span>Signed in — maps cloud se sync hote hain. Kuch missing lage to restore karo.</span>
+              <button
+                onClick={handleRestore}
+                disabled={restoring}
+                className="shrink-0 rounded px-2.5 py-1 text-[11px] font-semibold disabled:opacity-50"
+                style={{ backgroundColor: 'var(--color-accent)', color: 'var(--color-ink)' }}
+              >
+                {restoring ? 'Syncing…' : 'Restore from cloud'}
+              </button>
+            </div>
+          )}
 
           <div className="mb-4 flex gap-2">
             <input

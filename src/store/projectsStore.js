@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { fetchAllProjectsCloud, upsertProjectCloud } from '../lib/projectCloudSync'
+import { fetchProjectsMetaCloud, fetchProjectFullCloud, upsertProjectCloud } from '../lib/projectCloudSync'
 
 // ---------------------------------------------------------------------------
 // Multi-project support.
@@ -174,11 +174,38 @@ export const useProjectsStore = create(
       // a sync tick can never yank the canvas out from under someone mid-edit
       // — it still gets pushed up normally on its own debounce.
       syncWithCloud: async (userId) => {
-        const { data, error } = await fetchAllProjectsCloud(userId)
-        if (error) return
+        const { data: metaRows, error: metaErr } = await fetchProjectsMetaCloud(userId)
+        if (metaErr) {
+          console.warn('[project sync] list failed:', metaErr)
+          return { error: metaErr, count: 0, added: 0 }
+        }
+        // Fetch full data only for projects we will actually write locally.
+        const localById = new Map(get().projects.map((p) => [p.id, p]))
+        const openId = get().activeProjectId
+        const need = metaRows.filter((r) => {
+          const lp = localById.get(r.project_id)
+          if (!lp) return true
+          const ts = r.updated_at ? new Date(r.updated_at).getTime() : 0
+          return ts > (lp.updatedAt || 0) && lp.id !== openId
+        })
+        const fullById = new Map()
+        for (let i = 0; i < need.length; i += 4) {
+          const results = await Promise.all(need.slice(i, i + 4).map((r) => fetchProjectFullCloud(userId, r.project_id)))
+          for (const res of results) {
+            if (res.error || !res.data) {
+              // Abort instead of guessing — a half-loaded list must never be
+              // treated as "deleted elsewhere".
+              console.warn('[project sync] project fetch failed:', res.error)
+              return { error: res.error || 'project row missing', count: metaRows.length, added: 0 }
+            }
+            fullById.set(res.data.project_id, res.data)
+          }
+        }
+        const data = metaRows.map((r) => fullById.get(r.project_id) || r)
         const cloudById = new Map(data.map((row) => [row.project_id, row]))
         const activeId = get().activeProjectId
 
+        const addedCount = data.filter((r) => !localById.has(r.project_id)).length
         const kept = []
         for (const p of get().projects) {
           const row = cloudById.get(p.id)
@@ -242,6 +269,7 @@ export const useProjectsStore = create(
             if (!pushErr) get().markSynced(p.id)
           }
         }
+        return { error: null, count: data.length, added: addedCount }
       },
     }),
     { name: 'mindmap-projects', partialize: (s) => ({ projects: s.projects, openTabs: s.openTabs, activeProjectId: s.activeProjectId }) }

@@ -43,3 +43,18 @@ export async function fetchAllProjectsCloud(userId) {
   const { data, error } = await supabase.from(TABLE).select('*').eq('user_id', userId)
   return { data: data || [], error: error?.message || null }
 }
+
+// Light listing (no nodes/edges payload) — a big canvas or base64 images in a
+// few projects can make a single `select *` of every row time out, which used
+// to fail silently and leave the dashboard empty. Full data is fetched per
+// project only when it is actually needed.
+export async function fetchProjectsMetaCloud(userId) {
+  if (!isSupabaseConfigured || !userId) return { data: [], error: null }
+  const { data, error } = await supabase.from(TABLE).select('project_id, name, updated_at').eq('user_id', userId)
+  return { data: data || [], error: error?.message || null }
+}
+
+export async function fetchProjectFullCloud(userId, projectId) {
+  const { data, error } = await supabase.from(TABLE).select('*').eq('user_id', userId).eq('project_id', projectId).maybeSingle()
+  return { data: data || null, error: error?.message || null }
+}
