@@ -210,11 +210,12 @@ export const useProjectsStore = create(
         for (const p of get().projects) {
           const row = cloudById.get(p.id)
           if (!row) {
-            if (p.cloudSynced) {
-              deleteProjectData(p.id) // deleted elsewhere — drop it here too
-              continue
-            }
-            kept.push(p) // never synced yet — keep, will push below
+            // NEVER delete a local map just because the cloud list doesn't
+            // contain it — an empty/partial cloud answer (session not ready,
+            // RLS hiccup, a deleted row) must not wipe someone's maps. Keep
+            // it and let the push step below re-upload it. Deleting a map on
+            // purpose still removes its cloud row (see App.jsx).
+            kept.push({ ...p, cloudSynced: false })
             continue
           }
           const cloudTs = row.updated_at ? new Date(row.updated_at).getTime() : 0

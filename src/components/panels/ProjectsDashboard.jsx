@@ -153,11 +153,16 @@ export default function ProjectsDashboard() {
   const [pendingDelete, setPendingDelete] = useState(null)
   const authUser = useAuthStore((s) => s.user)
   const [restoring, setRestoring] = useState(false)
+  const [restoreMsg, setRestoreMsg] = useState('')
   const handleRestore = async () => {
     if (!authUser || restoring) return
     setRestoring(true)
     const r = await useProjectsStore.getState().syncWithCloud(authUser.id)
     setRestoring(false)
+    setRestoreMsg(
+      r?.error ? `Error: ${r.error}`
+        : `Account: ${authUser.email || '—'} (id ${String(authUser.id).slice(0, 8)}…) — cloud me ${r?.count} maps mile, ${r?.added} naye add hue. Is browser me ab ${useProjectsStore.getState().projects.length} maps hain.`
+    )
     useUiStore.getState().showToast(
       r?.error ? `Cloud sync failed: ${r.error}`
         : r?.count === 0 ? 'Cloud me is account ke koi mind map nahi mile.'
@@ -223,7 +228,10 @@ export default function ProjectsDashboard() {
 
           {authUser && (
             <div className="mb-3 flex items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-[11px]" style={{ borderColor: 'var(--color-sage)', color: 'var(--color-slate)' }}>
-              <span>Signed in — maps cloud se sync hote hain. Kuch missing lage to restore karo.</span>
+              <span>
+                Signed in — maps cloud se sync hote hain. Kuch missing lage to restore karo.
+                {restoreMsg && <span className="mt-1 block font-semibold" style={{ color: 'var(--color-ink)' }}>{restoreMsg}</span>}
+              </span>
               <button
                 onClick={handleRestore}
                 disabled={restoring}
