@@ -260,9 +260,11 @@ function StreakDots({ chrono, delay }) {
   )
 }
 
-/** Calendar heat-map — one cell per day, newest week on the right. */
+/** Real month calendars (latest 3 months). Days with trades are tinted by
+ *  result; every other date number is printed faint so the grid reads like
+ *  a normal wall calendar. */
 function CalendarHeat({ trades, delay }) {
-  const { cols, hasAny, monthLabels } = useMemo(() => {
+  const { months, hasAny } = useMemo(() => {
     const byDay = new Map()
     trades.forEach((t) => {
       const k = dayKey(parseDate(t))
@@ -273,30 +275,28 @@ function CalendarHeat({ trades, delay }) {
       else if (o === 'loss') r.l += 1
       else r.o += 1
     })
-    const latest = trades.reduce((m, t) => Math.max(m, +parseDate(t)), 0) || Date.now()
-    const end = new Date(latest)
-    end.setDate(end.getDate() + (7 - (end.getDay() || 7))) // sunday of latest week
-    const weeks = 14
-    const start = new Date(end)
-    start.setDate(end.getDate() - weeks * 7 + 1)
-    const cols = []
-    const monthLabels = []
-    let lastMonth = -1
-    for (let w = 0; w < weeks; w++) {
-      const col = []
-      for (let d = 0; d < 7; d++) {
-        const dt = new Date(start)
-        dt.setDate(start.getDate() + w * 7 + d)
-        const k = dayKey(dt)
-        col.push({ k, rec: byDay.get(k) || null, future: dt > new Date(latest) && !byDay.get(k) })
-        if (d === 0 && dt.getMonth() !== lastMonth) {
-          lastMonth = dt.getMonth()
-          monthLabels.push({ w, label: dt.toLocaleString('en', { month: 'short' }) })
+    const latest = new Date(trades.reduce((m, t) => Math.max(m, +parseDate(t)), 0) || Date.now())
+    const months = [2, 1, 0].map((back) => {
+      const first = new Date(latest.getFullYear(), latest.getMonth() - back, 1)
+      const y = first.getFullYear()
+      const m = first.getMonth()
+      const offset = (first.getDay() + 6) % 7 // Monday-first
+      const count = new Date(y, m + 1, 0).getDate()
+      const cells = Array.from({ length: offset }, () => null)
+      let w = 0
+      let l = 0
+      for (let d = 1; d <= count; d++) {
+        const k = dayKey(new Date(y, m, d))
+        const rec = byDay.get(k) || null
+        if (rec) {
+          w += rec.w
+          l += rec.l
         }
+        cells.push({ d, k, rec })
       }
-      cols.push(col)
-    }
-    return { cols, hasAny: byDay.size > 0, monthLabels }
+      return { y, m, label: first.toLocaleString('en', { month: 'long', year: 'numeric' }), cells, w, l }
+    })
+    return { months, hasAny: byDay.size > 0 }
   }, [trades])
 
   const colorOf = (rec) => {
@@ -305,53 +305,80 @@ function CalendarHeat({ trades, delay }) {
     if (rec.l > rec.w) return NEG
     return AMBER
   }
+  const heads = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+
   return (
-    <Card title="Calendar heat-map" icon={CalendarDays} span={2} delay={delay} accent={POS}>
+    <Card title="Trading calendar · last 3 months" icon={CalendarDays} span={3} delay={delay} accent={POS}>
       {!hasAny ? (
         <Empty>No dated trades yet.</Empty>
       ) : (
-        <div className="overflow-x-auto pb-1">
-          <div className="relative mb-1 flex gap-[3px]" style={{ height: 10 }}>
-            {cols.map((_, w) => {
-              const m = monthLabels.find((x) => x.w === w)
-              return (
-                <span key={w} className="w-[15px] shrink-0 overflow-visible whitespace-nowrap" style={{ fontSize: 7, color: 'var(--ta-slate)' }}>
-                  {m?.label || ''}
-                </span>
-              )
-            })}
-          </div>
-          <div className="flex gap-[3px]">
-            {cols.map((col, w) => (
-              <div key={w} className="flex flex-col gap-[3px]">
-                {col.map((cell, d) => {
-                  const c = colorOf(cell.rec)
-                  const n = cell.rec ? cell.rec.w + cell.rec.l + cell.rec.o : 0
-                  return (
-                    <motion.span
-                      key={cell.k}
-                      title={cell.rec ? `${cell.k} · ${cell.rec.w}W ${cell.rec.l}L${cell.rec.o ? ` ${cell.rec.o} open` : ''}` : cell.k}
-                      initial={{ scale: 0, opacity: 0 }}
-                      whileInView={{ scale: 1, opacity: 1 }}
-                      viewport={{ once: true }}
-                      whileHover={{ scale: 1.45 }}
-                      transition={{ delay: delay + (w * 7 + d) * 0.0045, type: 'spring', stiffness: 420, damping: 22 }}
-                      className="h-[15px] w-[15px] rounded-[4px]"
-                      style={{
-                        backgroundColor: c ? c : 'color-mix(in srgb, var(--ta-slate) 14%, transparent)',
-                        opacity: c ? Math.min(1, 0.45 + n * 0.2) : cell.future ? 0.35 : 1,
-                      }}
-                    />
-                  )
-                })}
-              </div>
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {months.map((mo, mi) => (
+              <motion.div
+                key={`${mo.y}-${mo.m}`}
+                initial={{ opacity: 0, y: 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: delay + mi * 0.1, duration: 0.45, ease: EASE }}
+                className="rounded-xl border p-2.5"
+                style={{ borderColor: 'color-mix(in srgb, var(--ta-slate) 25%, transparent)' }}
+              >
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="font-extrabold" style={{ fontSize: 'var(--tad-body)', color: 'var(--ta-ink)' }}>{mo.label}</span>
+                  <span className="ta-num font-bold" style={{ fontSize: 'var(--tad-micro)', color: 'var(--ta-slate)' }}>
+                    <span style={{ color: POS }}>{mo.w}W</span> · <span style={{ color: NEG }}>{mo.l}L</span>
+                  </span>
+                </div>
+                <div className="grid grid-cols-7 gap-[3px]">
+                  {heads.map((h, i) => (
+                    <span key={i} className="text-center font-bold" style={{ fontSize: 8, color: 'var(--ta-slate)' }}>{h}</span>
+                  ))}
+                  {mo.cells.map((c, i) => {
+                    if (!c) return <span key={`b${i}`} />
+                    const col = colorOf(c.rec)
+                    const n = c.rec ? c.rec.w + c.rec.l + c.rec.o : 0
+                    return (
+                      <motion.div
+                        key={c.k}
+                        title={c.rec ? `${c.k} · ${c.rec.w}W ${c.rec.l}L${c.rec.o ? ` ${c.rec.o} open` : ''}` : c.k}
+                        initial={{ scale: 0.4, opacity: 0 }}
+                        whileInView={{ scale: 1, opacity: 1 }}
+                        viewport={{ once: true }}
+                        whileHover={{ scale: 1.22, zIndex: 2 }}
+                        transition={{ delay: delay + mi * 0.1 + i * 0.006, type: 'spring', stiffness: 420, damping: 24 }}
+                        className="relative flex h-[30px] items-center justify-center rounded-md"
+                        style={{
+                          backgroundColor: col || 'transparent',
+                          boxShadow: col ? `0 2px 6px -2px ${col}` : undefined,
+                        }}
+                      >
+                        <span
+                          className="ta-num font-semibold leading-none"
+                          style={{ fontSize: 9, color: col ? '#fff' : '#000', opacity: col ? 1 : 0.28, fontWeight: col ? 800 : 600 }}
+                        >
+                          {c.d}
+                        </span>
+                        {n > 1 && (
+                          <span
+                            className="absolute right-[2px] top-[1px] leading-none"
+                            style={{ fontSize: 6.5, color: '#fff', opacity: 0.9, fontWeight: 800 }}
+                          >
+                            {n}
+                          </span>
+                        )}
+                      </motion.div>
+                    )
+                  })}
+                </div>
+              </motion.div>
             ))}
           </div>
-          <div className="mt-1.5 flex items-center justify-between">
+          <div className="mt-2 flex items-center justify-between">
             <Legend />
-            <span style={{ fontSize: 'var(--tad-micro)', color: 'var(--ta-slate)' }}>darker = more trades that day</span>
+            <span style={{ fontSize: 'var(--tad-micro)', color: 'var(--ta-slate)' }}>small number = trades that day</span>
           </div>
-        </div>
+        </>
       )}
     </Card>
   )
