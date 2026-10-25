@@ -1,7 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { X, Trash2 } from 'lucide-react'
 import { useUiStore } from '../../store/uiStore'
+import { maskedImage } from '../../utils/detectUsernameBox'
 
 // Fullscreen viewer for a node's image — opened by clicking the small image
 // thumbnail on a node in CustomNode.jsx. Click the backdrop, hit Escape, or
@@ -16,6 +17,29 @@ export default function ImageLightbox({ blurCorner = false }) {
   const url = useUiStore((s) => s.imageLightboxUrl)
   const onRemove = useUiStore((s) => s.imageLightboxOnRemove)
   const close = useUiStore((s) => s.closeImageLightbox)
+
+  // Viewer pages: the username is blurred into the actual pixels so even
+  // right-click → Copy/Save gives the masked image. If the image host
+  // blocks canvas reads, `masked.failed` → CSS overlay + no context menu.
+  const [masked, setMasked] = useState(null)
+  useEffect(() => {
+    setMasked(null)
+    if (!url || !blurCorner) return
+    let alive = true
+    let made = null
+    maskedImage(url).then((m) => {
+      if (!alive) {
+        if (m) URL.revokeObjectURL(m.url)
+        return
+      }
+      made = m
+      setMasked(m || { failed: true })
+    })
+    return () => {
+      alive = false
+      if (made) URL.revokeObjectURL(made.url)
+    }
+  }, [url, blurCorner])
 
   useEffect(() => {
     if (!url) return
@@ -73,27 +97,29 @@ export default function ImageLightbox({ blurCorner = false }) {
             style={{ lineHeight: 0 }}
           >
             <img
-              src={url}
+              src={blurCorner && masked && !masked.failed ? masked.url : url}
               alt=""
               draggable={false}
+              onContextMenu={blurCorner && (!masked || masked.failed) ? (e) => e.preventDefault() : undefined}
+              style={{ maxHeight: 'calc(100vh - 48px)', maxWidth: 'calc(100vw - 48px)', visibility: blurCorner && !masked ? 'hidden' : 'visible' }}
               className="block object-contain"
-              style={{ maxHeight: 'calc(100vh - 48px)', maxWidth: 'calc(100vw - 48px)' }}
             />
             {/* Shared (viewer) pages: TradingView screenshots print the
                 owner's username in the top-left corner — blur it so it
                 can't be read by whoever opens the link. */}
-            {blurCorner && (
+            {blurCorner && masked?.failed && (
               <div
                 aria-hidden
-                className="absolute left-0 top-0"
+                className="absolute"
                 style={{
-                  width: '15%',
-                  height: '6%',
-                  minWidth: 60,
-                  minHeight: 16,
-                  backdropFilter: 'blur(9px)',
-                  WebkitBackdropFilter: 'blur(9px)',
-                  background: 'rgba(120,120,120,0.28)',
+                  left: 0,
+                  top: 0,
+                  width: '12%',
+                  height: '3.8%',
+                  minHeight: 10,
+                  backdropFilter: 'blur(7px)',
+                  WebkitBackdropFilter: 'blur(7px)',
+                  background: 'rgba(150,150,150,0.35)',
                   pointerEvents: 'none',
                 }}
               />
