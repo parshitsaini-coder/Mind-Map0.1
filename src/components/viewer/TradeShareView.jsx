@@ -12,6 +12,7 @@ import {
   LayoutGrid,
   BarChart3,
   Eye,
+  CalendarClock,
 } from 'lucide-react'
 import { fetchTradeShare, registerTradeShareView, fetchTradeShareViewCount } from '../../lib/tradeShare'
 import { tradeThemeCssVars, isGlassTheme, isClayTheme } from '../../theme/tradeAnalysisThemes'
@@ -305,27 +306,31 @@ export default function TradeShareView({ shareId }) {
           initial={{ y: -16, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.4, ease: 'easeOut' }}
-          className="sticky top-0 z-20 flex h-10 shrink-0 items-center gap-2 border-b px-3"
+          className="sticky top-0 z-20 border-b"
           style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)' }}
         >
+        <div className="flex h-11 items-center gap-1.5 px-2.5 sm:gap-2 sm:px-3">
           <motion.div
+            className="shrink-0"
             animate={{ rotate: [0, -6, 6, -3, 0] }}
             transition={{ duration: 2.4, repeat: Infinity, repeatDelay: 4, ease: 'easeInOut' }}
           >
-            <TrendingUp size={14} style={{ color: 'var(--ta-accent)' }} />
+            <TrendingUp size={15} style={{ color: 'var(--ta-accent)' }} />
           </motion.div>
-          <span className="text-[12px] font-semibold" style={{ color: 'var(--ta-ink)' }}>
-            📊 Shared Trades
+          <span className="min-w-0 truncate text-[12px] font-semibold" style={{ color: 'var(--ta-ink)' }}>
+            <span className="hidden min-[420px]:inline">📊 </span>Shared <span className="hidden sm:inline">Trades</span>
           </span>
           <motion.span
             key={trades.length}
             initial={{ scale: 0.6, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 400, damping: 18 }}
-            className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+            title={`${trades.length} trade${trades.length === 1 ? '' : 's'}`}
+            className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
             style={{ backgroundColor: 'color-mix(in srgb, var(--ta-accent) 16%, transparent)', color: 'var(--ta-accent)' }}
           >
-            {trades.length} trade{trades.length === 1 ? '' : 's'}
+            {trades.length}
+            <span className="hidden sm:inline">trade{trades.length === 1 ? '' : 's'}</span>
           </motion.span>
           {viewCount != null && (
             <motion.span
@@ -333,61 +338,76 @@ export default function TradeShareView({ shareId }) {
               initial={{ scale: 0.6, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: 'spring', stiffness: 400, damping: 18 }}
-              title="Total number of times this link has been opened"
-              className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
+              title={`${viewCount} view${viewCount === 1 ? '' : 's'} — total times this link has been opened`}
+              className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
               style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-slate)' }}
             >
-              <Eye size={10} />
-              {viewCount} view{viewCount === 1 ? '' : 's'}
+              <Eye size={11} />
+              {viewCount}
+              <span className="hidden sm:inline">view{viewCount === 1 ? '' : 's'}</span>
             </motion.span>
           )}
-          {trades.length > 0 && (
-            <div
-              className="ml-auto flex items-center gap-0.5 rounded-full p-0.5"
-              style={{ backgroundColor: 'var(--ta-bg)' }}
+          <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+            {trades.length > 0 && (
+              <div className="flex items-center gap-0.5 rounded-full p-0.5" style={{ backgroundColor: 'var(--ta-bg)' }}>
+                {[
+                  { id: 'cards', label: 'Cards', icon: LayoutGrid },
+                  { id: 'analysis', label: 'Analysis', icon: BarChart3 },
+                ].map((tab) => {
+                  const active = view === tab.id
+                  return (
+                    <motion.button
+                      key={tab.id}
+                      onClick={() => setView(tab.id)}
+                      whileTap={{ scale: 0.9 }}
+                      title={tab.label}
+                      aria-label={tab.label}
+                      aria-pressed={active}
+                      className="relative flex h-7 w-8 items-center justify-center rounded-full"
+                      style={{ color: active ? '#fffcf2' : 'var(--ta-ink)' }}
+                    >
+                      {active && (
+                        <motion.span
+                          layoutId="ts-view-pill"
+                          transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                          className="absolute inset-0 rounded-full"
+                          style={{ backgroundColor: 'var(--ta-accent)' }}
+                        />
+                      )}
+                      <tab.icon size={14} className="relative" />
+                    </motion.button>
+                  )
+                })}
+              </div>
+            )}
+            <span
+              className="hidden items-center gap-1 text-[10px] md:flex"
+              style={{ color: 'var(--ta-slate)' }}
             >
-              {[
-                { id: 'cards', label: 'Cards', icon: LayoutGrid },
-                { id: 'analysis', label: 'Analysis', icon: BarChart3 },
-              ].map((tab) => {
-                const active = view === tab.id
-                return (
-                  <motion.button
-                    key={tab.id}
-                    onClick={() => setView(tab.id)}
-                    whileTap={{ scale: 0.94 }}
-                    className="relative flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold"
-                    style={{ color: active ? '#fffcf2' : 'var(--ta-ink)' }}
-                  >
-                    {active && (
-                      <motion.span
-                        layoutId="ts-view-pill"
-                        transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-                        className="absolute inset-0 rounded-full"
-                        style={{ backgroundColor: 'var(--ta-accent)' }}
-                      />
-                    )}
-                    <tab.icon size={10} className="relative" />
-                    <span className="relative">{tab.label}</span>
-                  </motion.button>
-                )
-              })}
-            </div>
-          )}
-          <span className={trades.length > 0 ? 'text-[10px]' : 'ml-auto text-[10px]'} style={{ color: 'var(--ta-slate)' }}>
-            {expiresAt ? `Expires ${new Date(expiresAt).toLocaleDateString()}` : 'View only'}
-          </span>
-          <motion.button
-            onClick={handleRefresh}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.94 }}
-            title="Refresh to see the latest"
-            className="flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-medium"
-            style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }}
-          >
-            <RefreshCw size={10} className={refreshing ? 'animate-spin' : ''} />
-            Refresh
-          </motion.button>
+              {expiresAt ? `Expires ${new Date(expiresAt).toLocaleDateString()}` : 'View only'}
+            </span>
+            <motion.button
+              onClick={handleRefresh}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.9 }}
+              title="Refresh to see the latest"
+              aria-label="Refresh"
+              className="flex h-7 items-center justify-center gap-1 rounded-full px-2 text-[10px] font-medium sm:px-2.5"
+              style={{ backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }}
+            >
+              <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+              <span className="hidden sm:inline">Refresh</span>
+            </motion.button>
+          </div>
+        </div>
+        {/* Phones: expiry gets its own thin line instead of squeezing the bar. */}
+        <div
+          className="flex items-center justify-center gap-1 border-t py-0.5 text-[9.5px] md:hidden"
+          style={{ color: 'var(--ta-slate)', borderColor: 'color-mix(in srgb, var(--ta-slate) 25%, transparent)' }}
+        >
+          <CalendarClock size={10} />
+          {expiresAt ? `Expires ${new Date(expiresAt).toLocaleDateString()}` : 'View only'}
+        </div>
         </motion.div>
 
         {/* Stats strip — the at-a-glance numbers a visitor actually cares
