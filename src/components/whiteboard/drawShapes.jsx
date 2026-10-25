@@ -725,7 +725,7 @@ export const TOOLS = {
         const yy = (v) => y1 - v * (y1 - y0)
         const col = c1 >= o1 ? GREEN : RED
         H.line({ x: cx, y: yy(hi) }, { x: cx, y: yy(lo) }, { stroke: H.o.hit ? undefined : col, strokeWidth: 1.2 })
-        H.rect({ x: cx - 3.5, y: yy(o1) }, { x: cx + 3.5, y: yy(c1) }, { stroke: H.o.hit ? undefined : col, ...(H.o.hit ? {} : { fill: col }), strokeWidth: 1 })
+        H.rect({ x: cx - 3.5, y: yy(o1) }, { x: cx + 3.5, y: yy(c1) }, { stroke: H.o.hit ? undefined : col, ...(H.o.hit ? H.fillP() : { fill: col }), strokeWidth: 1 })
       }
     },
   },
@@ -744,7 +744,7 @@ export const TOOLS = {
         const c1 = c.y + (rnd() - 0.5) * amp
         const col = c1 <= o1 ? GREEN : RED
         H.line({ x: c.x, y: Math.min(o1, c1) - rnd() * 6 }, { x: c.x, y: Math.max(o1, c1) + rnd() * 6 }, { stroke: H.o.hit ? undefined : col, strokeWidth: 1.2, opacity: 0.7 })
-        H.rect({ x: c.x - 3.5, y: o1 }, { x: c.x + 3.5, y: c1 }, { stroke: H.o.hit ? undefined : col, ...(H.o.hit ? {} : { fill: col }), strokeWidth: 1, opacity: 0.6 })
+        H.rect({ x: c.x - 3.5, y: o1 }, { x: c.x + 3.5, y: c1 }, { stroke: H.o.hit ? undefined : col, ...(H.o.hit ? H.fillP() : { fill: col }), strokeWidth: 1, opacity: 0.6 })
       }
     },
   },
@@ -1071,7 +1071,7 @@ function candleTool(c) {
     name: c.name, icon: candleIcon(c), n: 1, candle: true,
     render: (p, H) => {
       const [o, hi, lo, cl] = c.k
-      const col = cl >= o ? GREEN : RED
+      const col = H.o.cc || (cl >= o ? GREEN : RED)
       const kx = H.o.cw ?? 1
       const ky = (H.o.ch ?? 1) * CANDLE_K
       const y = (price) => p[0].y + (50 - price) * ky
@@ -1079,7 +1079,7 @@ function candleTool(c) {
       H.line({ x, y: y(hi) }, { x, y: y(lo) }, { stroke: H.o.hit ? undefined : col, strokeWidth: Math.max(1, 1.6 * Math.min(kx, 1.6)) })
       const top = Math.min(y(o), y(cl))
       const bot = Math.max(y(o), y(cl)) < top + 2 ? top + 2 : Math.max(y(o), y(cl))
-      H.rect({ x: x - (CANDLE_W * kx) / 2, y: top }, { x: x + (CANDLE_W * kx) / 2, y: bot }, { stroke: H.o.hit ? undefined : col, ...(H.o.hit ? {} : { fill: col }), strokeWidth: 1, rx: 1.5 })
+      H.rect({ x: x - (CANDLE_W * kx) / 2, y: top }, { x: x + (CANDLE_W * kx) / 2, y: bot }, { stroke: H.o.hit ? undefined : col, ...(H.o.hit ? H.fillP() : { fill: col }), strokeWidth: 1, rx: 1.5 })
     },
   }
 }

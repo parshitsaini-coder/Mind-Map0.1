@@ -145,7 +145,7 @@ export default function ShapeToolbar({ element, pan, zoom, bounds, canvasRef }) 
 
   const set = (patch) => wb.setElementStyle(element.id, patch)
   const w = element.strokeWidth || 2
-  const color = element.color || '#2563eb'
+  const color = spec?.candle ? element.candleColor || element.color || '#2563eb' : element.color || '#2563eb'
   const lineStyle = element.lineStyle || 'solid'
   const fillColor = element.fillColor || color
   const lineLike = !!spec?.lineLike
@@ -213,8 +213,17 @@ export default function ShapeToolbar({ element, pan, zoom, bounds, canvasRef }) 
           <motion.span key={color} initial={{ scale: 0.4 }} animate={{ scale: 1 }} transition={spring} className="h-4 w-4 rounded-full border-2" style={{ backgroundColor: color, borderColor: 'var(--color-ink)' }} />
         </IconBtn>,
         <>
-          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-[var(--color-slate)]">{isShape ? 'Line / text colour' : 'Stroke colour'}</p>
-          <ColorGrid value={color} onPick={(c) => wb.setElementColor(element.id, c)} />
+          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-[var(--color-slate)]">{spec?.candle ? 'Candle colour' : isShape ? 'Line / text colour' : 'Stroke colour'}</p>
+          <ColorGrid value={color} onPick={(c) => (spec?.candle ? set({ candleColor: c }) : wb.setElementColor(element.id, c))} />
+          {spec?.candle && element.candleColor && (
+            <button
+              type="button"
+              onClick={() => set({ candleColor: null })}
+              className="mt-2 flex w-full items-center justify-center rounded-md bg-[var(--color-accent)] py-1.5 text-[11px] font-semibold"
+            >
+              Reset to green / red
+            </button>
+          )}
           <Slider label="Opacity" value={element.opacity ?? 1} min={0.1} max={1} step={0.05} suffix="%" onChange={(v) => set({ opacity: v })} />
         </>,
         236
