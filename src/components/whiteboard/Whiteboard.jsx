@@ -513,6 +513,48 @@ export default function Whiteboard() {
     else setDraft(null)
   }
 
+  // ── Pan (drag empty canvas) + smooth wheel zoom ───────────────────────
+  const panRef = useRef(null)
+  const panRaf = useRef(0)
+  const viewAnim = useRef({ raf: 0, tz: null, tp: null })
+
+  const cancelViewAnim = () => {
+    const a = viewAnim.current
+    cancelAnimationFrame(a.raf)
+    a.raf = 0
+    a.tz = null
+    a.tp = null
+  }
+
+  const startPan = (e) => {
+    cancelViewAnim()
+    const st = useWhiteboardStore.getState()
+    panRef.current = { sx: e.clientX, sy: e.clientY, px: st.pan.x, py: st.pan.y, nx: st.pan.x, ny: st.pan.y }
+    if (canvasRef.current) canvasRef.current.style.cursor = 'grabbing'
+  }
+
+  const movePan = (e) => {
+    const p = panRef.current
+    if (!p) return
+    p.nx = p.px + (e.clientX - p.sx)
+    p.ny = p.py + (e.clientY - p.sy)
+    if (panRaf.current) return
+    panRaf.current = requestAnimationFrame(() => {
+      panRaf.current = 0
+      if (panRef.current) useWhiteboardStore.getState().setPan({ x: panRef.current.nx, y: panRef.current.ny })
+    })
+  }
+
+  const endPan = () => {
+    if (!panRef.current) return
+    const p = panRef.current
+    panRef.current = null
+    cancelAnimationFrame(panRaf.current)
+    panRaf.current = 0
+    useWhiteboardStore.getState().setPan({ x: p.nx, y: p.ny })
+    if (canvasRef.current) canvasRef.current.style.cursor = ''
+  }
+
   const handleCanvasMouseDown = (e) => {
     // Elements handle their own mousedown for the 'select' tool and call
     // stopPropagation, so if we get here with 'select' active the click was
@@ -521,11 +563,17 @@ export default function Whiteboard() {
     const { x, y } = toBoardCoords(e.clientX, e.clientY)
     const store = useWhiteboardStore.getState()
 
+    // Middle button always pans, whatever tool is active.
+    if (e.button === 1) {
+      e.preventDefault()
+      startPan(e)
+      return
+    }
+
     if (tool === 'select') {
       store.selectElement(null)
-      // Panning by dragging empty canvas is intentionally disabled — the
-      // board background stays fixed (see the wheel handler below and the
-      // black boundary border), so nothing needs to start here.
+      // Click + drag on empty canvas pans the board.
+      if (e.button === 0) startPan(e)
     } else if (tool === 'draw') {
       const spec = SHAPE_TOOLS[drawTool]
       if (!spec?.render || e.button !== 0) return
@@ -582,6 +630,10 @@ export default function Whiteboard() {
   }
 
   const handleCanvasMouseMove = (e) => {
+    if (panRef.current) {
+      movePan(e)
+      return
+    }
     if (drawState.current) {
       const { x, y } = toBoardCoords(e.clientX, e.clientY)
       useWhiteboardStore.getState().appendPointToPath(drawState.current, { x, y })
@@ -614,6 +666,7 @@ export default function Whiteboard() {
   }
 
   const handleCanvasMouseUp = () => {
+    endPan()
     drawState.current = null
     erasingRef.current = false
 
@@ -673,21 +726,59 @@ export default function Whiteboard() {
   }, [tool, drawTool])
 
   // Native (non-passive) wheel listener so preventDefault reliably stops the
-  // page from scrolling while zooming the board. Plain scroll no longer pans
-  // the board — the background is fixed in place (Ctrl/Cmd + scroll, or the
-  // zoom buttons, still zoom in/out around the fixed origin).
+  // page from scrolling. Scrolling zooms the board around the cursor, eased
+  // frame by frame so it glides instead of stepping.
   useEffect(() => {
     const el = canvasRef.current
     if (!isOpen || !el) return
-    const onWheel = (e) => {
-      e.preventDefault()
-      if (e.ctrlKey || e.metaKey) {
-        const store = useWhiteboardStore.getState()
-        store.setZoom(store.zoom * (1 - e.deltaY * 0.001))
+    const MIN = 0.1
+    const MAX = 6
+    const a = viewAnim.current
+    const step = () => {
+      const st = useWhiteboardStore.getState()
+      if (a.tz == null) {
+        a.raf = 0
+        return
+      }
+      const z = st.zoom + (a.tz - st.zoom) * 0.26
+      const px = st.pan.x + (a.tp.x - st.pan.x) * 0.26
+      const py = st.pan.y + (a.tp.y - st.pan.y) * 0.26
+      const done = Math.abs(a.tz - z) < 0.0004 && Math.abs(a.tp.x - px) < 0.2 && Math.abs(a.tp.y - py) < 0.2
+      useWhiteboardStore.setState({ zoom: done ? a.tz : z, pan: done ? { x: a.tp.x, y: a.tp.y } : { x: px, y: py } })
+      if (done) {
+        a.tz = null
+        a.tp = null
+        a.raf = 0
+      } else {
+        a.raf = requestAnimationFrame(step)
       }
     }
+    const onWheel = (e) => {
+      e.preventDefault()
+      const st = useWhiteboardStore.getState()
+      const curZ = a.tz ?? st.zoom
+      const curP = a.tp ?? st.pan
+      let dy = e.deltaY
+      if (e.deltaMode === 1) dy *= 33
+      dy = Math.max(-240, Math.min(240, dy))
+      const nz = Math.min(MAX, Math.max(MIN, curZ * Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0016))))
+      const rect = el.getBoundingClientRect()
+      const cx = e.clientX - rect.left
+      const cy = e.clientY - rect.top
+      const bx = (cx - curP.x) / curZ
+      const by = (cy - curP.y) / curZ
+      a.tz = nz
+      a.tp = { x: cx - bx * nz, y: cy - by * nz }
+      if (!a.raf) a.raf = requestAnimationFrame(step)
+    }
     el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      cancelAnimationFrame(a.raf)
+      a.raf = 0
+      a.tz = null
+      a.tp = null
+    }
   }, [isOpen])
 
   // Keyboard shortcuts scoped to the whiteboard — intercepted in the capture

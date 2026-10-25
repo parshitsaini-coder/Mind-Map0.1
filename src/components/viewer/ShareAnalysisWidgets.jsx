@@ -5,6 +5,7 @@ import { splitTradesByCurrency, symbolForType, CURRENCY_GROUP_LABEL } from '../.
 import { getPerformance, getEquityCurve, hasPnl, pnlOf, outcomeOf } from '../../utils/tradeAnalyticsPro'
 import { Donut, Gauge, EquityCurve, ColumnChart } from '../trade-analysis/analysis/pro/charts'
 import { POS, NEG, NEUTRAL, fmtMoney } from '../trade-analysis/analysis/pro/format'
+import ShareInsightWidgets, { CountUp } from './ShareInsightWidgets'
 
 // Read-only "Analysis" view for a shared trade link — a lighter, storeless
 // cousin of the editor's Pro Analytics tab (AnalysisTab.jsx). That tab
@@ -22,6 +23,7 @@ function WidgetCard({ title, icon: Icon, span, delay = 0, children }) {
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -3 }}
       transition={{ delay, duration: 0.32, ease: 'easeOut' }}
       className={`ta-pro-card flex flex-col gap-2 ${span === 2 ? 'sm:col-span-2' : ''}`}
     >
@@ -267,11 +269,13 @@ export default function ShareAnalysisWidgets({ trades, validationRules }) {
       </WidgetCard>
 
       <WidgetCard title="Trades logged" icon={BarChart3} delay={0.09}>
-        <p className="ta-num text-center font-extrabold" style={{ fontSize: 'var(--tad-hero)', color: 'var(--ta-accent)' }}>{trades.length}</p>
+        <p className="ta-num text-center font-extrabold" style={{ fontSize: 'var(--tad-hero)', color: 'var(--ta-accent)' }}><CountUp value={trades.length} /></p>
         <p className="text-center" style={{ fontSize: 'var(--tad-micro)', color: 'var(--ta-slate)' }}>
           across {groups.length} currency group{groups.length === 1 ? '' : 's'}
         </p>
       </WidgetCard>
+
+      <ShareInsightWidgets trades={trades} delayBase={0.14} />
 
       {groups.map((g, i) => (
         <CurrencyGroupWidgets
@@ -280,7 +284,7 @@ export default function ShareAnalysisWidgets({ trades, validationRules }) {
           trades={g.trades}
           validationRules={validationRules}
           symbol={g.symbol}
-          delayBase={0.14 + i * 0.05}
+          delayBase={0.5 + i * 0.05}
         />
       ))}
     </div>
