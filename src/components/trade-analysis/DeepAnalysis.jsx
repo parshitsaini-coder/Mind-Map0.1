@@ -4,7 +4,7 @@ import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion, use
 import {
   Check, ChevronDown, Flame, BarChart3, ListChecks, Pencil, Trash2, ImagePlus, Camera, CheckCheck, Eraser,
   Hash, CalendarDays, ChartCandlestick, Shapes, Timer, ArrowUpDown, CircleDollarSign, Wallet, Image as ImageIcon,
-  CircleDot, StickyNote, Trophy, Settings2, Gauge, Target,
+  CircleDot, StickyNote, Trophy, Settings2, Gauge, Target, ReceiptText, BadgeIndianRupee,
 } from 'lucide-react'
 import { useTradeAnalysisStore } from '../../store/tradeAnalysisStore'
 import { useUiStore } from '../../store/uiStore'
@@ -244,8 +244,67 @@ const BASE_COLS = [
   { label: 'Status', icon: CircleDot, hue: '#eb5e28', anim: 'pulse' },
   { label: 'Notes', icon: StickyNote, hue: '#ca8a04', anim: 'tilt' },
   { label: 'Result', icon: Trophy, hue: '#7c3aed', anim: 'bounce' },
+  { label: 'Order details', icon: ReceiptText, hue: '#0891b2', anim: 'swing' },
+  { label: 'Final P&L', icon: BadgeIndianRupee, hue: '#16a34a', anim: 'pop' },
   { label: 'Actions', icon: Settings2, hue: '#475569', anim: 'spin' },
 ]
+
+
+// Order-details / Final-P&L image cell (same behaviour as the Result cell).
+function ExtraImageCell({ trade, kind }) {
+  const [uploading, setUploading] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const fileRef = useRef(null)
+  const url = kind === 'pnl' ? trade.pnlImageUrl : trade.orderImageUrl
+  const label = kind === 'pnl' ? 'final P&L' : 'order details'
+  const pick = async (file) => {
+    if (!file) return
+    setUploading(true)
+    try {
+      const { url: u, hosted, error } = await uploadTradeImage(file)
+      useTradeAnalysisStore.getState().updateTradeExtraImage(trade.id, kind, u, hosted)
+      if (!hosted) useUiStore.getState().showToast(error ? 'Image saved locally — upload failed.' : 'Image saved locally — connect Cloudinary to host it.')
+    } finally {
+      setUploading(false)
+    }
+  }
+  if (url) {
+    return (
+      <button
+        onClick={() =>
+          useUiStore.getState().openImageLightbox(url, () => useTradeAnalysisStore.getState().updateTradeExtraImage(trade.id, kind, null, false))
+        }
+        title={`View ${label} image`}
+      >
+        <img src={url} alt={label} className="h-7 w-7 rounded object-cover" />
+      </button>
+    )
+  }
+  return (
+    <>
+      <motion.button
+        whileTap={{ scale: 0.9 }}
+        onClick={() => fileRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) pick(f) }}
+        disabled={uploading}
+        title={`Attach ${label} image — click or drag & drop`}
+        animate={{
+          scale: dragOver ? 1.12 : 1,
+          borderColor: dragOver ? 'var(--ta-accent)' : 'var(--ta-slate)',
+          backgroundColor: dragOver ? 'color-mix(in srgb, var(--ta-accent) 14%, transparent)' : 'rgba(0,0,0,0)',
+        }}
+        transition={{ duration: 0.15 }}
+        className="flex h-9 w-9 items-center justify-center rounded border border-dashed disabled:opacity-40"
+        style={{ color: dragOver ? 'var(--ta-accent)' : 'var(--ta-slate)' }}
+      >
+        {uploading ? <Camera size={12} className="animate-pulse" /> : <ImagePlus size={13} />}
+      </motion.button>
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; pick(f) }} />
+    </>
+  )
+}
 
 // ─── One entry row ──────────────────────────────────────────────────────
 // Memoized: `trade` keeps its identity unless that very trade changed, and
@@ -515,6 +574,9 @@ const DeepRow = memo(function DeepRow({ trade, idx, groups, sigKey, total, isEdi
           </>
         )}
       </td>
+
+      <td className={TD}><ExtraImageCell trade={trade} kind="order" /></td>
+      <td className={TD}><ExtraImageCell trade={trade} kind="pnl" /></td>
 
       <td className={TD}>
         <div className="flex items-center gap-1">

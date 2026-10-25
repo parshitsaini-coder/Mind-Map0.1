@@ -154,6 +154,8 @@ export default function TradeShareView({ shareId }) {
     const sell = trades.filter((t) => t.direction === 'Sell').length
     const decided = trades.filter((t) => t.status === 'Target Hit' || t.status === 'SL Hit')
     const wins = trades.filter((t) => t.status === 'Target Hit').length
+    const slHit = decided.length - wins
+    const pending = total - decided.length
     const winRate = decided.length ? Math.round((wins / decided.length) * 100) : null
 
     // P&L must never be summed across currencies (₹ Equity vs $ Forex/
@@ -170,7 +172,7 @@ export default function TradeShareView({ shareId }) {
       { currency: 'USD', total: pnlTotal(USD), sampleType: USD[0]?.instrumentType },
     ].filter((g) => g.total !== null)
 
-    return { total, buy, sell, winRate, pnlGroups }
+    return { total, buy, sell, winRate, wins, slHit, pending, pnlGroups }
   }, [trades])
 
   if (state.status === 'loading') {
@@ -409,6 +411,9 @@ export default function TradeShareView({ shareId }) {
                 value: stats.winRate === null ? '—' : `${stats.winRate}%`,
                 color: stats.winRate === null ? 'var(--ta-slate)' : stats.winRate >= 50 ? '#16a34a' : '#dc2626',
               },
+              { emoji: '✅', label: 'Target Hit', value: stats.wins, color: '#16a34a' },
+              { emoji: '❌', label: 'SL Hit', value: stats.slHit, color: '#dc2626' },
+              { emoji: '⏳', label: 'Pending', value: stats.pending, color: '#d97706' },
               ...(stats.pnlGroups.length > 0
                 ? stats.pnlGroups.map((g) => ({
                     emoji: '💰',
@@ -493,7 +498,7 @@ export default function TradeShareView({ shareId }) {
         </div>
         )}
 
-        <ImageLightbox />
+        <ImageLightbox blurCorner />
       </motion.div>
     </AnimatePresence>
   )

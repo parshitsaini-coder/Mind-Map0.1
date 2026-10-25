@@ -93,7 +93,7 @@ export default function SharedMapView({ nodes, edges, checklists = [], trades = 
   return (
     <ReactFlowProvider>
       <ViewerInner />
-      <ImageLightbox />
+      <ImageLightbox blurCorner />
       <ViewerTradeDetailModal />
     </ReactFlowProvider>
   )

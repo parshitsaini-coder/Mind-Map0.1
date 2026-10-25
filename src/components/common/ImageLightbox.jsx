@@ -12,7 +12,7 @@ import { useUiStore } from '../../store/uiStore'
 // screenshot/result image) pass a second `onRemove` arg to
 // openImageLightbox; when present, a "Remove image" button shows up next
 // to Close and removes the image without needing to go back to the form.
-export default function ImageLightbox() {
+export default function ImageLightbox({ blurCorner = false }) {
   const url = useUiStore((s) => s.imageLightboxUrl)
   const onRemove = useUiStore((s) => s.imageLightboxOnRemove)
   const close = useUiStore((s) => s.closeImageLightbox)
@@ -63,16 +63,42 @@ export default function ImageLightbox() {
               <X size={20} />
             </button>
           </div>
-          <motion.img
+          <motion.div
             initial={{ scale: 0.92, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.96, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 26 }}
-            src={url}
-            alt=""
             onClick={(e) => e.stopPropagation()}
-            className="max-h-full max-w-full rounded-md object-contain shadow-2xl"
-          />
+            className="relative overflow-hidden rounded-md shadow-2xl"
+            style={{ lineHeight: 0 }}
+          >
+            <img
+              src={url}
+              alt=""
+              draggable={false}
+              className="block object-contain"
+              style={{ maxHeight: 'calc(100vh - 48px)', maxWidth: 'calc(100vw - 48px)' }}
+            />
+            {/* Shared (viewer) pages: TradingView screenshots print the
+                owner's username in the top-left corner — blur it so it
+                can't be read by whoever opens the link. */}
+            {blurCorner && (
+              <div
+                aria-hidden
+                className="absolute left-0 top-0"
+                style={{
+                  width: '15%',
+                  height: '6%',
+                  minWidth: 60,
+                  minHeight: 16,
+                  backdropFilter: 'blur(9px)',
+                  WebkitBackdropFilter: 'blur(9px)',
+                  background: 'rgba(120,120,120,0.28)',
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
