@@ -103,6 +103,12 @@ export const useProjectsStore = create(
         return id
       },
 
+      // Adds already-written projects (backup import). Never replaces any.
+      importProjects: (list) => {
+        if (!list?.length) return
+        set((s) => ({ projects: [...list, ...s.projects] }))
+      },
+
       renameProject: (id, name) => {
         if (!name?.trim()) return
         set((s) => ({

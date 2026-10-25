@@ -186,7 +186,7 @@ export default function TradeShareModal({ open, onClose }) {
       userId: authUser.id,
       trades: shareTrades,
       validationRules: referencedValidationRules,
-      filters: { pair, instrumentType: types, timeframe, direction, status, validationRuleId, dateFrom, dateTo },
+      filters: { pair, instrumentType: types, timeframe, direction, status, validationRuleId, dateFrom, dateTo, hideValidation },
       themeName: theme,
       expiryValue,
       summary,

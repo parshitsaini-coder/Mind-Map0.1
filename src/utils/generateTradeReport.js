@@ -42,8 +42,14 @@ const RED_LIGHT = [254, 226, 226]
 const AMBER = [217, 119, 6]
 const AMBER_LIGHT = [254, 243, 199]
 const CARD_BG = [248, 250, 252] // slate-50 — neutral card fill
+const NAVY = [11, 18, 32] // header gradient start
+const NAVY2 = [33, 48, 78] // header gradient end
 
-const fmtMoney = (n, symbol = '₹') => `${n < 0 ? '-' : ''}${symbol}${Math.abs(Math.round(n)).toLocaleString('en-IN')}`
+// jsPDF's built-in Helvetica has no rupee glyph (it prints blank), so the PDF
+// spells it "Rs." — every other symbol passes through unchanged.
+const pdfSym = (symbol) => (symbol === '₹' ? 'Rs. ' : symbol)
+const fmtMoney = (n, symbol = '₹') => `${n < 0 ? '-' : ''}${pdfSym(symbol)}${Math.abs(Math.round(n)).toLocaleString('en-IN')}`
+const fmtSigned = (n, symbol = '₹') => `${n > 0 ? '+' : ''}${fmtMoney(n, symbol)}`
 const fmtPct = (n) => (n == null ? '—' : `${n.toFixed(0)}%`)
 
 // Turns any image source (data URL already, or a hosted http(s) URL) into
@@ -148,97 +154,206 @@ function widgetPalette(color) {
 
 // ---- small drawing helpers ------------------------------------------------
 
-function header(doc, title, subtitle) {
-  doc.setFillColor(...INK)
-  doc.rect(0, 0, PAGE_W, 64, 'F')
-  // Brand accent bar — the thread that ties every page back to the app.
-  doc.setFillColor(...ACCENT)
-  doc.rect(0, 64, PAGE_W, 3, 'F')
+const lerp = (a, b, t) => Math.round(a + (b - a) * t)
 
-  // Small circular badge, top-right, echoing the app's own accent color.
-  doc.setFillColor(...ACCENT)
-  doc.circle(PAGE_W - MARGIN - 13, 28, 13, 'F')
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10)
-  doc.setTextColor(255, 255, 255)
-  doc.text('TA', PAGE_W - MARGIN - 13, 31.5, { align: 'center' })
+// jsPDF has no gradient fill, so a horizontal gradient is a run of thin
+// rects with interpolated colours (overlapping a hair to avoid seams).
+function gradientRect(doc, x, y, w, h, c1, c2, steps = 56) {
+  const sw = w / steps
+  for (let i = 0; i < steps; i++) {
+    const t = i / (steps - 1)
+    doc.setFillColor(lerp(c1[0], c2[0], t), lerp(c1[1], c2[1], t), lerp(c1[2], c2[2], t))
+    doc.rect(x + i * sw, y, sw + 0.7, h, 'F')
+  }
+}
 
-  doc.setTextColor(255, 255, 255)
+const HEADER_H = 88
+
+function header(doc, title, subtitle, kicker = 'TRADE ANALYSIS') {
+  gradientRect(doc, 0, 0, PAGE_W, HEADER_H, NAVY, NAVY2)
+
+  // Soft decorative circles (7% white) — depth without clutter.
+  try {
+    doc.saveGraphicsState()
+    doc.setGState(new doc.GState({ opacity: 0.07 }))
+    doc.setFillColor(255, 255, 255)
+    doc.circle(PAGE_W - 46, 6, 72, 'F')
+    doc.circle(PAGE_W - 150, HEADER_H - 6, 40, 'F')
+    doc.restoreGraphicsState()
+  } catch {
+    /* older jsPDF: skip the decoration */
+  }
+
+  // Accent line under the band — the brand thread through every page.
+  doc.setFillColor(...ACCENT)
+  doc.rect(0, HEADER_H, PAGE_W, 3, 'F')
+
+  // Brand tile, top-right.
+  doc.setFillColor(...ACCENT)
+  doc.roundedRect(PAGE_W - MARGIN - 36, 26, 36, 36, 8, 8, 'F')
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(17)
-  doc.text(title, MARGIN, 32)
+  doc.setFontSize(13)
+  doc.setTextColor(255, 255, 255)
+  doc.text('TA', PAGE_W - MARGIN - 18, 48.5, { align: 'center' })
+
+  // Kicker (small caps, tracked) + title + subtitle.
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(7.5)
+  doc.setTextColor(...ACCENT)
+  doc.text(kicker, MARGIN, 27, { charSpace: 1.6 })
+
+  const maxTitleW = PAGE_W - MARGIN * 2 - 56
+  let fs = 22
+  doc.setFontSize(fs)
+  while (fs > 13 && doc.getTextWidth(title) > maxTitleW) {
+    fs -= 1
+    doc.setFontSize(fs)
+  }
+  doc.setTextColor(255, 255, 255)
+  doc.text(title, MARGIN, 52)
+
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9.5)
-  doc.setTextColor(203, 213, 225)
-  doc.text(subtitle, MARGIN, 48)
+  doc.setFontSize(9)
+  doc.setTextColor(176, 190, 208)
+  const sub = doc.splitTextToSize(subtitle, maxTitleW)[0]
+  doc.text(sub, MARGIN, 70)
   doc.setTextColor(...INK)
 }
 
 function sectionTitle(doc, text, y, x = MARGIN, width = PAGE_W - MARGIN * 2) {
-  // Small accent tick before the label, plus a two-tone underline (a short
-  // accent-colored run fading into a thin neutral line) instead of one
-  // flat gray rule — a cheap way to get a "highlighted" look without
-  // true gradients.
   doc.setFillColor(...ACCENT)
-  doc.roundedRect(x, y - 8, 3, 10, 1, 1, 'F')
-
+  doc.roundedRect(x, y - 9, 3.5, 12, 1.2, 1.2, 'F')
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(11)
+  doc.setFontSize(11.5)
   doc.setTextColor(...INK)
-  doc.text(text, x + 9, y)
-
-  const accentW = Math.min(34, width)
-  doc.setDrawColor(...ACCENT)
-  doc.setLineWidth(1.25)
-  doc.line(x, y + 5, x + accentW, y + 5)
+  doc.text(text, x + 10, y)
   doc.setDrawColor(...LINE)
-  doc.setLineWidth(0.75)
-  doc.line(x + accentW, y + 5, x + width, y + 5)
-  return y + 20
+  doc.setLineWidth(0.7)
+  doc.line(x, y + 7, x + width, y + 7)
+  return y + 24
 }
 
-// A row of equal-width stat cards, each with a tinted background, a
-// border in its own semantic color, and a small color-matched accent
-// bar on the left edge — a proper "widget" look instead of a flat block.
+// A card: faint offset "shadow", white body, hairline border.
+function card(doc, x, y, w, h, fill = [255, 255, 255]) {
+  doc.setFillColor(226, 232, 240)
+  doc.roundedRect(x + 0.8, y + 1.6, w, h, 7, 7, 'F')
+  doc.setFillColor(...fill)
+  doc.setDrawColor(...LINE)
+  doc.setLineWidth(0.8)
+  doc.roundedRect(x, y, w, h, 7, 7, 'FD')
+}
+
+const smallCaps = (doc, text, x, y, opts = {}) => {
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(6.8)
+  doc.setTextColor(...SLATE)
+  doc.text(String(text).toUpperCase(), x, y, { charSpace: 0.9, ...opts })
+}
+
+// A row of equal KPI cards: tracked label, big numeral, tinted top tab.
 function statCards(doc, y, cards) {
   const gap = 10
   const w = (PAGE_W - MARGIN * 2 - gap * (cards.length - 1)) / cards.length
-  const h = 56
+  const h = 62
   cards.forEach((c, i) => {
     const x = MARGIN + i * (w + gap)
-    const { bg, border } = widgetPalette(c.color)
-    doc.setFillColor(...bg)
-    doc.setDrawColor(...border)
-    doc.setLineWidth(0.9)
-    doc.roundedRect(x, y, w, h, 6, 6, 'FD')
-
+    const { border } = widgetPalette(c.color)
+    card(doc, x, y, w, h)
     doc.setFillColor(...border)
-    doc.roundedRect(x, y + 8, 3.2, h - 16, 1.6, 1.6, 'F')
-
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7.5)
-    doc.setTextColor(...SLATE)
-    doc.text(c.label.toUpperCase(), x + 13, y + 19)
+    doc.roundedRect(x + 10, y, w - 20, 3.2, 1.6, 1.6, 'F')
+    smallCaps(doc, c.label, x + 12, y + 21)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(16)
+    doc.setFontSize(21)
     doc.setTextColor(...(c.color || INK))
-    doc.text(String(c.value), x + 13, y + 41)
+    doc.text(String(c.value), x + 12, y + 48)
   })
-  return y + h + 18
+  return y + h + 16
 }
 
-// A two-column label/value table, now wrapped in its own bordered,
-// rounded card with faint row dividers instead of a flat, borderless
-// alternating-stripe block.
+// Stacked outcome bar: Target Hit / SL Hit / Pending shares of all trades.
+function outcomeBar(doc, y, hit, sl, pending) {
+  const total = hit + sl + pending
+  const x = MARGIN
+  const w = PAGE_W - MARGIN * 2
+  smallCaps(doc, 'Outcome split', x, y)
+  y += 8
+  doc.setFillColor(...DIVIDER)
+  doc.roundedRect(x, y, w, 8, 4, 4, 'F')
+  if (total > 0) {
+    const parts = [
+      { n: hit, c: GREEN },
+      { n: sl, c: RED },
+      { n: pending, c: AMBER },
+    ].filter((p) => p.n > 0)
+    let cx = x
+    parts.forEach((p, i) => {
+      const pw = (p.n / total) * w
+      doc.setFillColor(...p.c)
+      const inset = i === parts.length - 1 ? 0 : 1.2 // thin white gap between segments
+      doc.rect(cx, y, Math.max(0.5, pw - inset), 8, 'F')
+      cx += pw
+    })
+    // Round the two outer ends by masking the corners in white.
+    doc.setFillColor(255, 255, 255)
+    doc.rect(x - 1, y - 1, 1.2, 10, 'F')
+    doc.rect(x + w - 0.2, y - 1, 1.4, 10, 'F')
+  }
+  y += 22
+  const legend = [
+    ['Target Hit', hit, GREEN],
+    ['SL Hit', sl, RED],
+    ['Pending', pending, AMBER],
+  ]
+  let lx = x
+  legend.forEach(([label, n, c]) => {
+    doc.setFillColor(...c)
+    doc.circle(lx + 3, y - 2.6, 2.6, 'F')
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8.5)
+    doc.setTextColor(...SLATE)
+    const pct = total ? ` · ${Math.round((n / total) * 100)}%` : ''
+    const t = `${label}  ${n}${pct}`
+    doc.text(t, lx + 10, y)
+    lx += doc.getTextWidth(t) + 30
+  })
+  return y + 18
+}
+
+// Big P&L card for one currency group: hero total + avg / best / worst.
+function pnlHero(doc, x, y, w, title, stats, symbol) {
+  const h = 98
+  card(doc, x, y, w, h)
+  smallCaps(doc, title, x + 14, y + 20)
+  const has = stats.tradesWithPnl > 0
+  const total = has ? fmtSigned(stats.totalPnl, symbol) : '—'
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(24)
+  doc.setTextColor(...(!has ? SLATE : stats.totalPnl >= 0 ? GREEN : RED))
+  doc.text(total, x + 14, y + 48)
+  doc.setDrawColor(...DIVIDER)
+  doc.setLineWidth(0.6)
+  doc.line(x + 14, y + 60, x + w - 14, y + 60)
+  const cols = [
+    ['Avg / trade', stats.avgPnl == null ? '—' : fmtMoney(stats.avgPnl, symbol), INK],
+    ['Best', stats.bestTrade ? fmtMoney(stats.bestTrade.pnl, symbol) : '—', GREEN],
+    ['Worst', stats.worstTrade ? fmtMoney(stats.worstTrade.pnl, symbol) : '—', RED],
+  ]
+  const cw = (w - 28) / 3
+  cols.forEach(([label, val, color], i) => {
+    smallCaps(doc, label, x + 14 + i * cw, y + 74)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10.5)
+    doc.setTextColor(...color)
+    doc.text(val, x + 14 + i * cw, y + 89)
+  })
+  return y + h + 16
+}
+
+// Two-column label/value table in a card with faint row dividers.
 function kvTable(doc, x, y, width, rows) {
-  const rowH = 17
+  const rowH = 19
   const totalH = rows.length * rowH
-
-  doc.setFillColor(255, 255, 255)
-  doc.setDrawColor(...LINE)
-  doc.setLineWidth(0.9)
-  doc.roundedRect(x, y, width, totalH, 5, 5, 'FD')
-
+  card(doc, x, y, width, totalH)
   rows.forEach((r, i) => {
     if (i % 2 === 1) {
       doc.setFillColor(...CARD_BG)
@@ -247,140 +362,129 @@ function kvTable(doc, x, y, width, rows) {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
     doc.setTextColor(...SLATE)
-    doc.text(String(r[0]), x + 10, y + i * rowH + 11.5)
+    doc.text(String(r[0]), x + 12, y + i * rowH + 12.8)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(...(r[2] || INK))
-    doc.text(String(r[1]), x + width - 10, y + i * rowH + 11.5, { align: 'right' })
-
+    doc.text(String(r[1]), x + width - 12, y + i * rowH + 12.8, { align: 'right' })
     if (i < rows.length - 1) {
       doc.setDrawColor(...DIVIDER)
       doc.setLineWidth(0.5)
-      doc.line(x + 10, y + (i + 1) * rowH, x + width - 10, y + (i + 1) * rowH)
+      doc.line(x + 12, y + (i + 1) * rowH, x + width - 12, y + (i + 1) * rowH)
     }
   })
-  return y + totalH
+  return y + totalH + 4
 }
 
-function footer(doc, pageLabel) {
-  doc.setDrawColor(...LINE)
-  doc.setLineWidth(0.6)
-  doc.line(MARGIN, PAGE_H - 28, PAGE_W - MARGIN, PAGE_H - 28)
-  doc.setFillColor(...ACCENT)
-  doc.circle(PAGE_W / 2 - doc.getTextWidth(pageLabel) / 2 - 8, PAGE_H - 17, 1.6, 'F')
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8)
-  doc.setTextColor(...SLATE)
-  doc.text(pageLabel, PAGE_W / 2, PAGE_H - 16, { align: 'center' })
+// Rounded pill; returns its width so callers can flow chips in a row.
+function chip(doc, x, y, text, { fill, color, h = 17, fs = 8.5, padX = 9, bold = true } = {}) {
+  doc.setFont('helvetica', bold ? 'bold' : 'normal')
+  doc.setFontSize(fs)
+  const w = doc.getTextWidth(text) + padX * 2
+  doc.setFillColor(...fill)
+  doc.roundedRect(x, y, w, h, h / 2, h / 2, 'F')
+  doc.setTextColor(...color)
+  doc.text(text, x + w / 2, y + h / 2 + fs * 0.35, { align: 'center' })
+  return w
+}
+
+// Final pass — "Trade Analysis Report · <label>" left, "Page i of n" right.
+function applyFooters(doc, labels) {
+  const n = doc.getNumberOfPages()
+  for (let i = 1; i <= n; i++) {
+    doc.setPage(i)
+    doc.setDrawColor(...LINE)
+    doc.setLineWidth(0.6)
+    doc.line(MARGIN, PAGE_H - 30, PAGE_W - MARGIN, PAGE_H - 30)
+    doc.setFillColor(...ACCENT)
+    doc.rect(MARGIN, PAGE_H - 22.5, 5, 5, 'F')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(7.5)
+    doc.setTextColor(...INK)
+    doc.text('Trade Analysis Report', MARGIN + 11, PAGE_H - 18)
+    const tag = labels[i - 1] ? `  ·  ${labels[i - 1]}` : ''
+    if (tag) {
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(...SLATE)
+      doc.text(tag, MARGIN + 11 + doc.getTextWidth('Trade Analysis Report') + 0, PAGE_H - 18)
+    }
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(...SLATE)
+    doc.text(`Page ${i} of ${n}`, PAGE_W - MARGIN, PAGE_H - 18, { align: 'right' })
+  }
 }
 
 // ---- page 1: analytics dashboard ------------------------------------------
 
 function buildDashboardPage(doc, trades, scopeLabel) {
   const countLine = `${trades.length} trade${trades.length === 1 ? '' : 's'}${scopeLabel ? '' : ' logged'}`
-  const subtitle = `Generated ${new Date().toLocaleString('en-IN')} · ${countLine}${scopeLabel ? ` · ${scopeLabel}` : ''}`
-  header(doc, 'Trade Analysis Report', subtitle)
+  const subtitle = `Generated ${new Date().toLocaleString('en-IN')}  ·  ${countLine}${scopeLabel ? `  ·  ${scopeLabel}` : ''}`
+  header(doc, 'Trade Analysis Report', subtitle, 'PERFORMANCE OVERVIEW')
 
-  let y = 92
+  let y = HEADER_H + 34
   const kpis = getKpis(trades)
   const { INR: equityTrades, USD: fxTrades } = splitTradesByCurrency(trades)
   const equityPnl = getPnlStats(equityTrades)
   const fxPnl = getPnlStats(fxTrades)
 
-  // Overview intentionally excludes any money figure here — Equity (₹)
-  // and Forex/Commodity ($) trades can never be summed into one "Total
-  // P&L" without the number becoming meaningless, so every P&L figure
-  // lives in the currency-scoped "P&L breakdown" section below instead.
+  // Money is never summed across currencies — Equity (INR) and
+  // Forex/Commodity (USD) each get their own P&L card below.
   y = sectionTitle(doc, 'Overview', y)
   y = statCards(doc, y, [
-    { label: 'Total Trades', value: kpis.total },
-    { label: 'Win Rate', value: fmtPct(kpis.winRatePct), color: ACCENT },
+    { label: 'Total trades', value: kpis.total },
+    { label: 'Win rate', value: fmtPct(kpis.winRatePct), color: ACCENT },
+    { label: 'Target hit', value: kpis.targetHit, color: GREEN },
+    { label: 'SL hit', value: kpis.slHit, color: RED },
     { label: 'Pending', value: kpis.pending, color: AMBER },
   ])
+  y = outcomeBar(doc, y, kpis.targetHit, kpis.slHit, kpis.pending)
 
-  y = statCards(doc, y - 8, [
-    { label: 'Target Hit', value: kpis.targetHit, color: GREEN },
-    { label: 'SL Hit', value: kpis.slHit, color: RED },
-  ])
-
-  const colW = (PAGE_W - MARGIN * 2 - 24) / 2
+  const colW = (PAGE_W - MARGIN * 2 - 20) / 2
   const leftX = MARGIN
-  const rightX = MARGIN + colW + 24
+  const rightX = MARGIN + colW + 20
 
-  // P&L breakdown — Equity (₹) and Forex/Commodity ($) always shown
-  // side by side in their own currency, never summed together.
-  let pnlLeftY = sectionTitle(doc, `${CURRENCY_GROUP_LABEL.INR} P&L (₹)`, y, leftX, colW)
-  let pnlRightY = sectionTitle(doc, `${CURRENCY_GROUP_LABEL.USD} P&L ($)`, y, rightX, colW)
+  y = sectionTitle(doc, 'Profit & loss', y)
+  const p1 = pnlHero(doc, leftX, y, colW, `${CURRENCY_GROUP_LABEL.INR} · INR`, equityPnl, '₹')
+  pnlHero(doc, rightX, y, colW, `${CURRENCY_GROUP_LABEL.USD} · USD`, fxPnl, '$')
+  y = p1 + 6
 
-  pnlLeftY = kvTable(doc, leftX, pnlLeftY, colW, [
-    ['Total P&L', equityPnl.tradesWithPnl ? fmtMoney(equityPnl.totalPnl, '₹') : '—', equityPnl.totalPnl >= 0 ? GREEN : RED],
-    ['Avg P&L / trade', equityPnl.avgPnl == null ? '—' : fmtMoney(equityPnl.avgPnl, '₹')],
-    ['Best trade', equityPnl.bestTrade ? fmtMoney(equityPnl.bestTrade.pnl, '₹') : '—', GREEN],
-    ['Worst trade', equityPnl.worstTrade ? fmtMoney(equityPnl.worstTrade.pnl, '₹') : '—', RED],
-  ])
-
-  pnlRightY = kvTable(doc, rightX, pnlRightY, colW, [
-    ['Total P&L', fxPnl.tradesWithPnl ? fmtMoney(fxPnl.totalPnl, '$') : '—', fxPnl.totalPnl >= 0 ? GREEN : RED],
-    ['Avg P&L / trade', fxPnl.avgPnl == null ? '—' : fmtMoney(fxPnl.avgPnl, '$')],
-    ['Best trade', fxPnl.bestTrade ? fmtMoney(fxPnl.bestTrade.pnl, '$') : '—', GREEN],
-    ['Worst trade', fxPnl.worstTrade ? fmtMoney(fxPnl.worstTrade.pnl, '$') : '—', RED],
-  ])
-
-  y = Math.max(pnlLeftY, pnlRightY) + 24
-
-  let leftY = sectionTitle(doc, 'Status breakdown', y, leftX, colW)
-  let rightY = sectionTitle(doc, 'Direction breakdown', y, rightX, colW)
-
-  const status = getStatusCounts(trades)
-  leftY = kvTable(doc, leftX, leftY, colW, [
-    ['Target Hit', status.targetHit, GREEN],
-    ['SL Hit', status.slHit, RED],
-    ['Pending', status.pending, AMBER],
-  ])
+  let leftY = sectionTitle(doc, 'Direction breakdown', y, leftX, colW)
+  let rightY = sectionTitle(doc, 'Most traded instruments', y, rightX, colW)
 
   const dir = getDirectionCounts(trades)
   const dirWr = getWinRateByDirection(trades)
-  rightY = kvTable(doc, rightX, rightY, colW, [
-    ['Buy trades', `${dir.buy} (${fmtPct(dirWr.Buy.winRatePct)} WR)`],
-    ['Sell trades', `${dir.sell} (${fmtPct(dirWr.Sell.winRatePct)} WR)`],
+  leftY = kvTable(doc, leftX, leftY, colW, [
+    ['Buy trades', `${dir.buy}  (${fmtPct(dirWr.Buy.winRatePct)} win rate)`],
+    ['Sell trades', `${dir.sell}  (${fmtPct(dirWr.Sell.winRatePct)} win rate)`],
   ])
 
-  y = Math.max(leftY, rightY) + 24
-
-  leftY = sectionTitle(doc, 'Most traded instruments', y, leftX, colW)
   const topStocks = getTopStocks(trades, 5)
-  leftY = kvTable(
-    doc,
-    leftX,
-    leftY,
-    colW,
-    topStocks.length ? topStocks.map((s) => [s.name, `${s.count} trade${s.count === 1 ? '' : 's'}`]) : [['No trades yet', '']]
-  )
-
-  rightY = sectionTitle(doc, 'Time frame usage', y, rightX, colW)
-  const tfUsage = getTimeframeUsage(trades)
-    .slice()
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5)
   rightY = kvTable(
     doc,
     rightX,
     rightY,
     colW,
+    topStocks.length ? topStocks.map((s) => [s.name, `${s.count} trade${s.count === 1 ? '' : 's'}`]) : [['No trades yet', '']]
+  )
+  y = Math.max(leftY, rightY) + 18
+
+  leftY = sectionTitle(doc, 'Time frame usage', y, leftX, colW)
+  rightY = sectionTitle(doc, 'Quick stats', y, rightX, colW)
+  const tfUsage = getTimeframeUsage(trades).slice().sort((a, b) => b.count - a.count).slice(0, 5)
+  leftY = kvTable(
+    doc,
+    leftX,
+    leftY,
+    colW,
     tfUsage.length ? tfUsage.map((t) => [t.name, `${t.count} trade${t.count === 1 ? '' : 's'}`]) : [['No trades yet', '']]
   )
-
-  y = Math.max(leftY, rightY) + 24
-
   const quick = getQuickStats(trades)
-  y = sectionTitle(doc, 'Quick stats', y)
-  y = kvTable(doc, MARGIN, y, PAGE_W - MARGIN * 2, [
+  rightY = kvTable(doc, rightX, rightY, colW, [
     ['Avg validation score', quick.avgScorePct == null ? '—' : fmtPct(quick.avgScorePct)],
-    ['Most active instrument', quick.mostActive ? `${quick.mostActive.name} (${quick.mostActive.count})` : '—'],
-    ['Trades logged this week', quick.weekCount],
-    ['Oldest pending trade', quick.oldestPending ? `${quick.oldestPending.name} · ${quick.oldestPending.days}d ago` : '—'],
+    ['Most active', quick.mostActive ? `${quick.mostActive.name} (${quick.mostActive.count})` : '—'],
+    ['Logged this week', quick.weekCount],
+    ['Oldest pending', quick.oldestPending ? `${quick.oldestPending.name} · ${quick.oldestPending.days}d` : '—'],
   ])
-
-  footer(doc, 'Page 1 · Analytics overview')
 }
 
 // ---- one page per trade -----------------------------------------------
@@ -392,96 +496,151 @@ function ruleLabelMap(validationRules, validationCategories) {
   return map
 }
 
+const ellipsize = (doc, text, maxW) => {
+  if (doc.getTextWidth(text) <= maxW) return text
+  let t = text
+  while (t.length > 3 && doc.getTextWidth(`${t}…`) > maxW) t = t.slice(0, -1)
+  return `${t}…`
+}
+
 async function buildTradePage(doc, trade, index, total, ruleLabels, quality) {
-  header(doc, trade.instrumentName || trade.pair || 'Trade', `Trade ${index + 1} of ${total} · ${trade.date || '—'}`)
+  header(doc, trade.instrumentName || trade.pair || 'Trade', `Trade ${index + 1} of ${total}  ·  ${trade.date || '—'}  ·  ${trade.pair || ''}`, 'TRADE DETAIL')
 
-  let y = 88
+  let y = HEADER_H + 24
+  const inner = PAGE_W - MARGIN * 2
 
-  // Status pill + core fields row
-  const [r, g, b] = statusColor(trade.status)
-  doc.setFillColor(r, g, b)
-  doc.roundedRect(MARGIN, y, 78, 18, 4, 4, 'F')
-  doc.setTextColor(255, 255, 255)
+  // Left: direction + status + setup chips. Right: P&L hero figure.
+  const isBuy = trade.direction === 'Buy'
+  let cx = MARGIN
+  cx += chip(doc, cx, y, (trade.direction || '—').toUpperCase(), { fill: isBuy ? GREEN : RED, color: [255, 255, 255], fs: 8 }) + 6
+  const [sr, sg, sb] = statusColor(trade.status)
+  const statusLight = trade.status === 'Target Hit' ? GREEN_LIGHT : trade.status === 'SL Hit' ? RED_LIGHT : AMBER_LIGHT
+  cx += chip(doc, cx, y, trade.status || 'Pending', { fill: statusLight, color: [sr, sg, sb], fs: 8.5 }) + 6
+  for (const name of trade.setupTypes || []) {
+    if (cx > MARGIN + inner * 0.62) break
+    cx += chip(doc, cx, y, name, { fill: ACCENT_LIGHT, color: [180, 70, 20], fs: 8, bold: false }) + 5
+  }
+
+  const sym = symbolForType(trade.instrumentType)
+  smallCaps(doc, 'Profit / loss', PAGE_W - MARGIN, y - 2, { align: 'right' })
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(9)
-  doc.text(trade.status || 'Pending', MARGIN + 39, y + 12.5, { align: 'center' })
+  if (trade.pnl == null) {
+    doc.setFontSize(12)
+    doc.setTextColor(...SLATE)
+    doc.text('Not logged', PAGE_W - MARGIN, y + 18, { align: 'right' })
+  } else {
+    doc.setFontSize(24)
+    doc.setTextColor(...(trade.pnl >= 0 ? GREEN : RED))
+    doc.text(fmtSigned(trade.pnl, sym), PAGE_W - MARGIN, y + 22, { align: 'right' })
+  }
+  y += 40
 
-  doc.setTextColor(...INK)
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9.5)
-  const setupLine = (trade.setupTypes || []).length ? `  ·  ${trade.setupTypes.join(', ')}` : ''
-  const fieldsLine = `${trade.instrumentType || '—'}  ·  ${trade.timeframe || '—'}  ·  ${trade.direction || '—'}  ·  Entry ${trade.price ?? '—'}${setupLine}`
-  doc.text(fieldsLine, MARGIN + 90, y + 12.5)
+  // Four metric tiles.
+  const score = trade.validationScore
+  const tiles = [
+    ['Instrument type', trade.instrumentType || '—'],
+    ['Time frame', trade.timeframe || '—'],
+    ['Entry price', trade.price != null && trade.price !== '' ? `${pdfSym(sym)}${trade.price}` : '—'],
+    ['Validation', score ? `${score.checked} / ${score.total} rules` : 'None applied'],
+  ]
+  const tg = 8
+  const tw = (inner - tg * (tiles.length - 1)) / tiles.length
+  tiles.forEach(([label, value], i) => {
+    const tx = MARGIN + i * (tw + tg)
+    doc.setFillColor(...CARD_BG)
+    doc.setDrawColor(...LINE)
+    doc.setLineWidth(0.7)
+    doc.roundedRect(tx, y, tw, 40, 6, 6, 'FD')
+    smallCaps(doc, label, tx + 10, y + 15)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(...INK)
+    doc.text(ellipsize(doc, String(value), tw - 20), tx + 10, y + 31)
+  })
+  y += 40 + 22
 
-  y += 34
-  y = kvTable(doc, MARGIN, y, PAGE_W - MARGIN * 2, [
-    ['Pair', trade.pair || '—'],
-    ['P&L', trade.pnl == null ? 'Not logged' : fmtMoney(trade.pnl, symbolForType(trade.instrumentType)), trade.pnl == null ? SLATE : trade.pnl >= 0 ? GREEN : RED],
-    [
-      'Validation score',
-      trade.validationScore ? `${trade.validationScore.checked}/${trade.validationScore.total} rules checked` : 'No rules applied',
-    ],
-  ])
-  y += 14
-
-  // Notes
+  // Notes — card with an accent spine.
   y = sectionTitle(doc, 'Notes', y)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9.5)
-  doc.setTextColor(...INK)
-  const noteLines = doc.splitTextToSize(trade.notes?.trim() || 'No notes added for this trade.', PAGE_W - MARGIN * 2)
-  doc.text(noteLines, MARGIN, y)
-  y += noteLines.length * 12 + 14
+  let noteLines = doc.splitTextToSize(trade.notes?.trim() || 'No notes added for this trade.', inner - 28)
+  if (noteLines.length > 10) noteLines = [...noteLines.slice(0, 9), `${noteLines[9].slice(0, 80)}…`]
+  const noteH = noteLines.length * 12.5 + 18
+  doc.setFillColor(...CARD_BG)
+  doc.setDrawColor(...LINE)
+  doc.setLineWidth(0.7)
+  doc.roundedRect(MARGIN, y - 4, inner, noteH, 6, 6, 'FD')
+  doc.setFillColor(...ACCENT)
+  doc.roundedRect(MARGIN, y - 4, 3.5, noteH, 1.5, 1.5, 'F')
+  doc.setTextColor(...(trade.notes?.trim() ? INK : SLATE))
+  doc.text(noteLines, MARGIN + 16, y + 10)
+  y += noteH + 16
 
-  // Validation rules checked
-  if ((trade.validationRuleIds || []).length) {
+  // Validation rules met — wrapped green chips with a drawn tick.
+  const ruleIds = trade.validationRuleIds || []
+  if (ruleIds.length) {
     y = sectionTitle(doc, 'Validation rules met', y)
+    let rx = MARGIN
+    let ry = y - 6
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9)
-    trade.validationRuleIds.forEach((id) => {
-      const label = ruleLabels.get(id) || id
+    doc.setFontSize(8.5)
+    for (const id of ruleIds) {
+      const label = ellipsize(doc, ruleLabels.get(id) || id, 230)
+      const w = doc.getTextWidth(label) + 28
+      if (rx + w > MARGIN + inner) {
+        rx = MARGIN
+        ry += 22
+      }
       doc.setFillColor(...GREEN_LIGHT)
-      doc.circle(MARGIN + 4, y - 3, 5, 'F')
-      doc.setTextColor(...GREEN)
-      doc.setFont('helvetica', 'bold')
-      doc.text('✓', MARGIN + 1.6, y)
+      doc.roundedRect(rx, ry, w, 17, 8.5, 8.5, 'F')
+      doc.setDrawColor(...GREEN)
+      doc.setLineWidth(1.3)
+      doc.line(rx + 7, ry + 8.8, rx + 9.4, ry + 11.4)
+      doc.line(rx + 9.4, ry + 11.4, rx + 14, ry + 5.8)
       doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8.5)
       doc.setTextColor(...INK)
-      doc.text(label, MARGIN + 16, y)
-      y += 14
-    })
-    y += 8
+      doc.text(label, rx + 20, ry + 11.6)
+      rx += w + 6
+    }
+    y = ry + 17 + 18
   }
 
-  // Images — setup (1st/entry screenshot) and result (final outcome),
-  // side by side so the whole trade story reads in one glance. Each box
-  // is a bordered card with a tinted, accent-colored label chip.
+  // Images — Setup + Result always; Order details / Final P&L join them
+  // (2x2 grid) only when this trade has them.
   y = sectionTitle(doc, 'Screenshots', y)
-  const boxW = (PAGE_W - MARGIN * 2 - 16) / 2
-  const boxH = PAGE_H - y - 60
-  const boxes = [
-    { x: MARGIN, label: 'SETUP', url: trade.screenshotUrl },
-    { x: MARGIN + boxW + 16, label: 'RESULT', url: trade.resultImageUrl },
+  const imageBoxes = [
+    { label: 'SETUP', url: trade.screenshotUrl },
+    { label: 'RESULT', url: trade.resultImageUrl },
+    ...(trade.orderImageUrl ? [{ label: 'ORDER DETAILS', url: trade.orderImageUrl }] : []),
+    ...(trade.pnlImageUrl ? [{ label: 'FINAL P&L', url: trade.pnlImageUrl }] : []),
   ]
+  const gap = 14
+  const boxW = (inner - gap) / 2
+  const rows = Math.ceil(imageBoxes.length / 2)
+  const availH = PAGE_H - y - 48
+  const boxH = Math.max(110, (availH - gap * (rows - 1)) / rows)
+  const boxes = imageBoxes.map((bx, i) => ({
+    ...bx,
+    x: MARGIN + (i % 2) * (boxW + gap),
+    y: y + Math.floor(i / 2) * (boxH + gap),
+  }))
 
   for (const box of boxes) {
-    doc.setFillColor(...CARD_BG)
-    doc.setDrawColor(...LINE)
-    doc.setLineWidth(1)
-    doc.roundedRect(box.x, y, boxW, boxH, 8, 8, 'FD')
-
-    doc.setFillColor(...ACCENT_LIGHT)
-    doc.roundedRect(box.x + 8, y + 8, 48, 14, 4, 4, 'F')
+    card(doc, box.x, box.y, boxW, boxH, CARD_BG)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(7.5)
-    doc.setTextColor(...ACCENT)
-    doc.text(box.label, box.x + 32, y + 17, { align: 'center' })
+    doc.setFontSize(7.2)
+    const chipW = doc.getTextWidth(box.label) + 20
+    doc.setFillColor(...ACCENT)
+    doc.roundedRect(box.x + 9, box.y + 9, chipW, 14, 7, 7, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.text(box.label, box.x + 9 + chipW / 2, box.y + 18.8, { align: 'center', charSpace: 0.6 })
 
     const img = await loadImage(box.url, quality)
-    const innerX = box.x + 8
-    const innerY = y + 30
-    const innerW = boxW - 16
-    const innerH = boxH - 38
+    const innerX = box.x + 9
+    const innerY = box.y + 32
+    const innerW = boxW - 18
+    const innerH = boxH - 41
     if (img) {
       const scale = Math.min(innerW / img.width, innerH / img.height)
       const w = img.width * scale
@@ -495,17 +654,17 @@ async function buildTradePage(doc, trade, index, total, ruleLabels, quality) {
         doc.roundedRect(dx, dy, w, h, 3, 3)
       } catch {
         doc.setFontSize(9)
+        doc.setFont('helvetica', 'normal')
         doc.setTextColor(...SLATE)
         doc.text('Image could not be embedded', innerX + innerW / 2, innerY + innerH / 2, { align: 'center' })
       }
     } else {
+      doc.setFont('helvetica', 'normal')
       doc.setFontSize(9)
       doc.setTextColor(...SLATE)
       doc.text('No image', innerX + innerW / 2, innerY + innerH / 2, { align: 'center' })
     }
   }
-
-  footer(doc, `Page ${index + 2} · ${trade.instrumentName || trade.pair || 'Trade'}`)
 }
 
 // Turns the scoping choices from ReportFiltersModal into the small
@@ -534,6 +693,7 @@ export async function generateTradeReport(trades, validationRules = [], validati
   const doc = new jsPDF({ unit: 'pt', format: 'a4', compress: true })
   const ruleLabels = ruleLabelMap(validationRules, validationCategories)
 
+  const footerLabels = ['Performance overview']
   buildDashboardPage(doc, trades, describeReportScope(reportMeta))
 
   // Newest first, matching the Table view's default order.
@@ -542,7 +702,9 @@ export async function generateTradeReport(trades, validationRules = [], validati
     doc.addPage()
     // eslint-disable-next-line no-await-in-loop
     await buildTradePage(doc, sorted[i], i, sorted.length, ruleLabels, quality)
+    footerLabels.push(sorted[i].instrumentName || sorted[i].pair || 'Trade')
   }
+  applyFooters(doc, footerLabels)
 
   const stamp = new Date().toISOString().slice(0, 10)
   doc.save(`trade-report-${stamp}.pdf`)

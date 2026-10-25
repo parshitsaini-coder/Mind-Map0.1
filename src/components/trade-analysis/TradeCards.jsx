@@ -11,14 +11,83 @@ import { TYPE_BADGE_STYLE, TIMEFRAME_BADGE_STYLE, TIMEFRAME_DEFAULT_STYLE } from
 import { symbolForType } from '../../utils/currency'
 import { applyFilters } from '../../utils/tradeFilters'
 
+// A small image slot (Order details / Final P&L): thumbnail when filled,
+// dashed "add" box otherwise. Click to pick, drag & drop, right-click to
+// paste. Thumbnail click opens the shared lightbox (with a Remove button).
+const ExtraImageSlot = memo(function ExtraImageSlot({ trade, kind, label, title, uploading, onPickExtra, onPasteMenu }) {
+  const [dragOver, setDragOver] = useState(false)
+  const inputRef = useRef(null)
+  const url = kind === 'pnl' ? trade.pnlImageUrl : trade.orderImageUrl
+  const labelCls = 'text-[7px] font-semibold uppercase tracking-wide'
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <span className={labelCls} style={{ color: 'var(--ta-slate)' }} title={title}>{label}</span>
+      {url ? (
+        <button
+          className="ta-thumb overflow-hidden rounded"
+          onClick={() =>
+            useUiStore
+              .getState()
+              .openImageLightbox(url, () => useTradeAnalysisStore.getState().updateTradeExtraImage(trade.id, kind, null, false))
+          }
+          title={`View ${title.toLowerCase()}`}
+        >
+          <img src={url} alt={title} loading="lazy" decoding="async" className="h-10 w-10 object-cover" />
+        </button>
+      ) : (
+        <>
+          <button
+            onClick={() => inputRef.current?.click()}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              onPasteMenu({ x: e.clientX, y: e.clientY, trade, kind })
+            }}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault()
+              setDragOver(false)
+              const file = e.dataTransfer.files?.[0]
+              if (file) onPickExtra(trade, file, kind)
+            }}
+            disabled={uploading}
+            title={`${title} — click, drag & drop, or right-click to paste`}
+            className="flex h-10 w-10 items-center justify-center rounded border border-dashed disabled:opacity-40"
+            style={{
+              color: dragOver ? 'var(--ta-accent)' : 'var(--ta-slate)',
+              borderColor: dragOver ? 'var(--ta-accent)' : 'var(--ta-slate)',
+              transform: dragOver ? 'scale(1.12)' : undefined,
+              transition: 'transform 0.15s ease, border-color 0.15s ease',
+            }}
+          >
+            {uploading ? <Camera size={13} className="animate-pulse" /> : <ImagePlus size={14} />}
+          </button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              e.target.value = ''
+              if (file) onPickExtra(trade, file, kind)
+            }}
+          />
+        </>
+      )}
+    </div>
+  )
+})
+
 // One card. Memoised with stable callbacks from the parent so typing in the
 // form, opening a popup or editing one card's P&L never re-renders the other
 // cards. All hover/entrance effects are CSS (compositor only) — no per-card
 // framer-motion layout measurement, which is what made big lists hang.
 const TradeCard = memo(function TradeCard({
-  trade, ruleById, isEditing, isCelebrating, uploading,
-  onValidation, onPasteMenu, onPickResult, onStatusChange,
+  trade, ruleById, isEditing, isCelebrating, uploadingKind,
+  onValidation, onPasteMenu, onPickResult, onPickExtra, onStatusChange,
 }) {
+  const uploading = uploadingKind === 'result'
   const [notesExpanded, setNotesExpanded] = useState(false)
   const [editingPnl, setEditingPnl] = useState(false)
   const [pnlDraft, setPnlDraft] = useState('')
@@ -189,7 +258,7 @@ const TradeCard = memo(function TradeCard({
                 </div>
 
                 {/* Screenshot + Result images side by side */}
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <div className="flex flex-col items-center gap-0.5">
                     <span className="text-[7px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ta-slate)' }}>Setup</span>
                     {trade.screenshotUrl ? (
@@ -273,6 +342,9 @@ const TradeCard = memo(function TradeCard({
                     )}
                   </div>
 
+                  <ExtraImageSlot trade={trade} kind="order" label="Order" title="Order details image" uploading={uploadingKind === 'order'} onPickExtra={onPickExtra} onPasteMenu={onPasteMenu} />
+                  <ExtraImageSlot trade={trade} kind="pnl" label="P&L" title="Final P&L image" uploading={uploadingKind === 'pnl'} onPickExtra={onPickExtra} onPasteMenu={onPasteMenu} />
+
                   {/* Validation score — the thumbnails row keeps only the
                       compact N/Total pill; the individual rule badges now
                       live in their own full-width row below, where up to
@@ -354,7 +426,7 @@ export default function TradeCards() {
   const validationRules = useTradeAnalysisStore((s) => s.validationRules)
   const filters = useTradeAnalysisStore((s) => s.filters)
   const editingTradeId = useTradeAnalysisStore((s) => s.editingTradeId)
-  const [uploadingResultId, setUploadingResultId] = useState(null)
+  const [uploadingTarget, setUploadingTarget] = useState(null) // { id, kind }
   const [pasteMenu, setPasteMenu] = useState(null)
   const [celebrateId, setCelebrateId] = useState(null)
   const [validationCardId, setValidationCardId] = useState(null)
@@ -382,22 +454,27 @@ export default function TradeCards() {
     setTimeout(() => setCelebrateId((cur) => (cur === id ? null : cur)), 900)
   }, [])
 
-  const handleResultImagePick = useCallback(async (trade, file) => {
+  // kind: 'result' (default) | 'order' | 'pnl'
+  const handleImagePick = useCallback(async (trade, file, kind = 'result') => {
     if (!file) return
-    setUploadingResultId(trade.id)
+    setUploadingTarget({ id: trade.id, kind })
     try {
       const { url, hosted, error } = await uploadTradeImage(file)
-      useTradeAnalysisStore.getState().updateTradeResultImage(trade.id, url, hosted)
+      const st = useTradeAnalysisStore.getState()
+      if (kind === 'result') st.updateTradeResultImage(trade.id, url, hosted)
+      else st.updateTradeExtraImage(trade.id, kind, url, hosted)
       if (!hosted) {
+        const what = kind === 'pnl' ? 'P&L' : kind === 'order' ? 'Order' : 'Result'
         useUiStore
           .getState()
-          .showToast(error ? 'Result image saved locally — upload failed.' : 'Result image saved locally — connect Cloudinary to host it.')
+          .showToast(error ? `${what} image saved locally — upload failed.` : `${what} image saved locally — connect Cloudinary to host it.`)
       }
-      if (trade.status === 'Target Hit') celebrate(trade.id)
+      if (kind === 'result' && trade.status === 'Target Hit') celebrate(trade.id)
     } finally {
-      setUploadingResultId(null)
+      setUploadingTarget(null)
     }
   }, [celebrate])
+  const handleResultImagePick = useCallback((trade, file) => handleImagePick(trade, file, 'result'), [handleImagePick])
 
   const handleStatusChange = useCallback((trade, next) => {
     useTradeAnalysisStore.getState().updateTradeStatus(trade.id, next)
@@ -464,10 +541,11 @@ export default function TradeCards() {
             ruleById={ruleById}
             isEditing={trade.id === editingTradeId}
             isCelebrating={trade.id === celebrateId}
-            uploading={uploadingResultId === trade.id}
+            uploadingKind={uploadingTarget?.id === trade.id ? uploadingTarget.kind : null}
             onValidation={openValidation}
             onPasteMenu={openPasteMenu}
             onPickResult={handleResultImagePick}
+            onPickExtra={handleImagePick}
             onStatusChange={handleStatusChange}
           />
         ))}
@@ -483,7 +561,7 @@ export default function TradeCards() {
       <PasteImageMenu
         pos={pasteMenu ? { x: pasteMenu.x, y: pasteMenu.y } : null}
         onClose={() => setPasteMenu(null)}
-        onFile={(file) => pasteMenu && handleResultImagePick(pasteMenu.trade, file)}
+        onFile={(file) => pasteMenu && handleImagePick(pasteMenu.trade, file, pasteMenu.kind || 'result')}
       />
     </div>
   )

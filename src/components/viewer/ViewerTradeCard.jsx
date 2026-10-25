@@ -159,8 +159,8 @@ export default function ViewerTradeCard({ trade, validationRules, idx = 0 }) {
 
       {/* Screenshot + Result images side by side — click opens the shared
           fullscreen lightbox, same as the editor. */}
-      {(trade.screenshotUrl || trade.resultImageUrl) && (
-        <div className="relative flex items-center gap-2">
+      {(trade.screenshotUrl || trade.resultImageUrl || trade.orderImageUrl || trade.pnlImageUrl) && (
+        <div className="relative flex flex-wrap items-center gap-2">
           {trade.screenshotUrl && (
             <div className="flex flex-col items-center gap-0.5">
               <span className="text-[7px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ta-slate)' }}>Setup</span>
@@ -174,6 +174,22 @@ export default function ViewerTradeCard({ trade, validationRules, idx = 0 }) {
               <span className="text-[7px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ta-slate)' }}>Result</span>
               <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.95 }} onClick={() => useUiStore.getState().openImageLightbox(trade.resultImageUrl)} title="View result image">
                 <img src={trade.resultImageUrl} alt="Result" className="h-12 w-12 cursor-zoom-in rounded object-cover" />
+              </motion.button>
+            </div>
+          )}
+          {trade.orderImageUrl && (
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-[7px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ta-slate)' }}>Order</span>
+              <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.95 }} onClick={() => useUiStore.getState().openImageLightbox(trade.orderImageUrl)} title="Order details">
+                <img src={trade.orderImageUrl} alt="Order details" loading="lazy" decoding="async" className="h-12 w-12 cursor-zoom-in rounded object-cover" />
+              </motion.button>
+            </div>
+          )}
+          {trade.pnlImageUrl && (
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-[7px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ta-slate)' }}>P&L</span>
+              <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.95 }} onClick={() => useUiStore.getState().openImageLightbox(trade.pnlImageUrl)} title="Final P&L">
+                <img src={trade.pnlImageUrl} alt="Final P&L" loading="lazy" decoding="async" className="h-12 w-12 cursor-zoom-in rounded object-cover" />
               </motion.button>
             </div>
           )}

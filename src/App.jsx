@@ -9,6 +9,7 @@ import NodeLibraryPanel from './components/panels/NodeLibraryPanel'
 import ChecklistPanel from './components/panels/ChecklistPanel'
 import AuthPanel from './components/auth/AuthPanel'
 import ShareModal from './components/toolbar/ShareModal'
+import BackupModal from './components/toolbar/BackupModal'
 import ImageLightbox from './components/common/ImageLightbox'
 import Whiteboard from './components/whiteboard/Whiteboard'
 import TradeAnalysis from './components/trade-analysis/TradeAnalysis'
@@ -432,6 +433,7 @@ export default function App() {
       )}
       <AuthPanel />
       <ShareModal />
+      <BackupModal />
       <ProjectsDashboard />
       <StyleLibraryPanel />
       <NodeLibraryPanel />

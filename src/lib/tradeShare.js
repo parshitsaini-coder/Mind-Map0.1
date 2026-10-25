@@ -70,7 +70,7 @@ export async function fetchOwnActiveTradeShares(userId) {
   if (!isSupabaseConfigured || !userId) return []
   const { data, error } = await supabase
     .from('trade_shares')
-    .select('id, filters, expires_at, ended_at')
+    .select('id, filters, expires_at, ended_at, first_trade:trades->0')
     .eq('user_id', userId)
     .is('ended_at', null)
   if (error || !data) return []

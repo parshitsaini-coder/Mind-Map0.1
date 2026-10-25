@@ -56,8 +56,14 @@ export const useTradeShareStore = create(
         const rows = await fetchOwnActiveTradeShares(userId)
         const result = { found: rows.length, updated: 0, error: null }
         for (const row of rows) {
-          const shared = applyFilters(trades, row.filters || {})
-          const ruleIds = new Set(shared.flatMap((t) => t.validationRuleIds || []))
+          let shared = applyFilters(trades, row.filters || {})
+          // "Validation details" off: remembered on the link itself. Older
+          // links didn't store it, so fall back to what's already published
+          // — a hidden link's trades carry no validationRuleIds key at all.
+          const hideValidation =
+            row.filters?.hideValidation ?? (row.first_trade ? !('validationRuleIds' in row.first_trade) : false)
+          if (hideValidation) shared = shared.map(({ validationRuleIds, validationScore, ...rest }) => rest)
+          const ruleIds = new Set(hideValidation ? [] : shared.flatMap((t) => t.validationRuleIds || []))
           const rules = validationRules.filter((r) => ruleIds.has(r.id))
           const payload = JSON.stringify([shared, rules])
           if (!force && lastSynced.get(row.id) === payload) continue

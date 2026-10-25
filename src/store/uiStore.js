@@ -19,6 +19,7 @@ export const useUiStore = create(
       connectorPanelOpen: false,
       authModalOpen: false,
       shareModalOpen: false,
+      backupModalOpen: false,
       styleLibraryOpen: false,
       nodeLibraryOpen: false,
       imageLightboxUrl: null, // set to an image URL to open it fullscreen; null when closed
@@ -48,6 +49,7 @@ export const useUiStore = create(
       toggleConnectorPanel: () => set((s) => ({ connectorPanelOpen: !s.connectorPanelOpen })),
       toggleAuthModal: () => set((s) => ({ authModalOpen: !s.authModalOpen })),
       toggleShareModal: () => set((s) => ({ shareModalOpen: !s.shareModalOpen })),
+      toggleBackupModal: () => set((s) => ({ backupModalOpen: !s.backupModalOpen })),
       toggleStyleLibrary: () => set((s) => ({ styleLibraryOpen: !s.styleLibraryOpen })),
       toggleNodeLibrary: () => set((s) => ({ nodeLibraryOpen: !s.nodeLibraryOpen })),
       toggleRelationshipMode: () => set((s) => ({ relationshipMode: !s.relationshipMode })),

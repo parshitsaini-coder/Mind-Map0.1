@@ -156,7 +156,7 @@ export default function ViewerTradeDetailModal() {
                 </Field>
               )}
 
-              {(trade.screenshotUrl || trade.resultImageUrl) && (
+              {(trade.screenshotUrl || trade.resultImageUrl || trade.orderImageUrl || trade.pnlImageUrl) && (
                 <div className="flex gap-2">
                   {trade.screenshotUrl && (
                     <Field label="Screenshot">
@@ -179,6 +179,20 @@ export default function ViewerTradeDetailModal() {
                           title="Click to view full size"
                           className="h-14 w-14 cursor-zoom-in rounded object-cover"
                         />
+                      </button>
+                    </Field>
+                  )}
+                  {trade.orderImageUrl && (
+                    <Field label="Order details">
+                      <button onClick={() => useUiStore.getState().openImageLightbox(trade.orderImageUrl)}>
+                        <img src={trade.orderImageUrl} alt="Order details" className="h-14 w-14 cursor-zoom-in rounded object-cover" />
+                      </button>
+                    </Field>
+                  )}
+                  {trade.pnlImageUrl && (
+                    <Field label="Final P&L">
+                      <button onClick={() => useUiStore.getState().openImageLightbox(trade.pnlImageUrl)}>
+                        <img src={trade.pnlImageUrl} alt="Final P&L" className="h-14 w-14 cursor-zoom-in rounded object-cover" />
                       </button>
                     </Field>
                   )}

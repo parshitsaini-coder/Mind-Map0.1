@@ -466,6 +466,18 @@ export const useTradeAnalysisStore = create(
           ),
         })),
 
+      // Extra per-trade images on the card: kind 'order' (order details) or
+      // 'pnl' (final P&L). Same shape as screenshot/result — url + hosted flag
+      // — so they sync to the cloud with the rest of the trade.
+      updateTradeExtraImage: (id, kind, url, hosted) => {
+        const key = kind === 'pnl' ? 'pnlImage' : 'orderImage'
+        set((s) => ({
+          trades: s.trades.map((t) =>
+            t.id === id ? { ...t, [`${key}Url`]: url, [`${key}Hosted`]: hosted, updatedAt: Date.now() } : t
+          ),
+        }))
+      },
+
       // P&L quick-edit — lets the table's inline P&L cell update just that
       // one field without opening the full Edit modal. `pnl` is a number or
       // null (cleared).

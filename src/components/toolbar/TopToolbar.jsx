@@ -34,6 +34,7 @@ import {
   LibraryBig,
   FlaskConical,
   Activity,
+  DatabaseBackup,
 } from 'lucide-react'
 import { useState, useRef } from 'react'
 import HoverTip from './HoverTip'
@@ -243,6 +244,11 @@ export default function TopToolbar() {
           icon={Activity}
           label="Trading Terminal — live XAUUSD (gold) chart with virtual money"
           onClick={() => useTerminalStore.getState().open()}
+        />
+        <IconBtn
+          icon={DatabaseBackup}
+          label="Backup & Restore — download ALL your mind maps (and trades, whiteboard) as one file, add them back any time"
+          onClick={() => useUiStore.getState().toggleBackupModal()}
         />
       </div>
 
