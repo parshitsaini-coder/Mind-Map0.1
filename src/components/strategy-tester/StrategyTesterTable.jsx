@@ -234,6 +234,39 @@ function StrategyGroupHeader({ strategy, isOnly, isNew }) {
 
 // Small restore bar for hidden strategies — shown above the table so a
 // hidden panel is never permanently lost, just tucked away.
+// One-strategy-at-a-time picker above the grid.
+function StrategySwitcher({ strategies, activeId }) {
+  if (strategies.length === 0) return null
+  return (
+    <div
+      className="mb-1 flex shrink-0 flex-wrap items-center gap-1 rounded-lg border px-1.5 py-1"
+      style={{ borderColor: 'var(--tad-border-strong)', backgroundColor: 'var(--ta-surface)' }}
+    >
+      <span className="text-[8px] font-semibold uppercase tracking-wide opacity-60" style={{ color: 'var(--ta-ink)' }}>
+        Strategy:
+      </span>
+      {strategies.map((st) => {
+        const on = st.id === activeId
+        return (
+          <button
+            key={st.id}
+            type="button"
+            onClick={() => useStrategyTesterStore.getState().setTableStrategyId(st.id)}
+            className="rounded-full px-2.5 py-0.5 text-[9px] font-semibold transition-colors"
+            style={
+              on
+                ? { backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }
+                : { backgroundColor: 'var(--ta-bg)', color: 'var(--ta-ink)' }
+            }
+          >
+            {st.name}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function HiddenStrategiesBar({ hiddenStrategies }) {
   return (
     <AnimatePresence initial={false}>
@@ -407,7 +440,6 @@ export default function StrategyTesterTable() {
   const visibleWeekdays = useStrategyTesterStore((s) => s.visibleWeekdays) || [0, 1, 2, 3, 4, 5, 6]
   const [dateMenuAt, setDateMenuAt] = useState(null)
   const [rowMenu, setRowMenu] = useState(null) // { x, y, dk, id|null, label }
-  const extraRows = entries?.[ROWS_KEY] || {}
   const dateColWidth = useStrategyTesterStore((s) => s.dateColWidth) || DEFAULT_DATE_WIDTH
   const scrollerRef = useRef(null)
 
@@ -419,7 +451,13 @@ export default function StrategyTesterTable() {
   const today = new Date()
   const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month
 
-  const visibleStrategies = strategies.filter((st) => !st.hidden)
+  // One strategy at a time: the table shows only the picked strategy, with
+  // its own Date column and its own extra entries.
+  const tableStrategyId = useStrategyTesterStore((s) => s.tableStrategyId)
+  const shownStrategies = strategies.filter((st) => !st.hidden)
+  const activeStrategy = shownStrategies.find((st) => st.id === tableStrategyId) || shownStrategies[0]
+  const visibleStrategies = activeStrategy ? [activeStrategy] : []
+  const extraRows = (activeStrategy && entries?.[ROWS_KEY]?.[activeStrategy.id]) || {}
   const hiddenStrategies = strategies.filter((st) => st.hidden)
 
   const fresh = useFreshIds(visibleStrategies.flatMap((st) => [st.id, ...st.fields.map((f) => f.id)]))
@@ -446,10 +484,11 @@ export default function StrategyTesterTable() {
 
   // Re-keying the body replays the row cascade whenever the month or the
   // weekday filter changes.
-  const bodyKey = `${year}-${month}-${visibleWeekdays.join('')}`
+  const bodyKey = `${activeStrategy?.id}-${year}-${month}-${visibleWeekdays.join('')}`
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <StrategySwitcher strategies={shownStrategies} activeId={activeStrategy?.id} />
       <HiddenStrategiesBar hiddenStrategies={hiddenStrategies} />
       <div
         ref={scrollerRef}
@@ -630,9 +669,9 @@ export default function StrategyTesterTable() {
             y={rowMenu.y}
             label={rowMenu.label}
             isExtra={!!rowMenu.id}
-            onAdd={() => useStrategyTesterStore.getState().addExtraRow(rowMenu.dk)}
-            onClear={() => useStrategyTesterStore.getState().clearRow(rowMenu.id ? `${rowMenu.dk}#${rowMenu.id}` : rowMenu.dk)}
-            onDelete={() => useStrategyTesterStore.getState().removeExtraRow(rowMenu.dk, rowMenu.id)}
+            onAdd={() => useStrategyTesterStore.getState().addExtraRow(activeStrategy.id, rowMenu.dk)}
+            onClear={() => useStrategyTesterStore.getState().clearRow(activeStrategy.id, rowMenu.id ? `${rowMenu.dk}#${rowMenu.id}` : rowMenu.dk)}
+            onDelete={() => useStrategyTesterStore.getState().removeExtraRow(activeStrategy.id, rowMenu.dk, rowMenu.id)}
             onClose={() => setRowMenu(null)}
           />
         )}

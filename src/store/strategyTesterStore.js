@@ -34,6 +34,22 @@ const today = new Date()
 
 export const ROWS_KEY = '__rows'
 
+// Early builds kept ONE shared list of extra rows: __rows[dateKey] = [ids].
+// Rows are per strategy now: __rows[strategyId][dateKey] = [ids]. Convert the
+// old shape by giving every strategy a copy (their `dk#id` values stay put).
+export function migrateEntries(entries, strategies) {
+  const rows = entries?.[ROWS_KEY]
+  if (!rows || !Object.values(rows).some(Array.isArray)) return entries
+  const next = {}
+  const legacy = {}
+  for (const [k, v] of Object.entries(rows)) {
+    if (Array.isArray(v)) legacy[k] = v
+    else next[k] = v
+  }
+  for (const st of strategies || []) next[st.id] = { ...legacy, ...(next[st.id] || {}) }
+  return { ...entries, [ROWS_KEY]: next }
+}
+
 const initialState = {
   isOpen: false,
   theme: 'classic',
@@ -55,6 +71,8 @@ const initialState = {
   // strategy in the list (resolved by the component, not stored, so a
   // deleted strategy never leaves this pointing at a dead id).
   analysisStrategyId: null,
+  // Strategy shown in the Table view. null = first visible one.
+  tableStrategyId: null,
   // entries[strategyId][dateKey][fieldId] = value
   entries: {},
   // 'idle' | 'saving' | 'saved' | 'error' — surfaced by the cloud-sync
@@ -129,7 +147,7 @@ export const useStrategyTesterStore = create(
       addStrategy: () =>
         set((s) => {
           const next = makeStrategy(`Strategy :- ${s.strategies.length}`)
-          return { strategies: [...s.strategies, next] }
+          return { strategies: [...s.strategies, next], tableStrategyId: next.id }
         }),
       renameStrategy: (strategyId, name) =>
         set((s) => ({
@@ -146,7 +164,13 @@ export const useStrategyTesterStore = create(
           if (s.strategies.length <= 1) return {}
           const entries = { ...s.entries }
           delete entries[strategyId]
+          if (entries[ROWS_KEY]) {
+            const rows = { ...entries[ROWS_KEY] }
+            delete rows[strategyId]
+            entries[ROWS_KEY] = rows
+          }
           return {
+            tableStrategyId: s.tableStrategyId === strategyId ? null : s.tableStrategyId,
             strategies: s.strategies.filter((st) => st.id !== strategyId),
             entries,
             analysisStrategyId: s.analysisStrategyId === strategyId ? null : s.analysisStrategyId,
@@ -265,45 +289,45 @@ export const useStrategyTesterStore = create(
           return { entries: { ...s.entries, [strategyId]: strategyEntries } }
         }),
 
-      // Extra entries on one date. The first entry of a day is the plain
-      // 'YYYY-MM-DD' row; each extra one is 'YYYY-MM-DD#<id>' and shares the
-      // same entries map. The id list lives at entries.__rows[dateKey] so it
-      // is persisted / cloud-synced / backed up with the entries (no new
-      // Supabase column needed).
-      addExtraRow: (dk) =>
+      // Extra entries on one date, PER STRATEGY. The first entry of a day is
+      // the plain 'YYYY-MM-DD' row; each extra one is 'YYYY-MM-DD#<id>' inside
+      // that strategy's entries. The id lists live at
+      // entries.__rows[strategyId][dateKey] so they persist / cloud-sync /
+      // back up with the entries (no new Supabase column needed).
+      addExtraRow: (strategyId, dk) =>
         set((s) => {
-          const rows = { ...(s.entries[ROWS_KEY] || {}) }
-          rows[dk] = [...(rows[dk] || []), uid()]
-          return { entries: { ...s.entries, [ROWS_KEY]: rows } }
+          const all = { ...(s.entries[ROWS_KEY] || {}) }
+          const mine = { ...(all[strategyId] || {}) }
+          mine[dk] = [...(mine[dk] || []), uid()]
+          all[strategyId] = mine
+          return { entries: { ...s.entries, [ROWS_KEY]: all } }
         }),
-      removeExtraRow: (dk, id) =>
+      removeExtraRow: (strategyId, dk, id) =>
         set((s) => {
-          const rows = { ...(s.entries[ROWS_KEY] || {}) }
-          const left = (rows[dk] || []).filter((x) => x !== id)
-          if (left.length) rows[dk] = left
-          else delete rows[dk]
-          const next = { ...s.entries, [ROWS_KEY]: rows }
-          const rk = `${dk}#${id}`
-          for (const sid of Object.keys(next)) {
-            if (sid === ROWS_KEY || !next[sid]?.[rk]) continue
-            const copy = { ...next[sid] }
-            delete copy[rk]
-            next[sid] = copy
+          const all = { ...(s.entries[ROWS_KEY] || {}) }
+          const mine = { ...(all[strategyId] || {}) }
+          const left = (mine[dk] || []).filter((x) => x !== id)
+          if (left.length) mine[dk] = left
+          else delete mine[dk]
+          all[strategyId] = mine
+          const next = { ...s.entries, [ROWS_KEY]: all }
+          if (next[strategyId]) {
+            const copy = { ...next[strategyId] }
+            delete copy[`${dk}#${id}`]
+            next[strategyId] = copy
           }
           return { entries: next }
         }),
-      // Wipes the values of one row (all strategies) but keeps the row.
-      clearRow: (rk) =>
+      // Wipes the values of one row of one strategy but keeps the row.
+      clearRow: (strategyId, rk) =>
         set((s) => {
-          const next = { ...s.entries }
-          for (const sid of Object.keys(next)) {
-            if (sid === ROWS_KEY || !next[sid]?.[rk]) continue
-            const copy = { ...next[sid] }
-            delete copy[rk]
-            next[sid] = copy
-          }
-          return { entries: next }
+          if (!s.entries[strategyId]?.[rk]) return {}
+          const copy = { ...s.entries[strategyId] }
+          delete copy[rk]
+          return { entries: { ...s.entries, [strategyId]: copy } }
         }),
+      // Which strategy the Table / Cards-independent grid shows (one at a time).
+      setTableStrategyId: (tableStrategyId) => set({ tableStrategyId }),
 
       // Read-only helper — not itself reactive, callers should select
       // `entries` directly if they need re-renders on change.
@@ -341,7 +365,7 @@ export const useStrategyTesterStore = create(
         }
         if (cloudIsEmpty) return
 
-        set({ strategies: migrateStrategies(cloudStrategies), entries: cloudEntries })
+        set({ strategies: migrateStrategies(cloudStrategies), entries: migrateEntries(cloudEntries, cloudStrategies) })
       },
       saveToCloud: async (userId) => {
         if (!isSupabaseConfigured || !userId) return
@@ -361,6 +385,7 @@ export const useStrategyTesterStore = create(
       merge: (persisted, current) => {
         const merged = { ...current, ...(persisted || {}) }
         merged.strategies = migrateStrategies(merged.strategies)
+        merged.entries = migrateEntries(merged.entries, merged.strategies)
         return merged
       },
       partialize: (state) => ({
@@ -376,6 +401,7 @@ export const useStrategyTesterStore = create(
         month: state.month,
         strategies: state.strategies,
         analysisStrategyId: state.analysisStrategyId,
+        tableStrategyId: state.tableStrategyId,
         entries: state.entries,
       }),
     }
