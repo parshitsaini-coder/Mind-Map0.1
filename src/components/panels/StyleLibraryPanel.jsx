@@ -129,27 +129,24 @@ export default function StyleLibraryPanel() {
   const handleApply = (preset) => {
     const count = applyNodeStyle(preset)
     showToast(`Applied "${preset.name}" to ${count} node${count > 1 ? 's' : ''}`)
-    toggleStyleLibrary()
   }
 
   const presetsInCategory = activeCategory === 'Custom' ? customNodeStyles : NODE_STYLE_PRESETS.filter((p) => p.category === activeCategory)
 
   return (
     <AnimatePresence>
+      {/* Docked on the LEFT, no dimmed backdrop: the map stays visible and usable
+          (select nodes, then click a style) and the panel stays open after applying. */}
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-black/40 p-6"
-        onClick={(e) => e.target === e.currentTarget && toggleStyleLibrary()}
+        key="style-library-dock"
+        initial={{ x: -340, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        exit={{ x: -340, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 420, damping: 38 }}
+        className="fixed bottom-0 left-0 top-14 z-40 flex w-[min(340px,92vw)] flex-col overflow-hidden border-r shadow-2xl"
+        style={{ backgroundColor: '#f5f5f0', borderColor: 'var(--color-sage)' }}
       >
-        <motion.div
-          initial={{ opacity: 0, y: 16, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 10, scale: 0.98 }}
-          className="mt-8 w-full max-w-3xl rounded-xl p-5 shadow-2xl"
-          style={{ backgroundColor: '#f5f5f0' }}
-        >
+        <div className="flex min-h-0 flex-1 flex-col p-4">
           <div className="mb-1 flex items-start justify-between">
             <div className="flex items-center gap-1.5">
               <Sparkles size={16} color="var(--color-accent)" />
@@ -190,7 +187,7 @@ export default function StyleLibraryPanel() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.15 }}
-              className="grid max-h-[52vh] grid-cols-3 gap-1 overflow-y-auto pr-1 sm:grid-cols-4"
+              className="grid min-h-0 flex-1 grid-cols-2 content-start gap-1 overflow-y-auto pr-1"
             >
               {activeCategory === 'Custom' && <AddStyleTile onClick={() => setBuilderOpen(true)} />}
               {activeCategory === 'Custom'
@@ -199,14 +196,14 @@ export default function StyleLibraryPanel() {
                   ))
                 : presetsInCategory.map((preset) => <PresetSwatch key={preset.id} preset={preset} onApply={handleApply} />)}
               {activeCategory === 'Custom' && presetsInCategory.length === 0 && (
-                <p className="col-span-3 mt-2 text-[10.5px] text-[var(--color-slate)] sm:col-span-4">
+                <p className="col-span-2 mt-2 text-[10.5px] text-[var(--color-slate)]">
                   No custom styles yet — click "Add custom style" to build one: background, text color, border, glow,
                   motion, and node size, all in one place.
                 </p>
               )}
             </motion.div>
           </AnimatePresence>
-        </motion.div>
+        </div>
       </motion.div>
       {builderOpen && <CustomStyleBuilder onClose={() => setBuilderOpen(false)} />}
     </AnimatePresence>
