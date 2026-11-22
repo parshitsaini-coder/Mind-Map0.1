@@ -3,22 +3,22 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Check } from 'lucide-react'
 
 const OPTIONS = [
-  { key: 'sl', label: 'SL', long: 'Stop loss', color: '#dc2626' },
-  { key: 'target', label: 'Target', long: 'Target', color: '#16a34a' },
+  { key: 'sl', label: 'SL', color: '#dc2626' },
+  { key: 'target', label: 'Target', color: '#16a34a' },
 ]
 
-// SL / Target cell. The cell shows what is set; clicking it opens a small
-// popup with two options — SL or Target — pick one and type its price.
-// Stored shape is unchanged: { sl, target }.
+// SL / Target cell: shows the chosen one (or —); click opens a small popup
+// with the two options. Stored value: 'sl' | 'target' | null. (Older saves
+// held { sl, target } prices — those still display, and are replaced by the
+// next pick.)
 export default function SlTargetCell({ value, onChange, label }) {
   const [open, setOpen] = useState(false)
-  const [active, setActive] = useState('sl')
   const rootRef = useRef(null)
-  const inputRef = useRef(null)
-
-  const sl = value?.sl ?? ''
-  const tp = value?.target ?? ''
-  const has = sl !== '' || tp !== ''
+  const legacy = value && typeof value === 'object' ? value : null
+  const legacyText = legacy
+    ? [legacy.sl ? `SL ${legacy.sl}` : '', legacy.target ? `TP ${legacy.target}` : ''].filter(Boolean).join(' · ')
+    : ''
+  const cur = OPTIONS.find((o) => o.key === value)
 
   useEffect(() => {
     if (!open) return
@@ -34,45 +34,39 @@ export default function SlTargetCell({ value, onChange, label }) {
     }
   }, [open])
 
-  useEffect(() => {
-    if (open) inputRef.current?.focus()
-  }, [open, active])
-
-  const toggle = () => {
-    if (!open) setActive(sl === '' && tp !== '' ? 'target' : 'sl')
-    setOpen((o) => !o)
+  const pick = (v) => {
+    onChange(v === value ? null : v)
+    setOpen(false)
   }
-  const cur = OPTIONS.find((o) => o.key === active)
-  const set = (key, v) => onChange({ ...(value || {}), [key]: v })
 
   return (
     <div ref={rootRef} className="relative flex h-full w-full items-center justify-center">
-      <button
+      <motion.button
         type="button"
-        onClick={toggle}
+        whileTap={{ scale: 0.94 }}
+        onClick={() => setOpen((o) => !o)}
         title={label}
-        className="flex h-full w-full flex-col items-center justify-center gap-[1px] px-0.5 leading-none"
-        style={{ opacity: has ? 1 : 0.55 }}
+        className="flex h-full w-full items-center justify-center px-0.5"
+        style={{ opacity: cur || legacyText ? 1 : 0.55 }}
       >
-        {has ? (
-          <>
-            {sl !== '' && (
-              <span className="text-[8px] font-bold tabular-nums" style={{ color: '#dc2626' }}>
-                SL {sl}
-              </span>
-            )}
-            {tp !== '' && (
-              <span className="text-[8px] font-bold tabular-nums" style={{ color: '#16a34a' }}>
-                TP {tp}
-              </span>
-            )}
-          </>
+        {cur ? (
+          <span
+            key={cur.key}
+            className="st-val-in rounded-[3px] px-1.5 py-[1px] text-[8.5px] font-bold"
+            style={{ backgroundColor: cur.color, color: '#fffcf2' }}
+          >
+            {cur.label}
+          </span>
+        ) : legacyText ? (
+          <span className="text-[8px] font-bold" style={{ color: 'var(--ta-ink)' }}>
+            {legacyText}
+          </span>
         ) : (
           <span className="text-[9px]" style={{ color: 'var(--ta-slate)' }}>
             —
           </span>
         )}
-      </button>
+      </motion.button>
 
       <AnimatePresence>
         {open && (
@@ -81,57 +75,28 @@ export default function SlTargetCell({ value, onChange, label }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 500, damping: 32 }}
-            className="ta-glass-popover absolute left-1/2 top-full z-[90] mt-1 flex w-36 -translate-x-1/2 flex-col gap-1.5 rounded-lg border p-1.5 shadow-xl"
+            className="ta-glass-popover absolute left-1/2 top-full z-[90] mt-1 flex w-24 -translate-x-1/2 flex-col gap-1 rounded-lg border p-1 shadow-xl"
             style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)', transformOrigin: 'top center' }}
           >
-            <div className="flex gap-1">
-              {OPTIONS.map((o) => {
-                const on = active === o.key
-                const filled = (o.key === 'sl' ? sl : tp) !== ''
-                return (
-                  <motion.button
-                    key={o.key}
-                    type="button"
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setActive(o.key)}
-                    className="flex flex-1 items-center justify-center gap-0.5 rounded-md py-1 text-[9px] font-bold"
-                    style={{
-                      backgroundColor: on ? o.color : 'transparent',
-                      color: on ? '#fffcf2' : o.color,
-                      border: `1px solid ${o.color}`,
-                    }}
-                  >
-                    {o.label}
-                    {filled && !on && <Check size={8} />}
-                  </motion.button>
-                )
-              })}
-            </div>
-            <input
-              ref={inputRef}
-              key={active}
-              type="text"
-              inputMode="decimal"
-              value={(active === 'sl' ? sl : tp) ?? ''}
-              onChange={(e) => set(active, e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && setOpen(false)}
-              placeholder={`${cur.long} price`}
-              className="w-full rounded border bg-transparent px-1 py-0.5 text-center text-[10px] font-semibold tabular-nums outline-none"
-              style={{ color: cur.color, borderColor: cur.color }}
-            />
-            <div className="flex justify-between">
-              <button
+            {OPTIONS.map((o, idx) => (
+              <motion.button
+                key={o.key}
                 type="button"
-                onClick={() => onChange(null)}
-                className="text-[8px] font-semibold"
-                style={{ color: 'var(--ta-slate)' }}
+                initial={{ opacity: 0, x: -4 }}
+                animate={{ opacity: 1, x: 0, transition: { delay: idx * 0.02, duration: 0.1 } }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => pick(o.key)}
+                className="flex items-center justify-between gap-1 rounded-md px-2 py-1 text-[9px] font-bold"
+                style={{
+                  backgroundColor: value === o.key ? o.color : 'transparent',
+                  color: value === o.key ? '#fffcf2' : o.color,
+                  border: `1px solid ${o.color}`,
+                }}
               >
-                Clear
-              </button>
-              <button type="button" onClick={() => setOpen(false)} className="text-[8px] font-bold" style={{ color: 'var(--ta-accent)' }}>
-                Done
-              </button>
-            </div>
+                {o.label}
+                {value === o.key && <Check size={9} />}
+              </motion.button>
+            ))}
           </motion.div>
         )}
       </AnimatePresence>

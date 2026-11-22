@@ -85,7 +85,7 @@ export const weekdayFor = (year, month, day) => WEEKDAY_SHORT[new Date(year, mon
 // sl/target object don't count; a real 0 does.
 export const isValueFilled = (type, value) => {
   if (value == null) return false
-  if (type === 'sltarget') return (value.sl !== '' && value.sl != null) || (value.target !== '' && value.target != null)
+  if (type === 'sltarget') return typeof value === 'string' ? value !== '' : (value.sl !== '' && value.sl != null) || (value.target !== '' && value.target != null)
   if (Array.isArray(value)) return value.length > 0
   if (type === 'checkbox') return Array.isArray(value) ? value.length > 0 : value === true
   if (typeof value === 'string') return value.trim() !== ''

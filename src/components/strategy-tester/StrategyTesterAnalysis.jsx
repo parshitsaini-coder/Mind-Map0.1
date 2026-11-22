@@ -5,6 +5,7 @@ import { useStrategyTesterStore } from '../../store/strategyTesterStore'
 import { RRR_OPTIONS, daysInMonth, dateKey, isValueFilled, MONTH_NAMES } from '../../utils/strategyTesterFields'
 import { Card, Grid, Stat, HBar, SectionHeader, EmptyHint, fmtPct } from '../trade-analysis/analysis/primitives'
 import StrategyCalendar from './StrategyCalendar'
+import StrategyCompare from './StrategyCompare'
 
 // Reduces one strategy's entries for the selected month into everything
 // the cards below need. Pure function of (strategy, entries slice, days)
@@ -259,6 +260,8 @@ export default function StrategyTesterAnalysis() {
           </Card>
         </>
       )}
+
+      <StrategyCompare strategy={strategy} strategyEntries={entries?.[strategy.id]} year={year} month={month} />
 
       {hasAnyMetric && (
         <div className="mt-4 flex items-center gap-1.5 px-1 text-[8.5px]" style={{ color: 'var(--ta-slate)' }}>

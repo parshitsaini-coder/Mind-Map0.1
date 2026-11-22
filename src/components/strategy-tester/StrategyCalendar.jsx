@@ -23,6 +23,7 @@ import {
 import { useStrategyTesterStore } from '../../store/strategyTesterStore'
 import { daysInMonth, dateKey, weekdayFor, MONTH_NAMES, WEEKDAY_SHORT } from '../../utils/strategyTesterFields'
 import { Card, CardTitle } from '../trade-analysis/analysis/primitives'
+import { dayTotals } from '../../utils/strategyBreakdown'
 
 const EASE = [0.16, 1, 0.3, 1]
 
@@ -38,34 +39,28 @@ const STATUS_STYLE = {
 
 // Reduce one day's row into a status + the bits worth showing at a
 // glance (P&L) without pulling in every field type.
-function dayStatus(strategy, row) {
-  if (!row) return { status: 'empty', pnl: null, hasAny: false }
-  const outcomeField = strategy.fields.find((f) => f.type === 'outcome')
+function dayStatus(strategy, strategyEntries, dk) {
+  const totals = dayTotals(strategy, strategyEntries, dk)
+  if (totals.entries === 0) return { status: 'empty', pnl: null, hasAny: false, totals }
   const pnlField = strategy.fields.find((f) => f.type === 'pnl')
-  const hasAny = strategy.fields.some((f) => {
-    const v = row[f.id]
-    if (v == null) return false
-    if (f.type === 'sltarget') return (v.sl ?? '') !== '' || (v.target ?? '') !== ''
-    if (Array.isArray(v)) return v.length > 0
-    return v !== ''
-  })
 
-  let status = hasAny ? 'logged' : 'empty'
-  if (outcomeField) {
-    const v = row[outcomeField.id]
-    if (v === 'win') status = 'win'
-    else if (v === 'loss') status = 'loss'
-    else if (v === 'be') status = 'be'
-  }
+  // Colour by the day's results across ALL its entries: more wins than losses
+  // = win, more losses = loss, only breakevens = be, otherwise just "logged".
+  let status = 'logged'
+  if (totals.wins > totals.losses) status = 'win'
+  else if (totals.losses > totals.wins) status = 'loss'
+  else if (totals.wins === 0 && totals.be > 0) status = 'be'
 
   let pnl = null
   if (pnlField) {
-    const raw = row[pnlField.id]
-    const n = raw === '' || raw == null ? null : parseFloat(raw)
-    if (n != null && !Number.isNaN(n)) pnl = n
+    for (const { row } of totals.rows) {
+      const raw = row[pnlField.id]
+      const n = raw === '' || raw == null ? null : parseFloat(raw)
+      if (n != null && !Number.isNaN(n)) pnl = (pnl ?? 0) + n
+    }
   }
 
-  return { status, pnl, hasAny }
+  return { status, pnl, hasAny: true, totals }
 }
 
 const FIELD_ICON = {
@@ -90,6 +85,8 @@ const FIELD_ICON = {
 // stored values.
 function fieldValueLabel(field, value) {
   if (field.type === 'sltarget') {
+    if (value === 'sl') return 'SL'
+    if (value === 'target') return 'Target'
     const sl = value?.sl
     const tp = value?.target
     if ((sl ?? '') === '' && (tp ?? '') === '') return '—'
@@ -114,14 +111,23 @@ function fieldValueLabel(field, value) {
   return String(value)
 }
 
-function DayDetailPopup({ strategy, day, row, onClose }) {
-  const filled = strategy.fields.filter((f) => {
-    const v = row?.[f.id]
+function DayDetailPopup({ strategy, day, totals, onClose }) {
+  const isFilled = (f, v) => {
     if (v == null) return false
-    if (f.type === 'sltarget') return (v.sl ?? '') !== '' || (v.target ?? '') !== ''
+    if (f.type === 'sltarget') return typeof v === 'string' ? v !== '' : (v.sl ?? '') !== '' || (v.target ?? '') !== ''
     if (Array.isArray(v)) return v.length > 0
     return v !== ''
-  })
+  }
+  const entries = totals.rows.map(({ row }) => strategy.fields.filter((f) => isFilled(f, row?.[f.id])))
+  const chips = [
+    { label: 'Entries', n: totals.entries, color: 'var(--ta-accent)', show: true },
+    { label: 'SL', n: totals.sl, color: '#dc2626', show: totals.hasSl },
+    { label: 'Target', n: totals.target, color: '#16a34a', show: totals.hasSl },
+    { label: 'Buy', n: totals.buy, color: '#16a34a', show: totals.buy > 0 },
+    { label: 'Sell', n: totals.sell, color: '#dc2626', show: totals.sell > 0 },
+    { label: 'Win', n: totals.wins, color: '#16a34a', show: totals.wins > 0 },
+    { label: 'Loss', n: totals.losses, color: '#dc2626', show: totals.losses > 0 },
+  ].filter((c) => c.show)
 
   return (
     <motion.div
@@ -150,34 +156,56 @@ function DayDetailPopup({ strategy, day, row, onClose }) {
           </button>
         </div>
 
-        {filled.length === 0 ? (
+        {totals.entries === 0 ? (
           <p className="py-3 text-center text-[9.5px] italic" style={{ color: 'var(--ta-slate)' }}>
             Nothing logged for this day.
           </p>
         ) : (
-          <div className="flex flex-col gap-1">
-            {filled.map((f, idx) => {
-              const Icon = FIELD_ICON[f.type] || Hash
-              return (
-                <motion.div
-                  key={f.id}
-                  initial={{ opacity: 0, x: -6 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.18, delay: 0.06 + Math.min(idx, 8) * 0.035, ease: EASE }}
-                  className="flex items-center justify-between gap-2 rounded-md px-1.5 py-1"
-                  style={{ backgroundColor: 'var(--ta-bg)' }}
+          <>
+            <div className="flex flex-wrap gap-1">
+              {chips.map((c) => (
+                <span
+                  key={c.label}
+                  className="rounded-full px-2 py-0.5 text-[9px] font-bold tabular-nums"
+                  style={{ backgroundColor: `color-mix(in srgb, ${c.color} 16%, transparent)`, color: c.color }}
                 >
-                  <span className="flex items-center gap-1 truncate text-[9.5px] font-medium" style={{ color: 'var(--ta-slate)' }}>
-                    <Icon size={10} style={{ color: 'var(--ta-accent)' }} />
-                    {f.label}
-                  </span>
-                  <span className="shrink-0 text-[9.5px] font-semibold" style={{ color: 'var(--ta-ink)' }}>
-                    {fieldValueLabel(f, row[f.id])}
-                  </span>
-                </motion.div>
-              )
-            })}
-          </div>
+                  {c.label} {c.n}
+                </span>
+              ))}
+            </div>
+            <div className="flex max-h-[50vh] flex-col gap-2 overflow-y-auto pr-0.5">
+              {entries.map((filled, ei) => (
+                <div key={totals.rows[ei].rk} className="flex flex-col gap-1">
+                  {entries.length > 1 && (
+                    <span className="text-[8.5px] font-bold uppercase tracking-wide" style={{ color: 'var(--ta-slate)' }}>
+                      Entry {ei + 1}
+                    </span>
+                  )}
+                  {filled.map((f, idx) => {
+                    const Icon = FIELD_ICON[f.type] || Hash
+                    return (
+                      <motion.div
+                        key={f.id}
+                        initial={{ opacity: 0, x: -6 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.18, delay: 0.06 + Math.min(idx, 8) * 0.035, ease: EASE }}
+                        className="flex items-center justify-between gap-2 rounded-md px-1.5 py-1"
+                        style={{ backgroundColor: 'var(--ta-bg)' }}
+                      >
+                        <span className="flex items-center gap-1 truncate text-[9.5px] font-medium" style={{ color: 'var(--ta-slate)' }}>
+                          <Icon size={10} style={{ color: 'var(--ta-accent)' }} />
+                          {f.label}
+                        </span>
+                        <span className="shrink-0 text-[9.5px] font-semibold" style={{ color: 'var(--ta-ink)' }}>
+                          {fieldValueLabel(f, totals.rows[ei].row[f.id])}
+                        </span>
+                      </motion.div>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </motion.div>
     </motion.div>
@@ -217,8 +245,7 @@ export default function StrategyCalendar({ strategy, entries }) {
     const out = Array.from({ length: leadingBlanks }, () => null)
     for (let day = 1; day <= numDays; day++) {
       const dk = dateKey(year, month, day)
-      const row = strategyEntries?.[dk]
-      out.push({ day, dk, ...dayStatus(strategy, row), row })
+      out.push({ day, dk, ...dayStatus(strategy, strategyEntries, dk) })
     }
     return out
   }, [strategy, entries, year, month, leadingBlanks, numDays])
@@ -301,7 +328,7 @@ export default function StrategyCalendar({ strategy, entries }) {
                     whileHover={{ scale: 1.12, zIndex: 2 }}
                     whileTap={{ scale: 0.94 }}
                     onClick={() => setOpenDay({ n: cell.day, ymd: [year, month] })}
-                    title={cell.row ? `${cell.day} ${MONTH_NAMES[month]} — tap for details` : `${cell.day} ${MONTH_NAMES[month]}`}
+                    title={cell.totals.entries ? `${cell.day} ${MONTH_NAMES[month]} — ${cell.totals.entries} entr${cell.totals.entries === 1 ? 'y' : 'ies'}${cell.totals.hasSl ? ` · SL ${cell.totals.sl} · Target ${cell.totals.target}` : ''} — tap for details` : `${cell.day} ${MONTH_NAMES[month]}`}
                     className="st-day relative flex aspect-square flex-col items-center justify-center gap-0 rounded-[5px]"
                     style={{
                       backgroundColor: style ? style.bg : 'transparent',
@@ -315,6 +342,20 @@ export default function StrategyCalendar({ strategy, entries }) {
                     >
                       {cell.day}
                     </span>
+                    {cell.totals.entries > 0 && (
+                      <span
+                        className="absolute right-[2px] top-[1px] text-[6px] font-bold leading-none"
+                        style={{ color: 'var(--ta-slate)' }}
+                      >
+                        {cell.totals.entries}
+                      </span>
+                    )}
+                    {cell.totals.hasSl && (cell.totals.sl > 0 || cell.totals.target > 0) && (
+                      <span className="flex gap-[2px] text-[6px] font-bold leading-none">
+                        {cell.totals.sl > 0 && <span style={{ color: '#dc2626' }}>{cell.totals.sl}</span>}
+                        {cell.totals.target > 0 && <span style={{ color: '#16a34a' }}>{cell.totals.target}</span>}
+                      </span>
+                    )}
                     {cell.pnl != null && (
                       <span
                         className="text-[6px] font-bold leading-none"
@@ -341,6 +382,10 @@ export default function StrategyCalendar({ strategy, entries }) {
             <span className="h-2 w-2 rounded-[3px]" style={{ border: '1.5px solid var(--ta-accent)' }} />
             Today
           </span>
+          <span className="flex items-center gap-0.5">
+            <b style={{ color: 'var(--ta-slate)' }}>n</b> entries ·<b style={{ color: '#dc2626' }}>SL</b>
+            <b style={{ color: '#16a34a' }}>Target</b>
+          </span>
         </div>
       </div>
 
@@ -349,7 +394,7 @@ export default function StrategyCalendar({ strategy, entries }) {
           <DayDetailPopup
             strategy={strategy}
             day={openDay}
-            row={entries?.[strategy.id]?.[dateKey(openDay.ymd[0], openDay.ymd[1], openDay.n)]}
+            totals={dayTotals(strategy, entries?.[strategy.id], dateKey(openDay.ymd[0], openDay.ymd[1], openDay.n))}
             onClose={() => setOpenDay(null)}
           />
         )}
