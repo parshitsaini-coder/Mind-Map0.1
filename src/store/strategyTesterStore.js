@@ -32,6 +32,8 @@ const makeStrategy = (name, withSeedFields = false) => ({
 
 const today = new Date()
 
+export const ROWS_KEY = '__rows'
+
 const initialState = {
   isOpen: false,
   theme: 'classic',
@@ -261,6 +263,46 @@ export const useStrategyTesterStore = create(
           const strategyEntries = { ...(s.entries[strategyId] || {}) }
           strategyEntries[dk] = { ...(strategyEntries[dk] || {}), [fieldId]: value }
           return { entries: { ...s.entries, [strategyId]: strategyEntries } }
+        }),
+
+      // Extra entries on one date. The first entry of a day is the plain
+      // 'YYYY-MM-DD' row; each extra one is 'YYYY-MM-DD#<id>' and shares the
+      // same entries map. The id list lives at entries.__rows[dateKey] so it
+      // is persisted / cloud-synced / backed up with the entries (no new
+      // Supabase column needed).
+      addExtraRow: (dk) =>
+        set((s) => {
+          const rows = { ...(s.entries[ROWS_KEY] || {}) }
+          rows[dk] = [...(rows[dk] || []), uid()]
+          return { entries: { ...s.entries, [ROWS_KEY]: rows } }
+        }),
+      removeExtraRow: (dk, id) =>
+        set((s) => {
+          const rows = { ...(s.entries[ROWS_KEY] || {}) }
+          const left = (rows[dk] || []).filter((x) => x !== id)
+          if (left.length) rows[dk] = left
+          else delete rows[dk]
+          const next = { ...s.entries, [ROWS_KEY]: rows }
+          const rk = `${dk}#${id}`
+          for (const sid of Object.keys(next)) {
+            if (sid === ROWS_KEY || !next[sid]?.[rk]) continue
+            const copy = { ...next[sid] }
+            delete copy[rk]
+            next[sid] = copy
+          }
+          return { entries: next }
+        }),
+      // Wipes the values of one row (all strategies) but keeps the row.
+      clearRow: (rk) =>
+        set((s) => {
+          const next = { ...s.entries }
+          for (const sid of Object.keys(next)) {
+            if (sid === ROWS_KEY || !next[sid]?.[rk]) continue
+            const copy = { ...next[sid] }
+            delete copy[rk]
+            next[sid] = copy
+          }
+          return { entries: next }
         }),
 
       // Read-only helper — not itself reactive, callers should select

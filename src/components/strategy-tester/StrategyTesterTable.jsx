@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { CalendarDays, GripVertical, Trash2, Eye, EyeOff, Pencil } from 'lucide-react'
-import { useStrategyTesterStore } from '../../store/strategyTesterStore'
+import { useStrategyTesterStore, ROWS_KEY } from '../../store/strategyTesterStore'
 import {
   FIELD_TYPE_MAP,
   FIELD_HEADER_COLORS,
@@ -22,6 +22,7 @@ import { beginColumnDrag } from './columnDrag'
 import { EASE_OUT } from './motionBits'
 import SelectOptionsPopup from './SelectOptionsPopup'
 import WeekdayFilterPopup from './WeekdayFilterPopup'
+import DateRowMenu from './DateRowMenu'
 import StrategyRenamePopup from './StrategyRenamePopup'
 
 // Inline-editable label shared by strategy names and field labels — click
@@ -405,6 +406,8 @@ export default function StrategyTesterTable() {
   const showAddStrategy = useStrategyTesterStore((s) => s.showAddStrategy)
   const visibleWeekdays = useStrategyTesterStore((s) => s.visibleWeekdays) || [0, 1, 2, 3, 4, 5, 6]
   const [dateMenuAt, setDateMenuAt] = useState(null)
+  const [rowMenu, setRowMenu] = useState(null) // { x, y, dk, id|null, label }
+  const extraRows = entries?.[ROWS_KEY] || {}
   const dateColWidth = useStrategyTesterStore((s) => s.dateColWidth) || DEFAULT_DATE_WIDTH
   const scrollerRef = useRef(null)
 
@@ -562,45 +565,78 @@ export default function StrategyTesterTable() {
           </tr>
         </thead>
         <tbody key={bodyKey}>
-          {rows.map((day, rowIdx) => {
-            const dk = dateKey(year, month, day)
+          {rows.flatMap((day, rowIdx) => {
+            const baseKey = dateKey(year, month, day)
             const isToday = isCurrentMonth && today.getDate() === day
             const wd = new Date(year, month, day).getDay()
-            const rowLabel = `${day} ${WEEKDAY_SHORT[wd]}`
-            return (
-              <tr key={day} className={`st-row-in ${isToday ? 'st-today' : ''}`} style={{ '--i': rowIdx }}>
-                <td className="st-td-date" style={{ '--wk': WEEKDAY_COLORS[wd] }}>
-                  {(wd === 0 || wd === 6) && <span className="st-date-bg" aria-hidden="true" />}
-                  <div className="st-date">
-                    <span className="st-date-num">{day}</span>
-                    <span className="st-wk">{WEEKDAY_SHORT[wd]}</span>
-                  </div>
-                </td>
-                {visibleStrategies.map((st) =>
-                  st.fields.length > 0 ? (
-                    st.fields.map((f) => (
-                      <td key={f.id} data-field-id={f.id} className={`text-center ${fresh.has(f.id) || fresh.has(st.id) ? 'st-col-new' : ''}`}>
-                        <FieldCell
-                          strategyId={st.id}
-                          field={f}
-                          dk={dk}
-                          rowLabel={rowLabel}
-                          value={entries?.[st.id]?.[dk]?.[f.id]}
-                        />
-                      </td>
-                    ))
-                  ) : (
-                    <td key={st.id} />
-                  )
-                )}
-                {showAddStrategy && <td />}
-                <td />
-              </tr>
-            )
+            const ids = [null, ...(extraRows[baseKey] || [])]
+            return ids.map((id, n) => {
+              const dk = id ? `${baseKey}#${id}` : baseKey
+              const rowLabel = n === 0 ? `${day} ${WEEKDAY_SHORT[wd]}` : `${day} ${WEEKDAY_SHORT[wd]} · entry ${n + 1}`
+              return (
+                <tr key={dk} className={`st-row-in ${isToday ? 'st-today' : ''} ${n > 0 ? 'st-row-extra' : ''}`} style={{ '--i': rowIdx }}>
+                  <td
+                    className="st-td-date"
+                    style={{ '--wk': WEEKDAY_COLORS[wd] }}
+                    onContextMenu={(e) => {
+                      e.preventDefault()
+                      setRowMenu({ x: e.clientX, y: e.clientY, dk: baseKey, id, label: rowLabel })
+                    }}
+                    title="Right-click to add another entry on this date"
+                  >
+                    {(wd === 0 || wd === 6) && <span className="st-date-bg" aria-hidden="true" />}
+                    <div className="st-date">
+                      {n === 0 ? (
+                        <>
+                          <span className="st-date-num">{day}</span>
+                          <span className="st-wk">{WEEKDAY_SHORT[wd]}</span>
+                        </>
+                      ) : (
+                        <span className="st-wk" style={{ opacity: 0.75 }}>↳ #{n + 1}</span>
+                      )}
+                    </div>
+                  </td>
+                  {visibleStrategies.map((st) =>
+                    st.fields.length > 0 ? (
+                      st.fields.map((f) => (
+                        <td key={f.id} data-field-id={f.id} className={`text-center ${fresh.has(f.id) || fresh.has(st.id) ? 'st-col-new' : ''}`}>
+                          <FieldCell
+                            strategyId={st.id}
+                            field={f}
+                            dk={dk}
+                            rowLabel={rowLabel}
+                            value={entries?.[st.id]?.[dk]?.[f.id]}
+                          />
+                        </td>
+                      ))
+                    ) : (
+                      <td key={st.id} />
+                    )
+                  )}
+                  {showAddStrategy && <td />}
+                  <td />
+                </tr>
+              )
+            })
           })}
         </tbody>
       </table>
       </div>
+      <AnimatePresence>
+        {rowMenu && (
+          <DateRowMenu
+            key={`${rowMenu.dk}-${rowMenu.id}-${rowMenu.x}-${rowMenu.y}`}
+            x={rowMenu.x}
+            y={rowMenu.y}
+            label={rowMenu.label}
+            isExtra={!!rowMenu.id}
+            onAdd={() => useStrategyTesterStore.getState().addExtraRow(rowMenu.dk)}
+            onClear={() => useStrategyTesterStore.getState().clearRow(rowMenu.id ? `${rowMenu.dk}#${rowMenu.id}` : rowMenu.dk)}
+            onDelete={() => useStrategyTesterStore.getState().removeExtraRow(rowMenu.dk, rowMenu.id)}
+            onClose={() => setRowMenu(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

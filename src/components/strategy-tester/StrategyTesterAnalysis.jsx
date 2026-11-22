@@ -27,12 +27,15 @@ function computeStats(strategy, strategyEntries, year, month) {
   const rrrCounts = Object.fromEntries(RRR_OPTIONS.map((r) => [r, 0]))
 
   for (let day = 1; day <= numDays; day++) {
-    const dk = dateKey(year, month, day)
+    const base = dateKey(year, month, day)
+    // The day's main row plus any extra entries ('YYYY-MM-DD#id') added from the table.
+    const keys = [base, ...Object.keys(strategyEntries || {}).filter((k) => k.startsWith(`${base}#`))]
+    let dayHasValue = false
+    for (const dk of keys) {
     const row = strategyEntries?.[dk]
     if (!row) continue
 
-    const rowHasValue = strategy.fields.some((f) => isValueFilled(f.type, row[f.id]))
-    if (rowHasValue) filledDays++
+    if (strategy.fields.some((f) => isValueFilled(f.type, row[f.id]))) dayHasValue = true
 
     outcomeFields.forEach((f) => {
       const v = row[f.id]
@@ -57,6 +60,8 @@ function computeStats(strategy, strategyEntries, year, month) {
       if (v === 'buy') buys++
       else if (v === 'sell') sells++
     })
+    }
+    if (dayHasValue) filledDays++
   }
 
   const decided = wins + losses
