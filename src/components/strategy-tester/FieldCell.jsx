@@ -4,6 +4,8 @@ import { ExternalLink, Star, StickyNote } from 'lucide-react'
 import { useStrategyTesterStore } from '../../store/strategyTesterStore'
 import NotesPopup from './NotesPopup'
 import RRRSelect from './RRRSelect'
+import SlTargetCell from './SlTargetCell'
+import BuySellCell from './BuySellCell'
 import ImageCell from './ImageCell'
 import SelectCell from './SelectCell'
 import CheckboxCell from './CheckboxCell'
@@ -70,28 +72,7 @@ function FieldCell({ strategyId, field, value, onChange, rowLabel }) {
       return <CheckboxCell strategyId={strategyId} field={field} value={value} onChange={onChange} />
 
     case 'buysell':
-      return (
-        <div className="flex items-center justify-center gap-0.5">
-          {[
-            { key: 'buy', label: 'B', color: '#16a34a' },
-            { key: 'sell', label: 'S', color: '#dc2626' },
-          ].map((opt) => (
-            <button
-              key={opt.key}
-              type="button"
-              onClick={() => onChange(value === opt.key ? null : opt.key)}
-              className={`st-toggle flex h-4 w-4 items-center justify-center rounded-[3px] text-[8.5px] font-bold ${value === opt.key ? 'is-on' : ''}`}
-              style={{
-                backgroundColor: value === opt.key ? opt.color : 'transparent',
-                color: value === opt.key ? '#fffcf2' : 'var(--ta-slate)',
-                border: `1px solid ${value === opt.key ? opt.color : 'var(--tad-border)'}`,
-              }}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )
+      return <BuySellCell value={value} onChange={onChange} label={field.label} />
 
     case 'outcome':
       return (
@@ -123,38 +104,7 @@ function FieldCell({ strategyId, field, value, onChange, rowLabel }) {
       return <RRRSelect value={value || null} onChange={onChange} label={field.label} />
 
     case 'sltarget':
-      return (
-        <div className="flex flex-col items-stretch gap-[1px] px-0.5 leading-none">
-          <div className="flex items-center gap-0.5">
-            <span className="text-[6.5px] font-bold" style={{ color: '#dc2626' }}>
-              SL
-            </span>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={value?.sl ?? ''}
-              onChange={(e) => onChange({ ...(value || {}), sl: e.target.value })}
-              className={inputCls}
-              style={{ color: '#dc2626' }}
-              placeholder="—"
-            />
-          </div>
-          <div className="flex items-center gap-0.5">
-            <span className="text-[6.5px] font-bold" style={{ color: '#16a34a' }}>
-              TP
-            </span>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={value?.target ?? ''}
-              onChange={(e) => onChange({ ...(value || {}), target: e.target.value })}
-              className={inputCls}
-              style={{ color: '#16a34a' }}
-              placeholder="—"
-            />
-          </div>
-        </div>
-      )
+      return <SlTargetCell value={value} onChange={onChange} label={field.label} />
 
     case 'pnl': {
       const num = value === '' || value == null ? null : parseFloat(value)
