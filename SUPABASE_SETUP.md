@@ -329,6 +329,70 @@ the visitor sees a small "N views" badge next to the trade count at the top
 of the page, and the owner sees the same number next to each link under
 "Your active links" in the Share popup.
 
+## 3c-3. Create the `strategy_shares` table (optional — Strategy Tester's Share button)
+
+Backs the **Share** button inside the Strategy Tester: it makes a short,
+read-only link (`?strategyShare=<id>`) for ONE strategy — its Table and
+Analysis — that stays in sync while the Strategy Tester is open. Several
+links per strategy can be alive at once, each with its own expiry, view
+count and an "End link" switch.
+
+```sql
+create table public.strategy_shares (
+  id text primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  strategy_id text not null,
+  strategy_name text,
+  payload jsonb not null default '{}',
+  theme_name text,
+  expires_at timestamptz,
+  ended_at timestamptz,
+  view_count integer not null default 0,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+alter table public.strategy_shares enable row level security;
+
+create policy "Owner manages own strategy shares"
+  on public.strategy_shares for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Visitors read through this function (only the one row whose id they
+-- already have) instead of a SELECT policy, so the anon key can never list
+-- other people's links.
+create or replace function public.get_strategy_share(share_id text)
+returns table (
+  strategy_name text, payload jsonb, theme_name text,
+  expires_at timestamptz, ended_at timestamptz, view_count integer, updated_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select strategy_name, payload, theme_name, expires_at, ended_at, view_count, updated_at
+  from public.strategy_shares
+  where id = share_id;
+$$;
+
+grant execute on function public.get_strategy_share(text) to anon, authenticated;
+
+create or replace function public.increment_strategy_share_view(share_id text)
+returns integer
+language sql
+security definer
+set search_path = public
+as $$
+  update public.strategy_shares
+  set view_count = view_count + 1
+  where id = share_id
+  returning view_count;
+$$;
+
+grant execute on function public.increment_strategy_share_view(text) to anon, authenticated;
+```
+
 ## 3c-2. Create the `project_maps` table (recommended — backs up every project, not just one)
 
 The `maps` table above only ever holds **one** map per user — whatever's

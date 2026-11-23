@@ -32,7 +32,8 @@ const makeStrategy = (name, withSeedFields = false) => ({
 
 const today = new Date()
 
-export const ROWS_KEY = '__rows'
+import { ROWS_KEY } from '../utils/strategyRows'
+export { ROWS_KEY }
 
 // Early builds kept ONE shared list of extra rows: __rows[dateKey] = [ids].
 // Rows are per strategy now: __rows[strategyId][dateKey] = [ids]. Convert the
@@ -73,6 +74,9 @@ const initialState = {
   analysisStrategyId: null,
   // Strategy shown in the Table view. null = first visible one.
   tableStrategyId: null,
+  // Table filter PER strategy: { [strategyId]: { [fieldId]: [optionKey, …] } }.
+  // OR inside a field, AND across fields.
+  tableFilters: {},
   // entries[strategyId][dateKey][fieldId] = value
   entries: {},
   // 'idle' | 'saving' | 'saved' | 'error' — surfaced by the cloud-sync
@@ -171,6 +175,7 @@ export const useStrategyTesterStore = create(
           }
           return {
             tableStrategyId: s.tableStrategyId === strategyId ? null : s.tableStrategyId,
+            tableFilters: Object.fromEntries(Object.entries(s.tableFilters || {}).filter(([k]) => k !== strategyId)),
             strategies: s.strategies.filter((st) => st.id !== strategyId),
             entries,
             analysisStrategyId: s.analysisStrategyId === strategyId ? null : s.analysisStrategyId,
@@ -328,6 +333,21 @@ export const useStrategyTesterStore = create(
         }),
       // Which strategy the Table / Cards-independent grid shows (one at a time).
       setTableStrategyId: (tableStrategyId) => set({ tableStrategyId }),
+      toggleTableFilter: (strategyId, fieldId, key) =>
+        set((s) => {
+          const mine = { ...(s.tableFilters?.[strategyId] || {}) }
+          const cur = mine[fieldId] || []
+          const next = cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key]
+          if (next.length) mine[fieldId] = next
+          else delete mine[fieldId]
+          return { tableFilters: { ...s.tableFilters, [strategyId]: mine } }
+        }),
+      clearTableFilter: (strategyId) =>
+        set((s) => {
+          const all = { ...s.tableFilters }
+          delete all[strategyId]
+          return { tableFilters: all }
+        }),
 
       // Read-only helper — not itself reactive, callers should select
       // `entries` directly if they need re-renders on change.
@@ -402,6 +422,7 @@ export const useStrategyTesterStore = create(
         strategies: state.strategies,
         analysisStrategyId: state.analysisStrategyId,
         tableStrategyId: state.tableStrategyId,
+        tableFilters: state.tableFilters,
         entries: state.entries,
       }),
     }

@@ -1,6 +1,6 @@
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
-import { ArrowLeft, ChevronLeft, ChevronRight, LayoutGrid, LineChart, List, PanelRightClose, PanelRightOpen, Table2 } from 'lucide-react'
-import { useEffect } from 'react'
+import { ArrowLeft, ChevronLeft, ChevronRight, LayoutGrid, LineChart, List, PanelRightClose, PanelRightOpen, Share2, Table2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useStrategyTesterStore } from '../../store/strategyTesterStore'
 import { tradeThemeCssVars, tradeHeaderCssVars, isGlassTheme, isClayTheme } from '../../theme/tradeAnalysisThemes'
 import { MONTH_NAMES } from '../../utils/strategyTesterFields'
@@ -8,6 +8,8 @@ import StrategyTesterThemePicker from './StrategyTesterThemePicker'
 import StrategyTesterTable from './StrategyTesterTable'
 import StrategyTesterCards from './StrategyTesterCards'
 import StrategyTesterAnalysis from './StrategyTesterAnalysis'
+import StrategyShareModal from './StrategyShareModal'
+import { useStrategyShareSync } from '../../hooks/useStrategyShareSync'
 import { EASE_OUT, useNavDirection } from './motionBits'
 
 // Body cross-slide between Table and Analysis (direction follows the tab order).
@@ -169,6 +171,15 @@ export default function StrategyTester() {
   const activeView = useStrategyTesterStore((s) => s.activeView)
   const entriesView = useStrategyTesterStore((s) => s.entriesView) || 'list'
   const showAddStrategy = useStrategyTesterStore((s) => s.showAddStrategy)
+  const tableStrategyId = useStrategyTesterStore((s) => s.tableStrategyId)
+  const analysisStrategyId = useStrategyTesterStore((s) => s.analysisStrategyId)
+  const strategies = useStrategyTesterStore((s) => s.strategies)
+  const [shareOpen, setShareOpen] = useState(false)
+  // The strategy the person is looking at right now — what Share targets.
+  const visible = strategies.filter((st) => !st.hidden)
+  const pickedId = activeView === 'analysis' ? analysisStrategyId : tableStrategyId
+  const shareStrategyId = (visible.find((st) => st.id === pickedId) || visible[0])?.id
+  useStrategyShareSync(isOpen)
   const isGlass = isGlassTheme(theme)
   const isClay = isClayTheme(theme)
   const viewDir = activeView === 'analysis' ? 1 : -1
@@ -247,6 +258,21 @@ export default function StrategyTester() {
             )}
 
             <div className="ml-auto flex shrink-0 items-center gap-1.5">
+              {shareStrategyId && (
+                <motion.button
+                  type="button"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.93 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 26 }}
+                  onClick={() => setShareOpen(true)}
+                  title="Share this strategy as a link"
+                  className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[9.5px] font-bold"
+                  style={{ backgroundColor: 'var(--ta-accent)', color: '#fffcf2' }}
+                >
+                  <Share2 size={11} />
+                  Share
+                </motion.button>
+              )}
               {activeView === 'table' && entriesView === 'list' && (
                 <motion.button
                   type="button"
@@ -309,6 +335,7 @@ export default function StrategyTester() {
               </motion.div>
             </AnimatePresence>
           </motion.div>
+          <StrategyShareModal open={shareOpen} strategyId={shareStrategyId} onClose={() => setShareOpen(false)} />
         </motion.div>
       )}
     </AnimatePresence>

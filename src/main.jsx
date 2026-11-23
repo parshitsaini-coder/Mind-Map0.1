@@ -5,6 +5,7 @@ import App from './App.jsx'
 import SharedMapView from './components/viewer/SharedMapView.jsx'
 import LiveMapView from './components/viewer/LiveMapView.jsx'
 import TradeShareView from './components/viewer/TradeShareView.jsx'
+import StrategyShareView from './components/viewer/StrategyShareView.jsx'
 import { decodeMapFromParam } from './utils/exportShareLink.js'
 import InstallPrompt from './components/common/InstallPrompt.jsx'
 
@@ -22,6 +23,11 @@ function Root() {
   const mapParam = params.get('map')
   const liveParam = params.get('live')
   const tradeShareParam = params.get('tradeShare')
+  const strategyShareParam = params.get('strategyShare')
+
+  if (strategyShareParam) {
+    return <StrategyShareView shareId={strategyShareParam} />
+  }
 
   if (tradeShareParam) {
     return <TradeShareView shareId={tradeShareParam} />

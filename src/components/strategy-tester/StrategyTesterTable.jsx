@@ -23,6 +23,8 @@ import { EASE_OUT } from './motionBits'
 import SelectOptionsPopup from './SelectOptionsPopup'
 import WeekdayFilterPopup from './WeekdayFilterPopup'
 import DateRowMenu from './DateRowMenu'
+import TableFilter from './TableFilter'
+import { categoriesOf, rowHasOption } from '../../utils/strategyBreakdown'
 import StrategyRenamePopup from './StrategyRenamePopup'
 
 // Inline-editable label shared by strategy names and field labels — click
@@ -237,7 +239,7 @@ function StrategyGroupHeader({ strategy, isOnly, isNew }) {
 // One grid row. Memoised: a cell edit only changes that row's `rowData`
 // object (the store copies just the touched row), so every other row skips
 // rendering — picking an option stays instant even with hundreds of rows.
-const TableRow = memo(function TableRow({ strategy: st, dk, baseKey, id, n, day, wd, rowIdx, isToday, rowData, fresh, showAddStrategy, onMenu }) {
+const TableRow = memo(function TableRow({ strategy: st, dk, baseKey, id, n, day, wd, rowIdx, isToday, rowData, showDate, fresh, showAddStrategy, onMenu }) {
   const rowLabel = n === 0 ? `${day} ${WEEKDAY_SHORT[wd]}` : `${day} ${WEEKDAY_SHORT[wd]} · entry ${n + 1}`
   return (
     <tr className={`st-row-in ${isToday ? 'st-today' : ''} ${n > 0 ? 'st-row-extra' : ''}`} style={{ '--i': rowIdx }}>
@@ -252,10 +254,11 @@ const TableRow = memo(function TableRow({ strategy: st, dk, baseKey, id, n, day,
       >
         {(wd === 0 || wd === 6) && <span className="st-date-bg" aria-hidden="true" />}
         <div className="st-date">
-          {n === 0 ? (
+          {n === 0 || showDate ? (
             <>
               <span className="st-date-num">{day}</span>
               <span className="st-wk">{WEEKDAY_SHORT[wd]}</span>
+              {n > 0 && <span className="st-wk" style={{ opacity: 0.75 }}>#{n + 1}</span>}
             </>
           ) : (
             <span className="st-wk" style={{ opacity: 0.75 }}>↳ #{n + 1}</span>
@@ -279,7 +282,7 @@ const TableRow = memo(function TableRow({ strategy: st, dk, baseKey, id, n, day,
 })
 
 // One-strategy-at-a-time picker above the grid.
-function StrategySwitcher({ strategies, activeId }) {
+function StrategySwitcher({ strategies, activeId, filterNode }) {
   if (strategies.length === 0) return null
   return (
     <div
@@ -307,6 +310,7 @@ function StrategySwitcher({ strategies, activeId }) {
           </button>
         )
       })}
+      {filterNode}
     </div>
   )
 }
@@ -502,6 +506,18 @@ export default function StrategyTesterTable() {
   const activeStrategy = shownStrategies.find((st) => st.id === tableStrategyId) || shownStrategies[0]
   const visibleStrategies = activeStrategy ? [activeStrategy] : []
   const extraRows = (activeStrategy && entries?.[ROWS_KEY]?.[activeStrategy.id]) || {}
+  const tableFilters = useStrategyTesterStore((s) => s.tableFilters)
+  const activeFilter = activeStrategy ? tableFilters?.[activeStrategy.id] : undefined
+  const filterCats = useMemo(() => (activeStrategy ? categoriesOf(activeStrategy) : []), [activeStrategy])
+  const filterActive = !!activeFilter && Object.keys(activeFilter).length > 0
+  const rowPasses = (rowData) => {
+    if (!filterActive) return true
+    if (!rowData) return false
+    return filterCats.every((cat) => {
+      const picked = activeFilter[cat.fieldId]
+      return !picked || picked.some((k) => rowHasOption(rowData, cat, k))
+    })
+  }
   const hiddenStrategies = strategies.filter((st) => st.hidden)
 
   const freshRaw = useFreshIds(visibleStrategies.flatMap((st) => [st.id, ...st.fields.map((f) => f.id)]))
@@ -532,11 +548,28 @@ export default function StrategyTesterTable() {
 
   // Re-keying the body replays the row cascade whenever the month or the
   // weekday filter changes.
-  const bodyKey = `${activeStrategy?.id}-${year}-${month}-${visibleWeekdays.join('')}`
+  // Rows matching the filter (main + extra rows), counted for the badge.
+  let shownCount = 0
+  if (filterActive && activeStrategy) {
+    const own = entries?.[activeStrategy.id] || {}
+    for (const day of rows) {
+      const base = dateKey(year, month, day)
+      for (const id of [null, ...(extraRows[base] || [])]) if (rowPasses(own[id ? `${base}#${id}` : base])) shownCount++
+    }
+  }
+  const bodyKey = `${activeStrategy?.id}-${year}-${month}-${visibleWeekdays.join('')}-${filterActive ? 'f' : ''}`
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <StrategySwitcher strategies={shownStrategies} activeId={activeStrategy?.id} />
+      <StrategySwitcher
+        strategies={shownStrategies}
+        activeId={activeStrategy?.id}
+        filterNode={
+          activeStrategy && (
+            <TableFilter strategyId={activeStrategy.id} categories={filterCats} filter={activeFilter} shownCount={shownCount} />
+          )
+        }
+      />
       <HiddenStrategiesBar hiddenStrategies={hiddenStrategies} />
       <div
         ref={scrollerRef}
@@ -659,6 +692,8 @@ export default function StrategyTesterTable() {
             const ids = [null, ...(extraRows[baseKey] || [])]
             return ids.map((id, n) => {
               const dk = id ? `${baseKey}#${id}` : baseKey
+              const rowData = entries?.[activeStrategy?.id]?.[dk]
+              if (!rowPasses(rowData)) return null
               return (
                 <TableRow
                   key={dk}
@@ -671,7 +706,8 @@ export default function StrategyTesterTable() {
                   wd={wd}
                   rowIdx={rowIdx}
                   isToday={isToday}
-                  rowData={entries?.[activeStrategy?.id]?.[dk]}
+                  rowData={rowData}
+                  showDate={filterActive}
                   fresh={freshStable}
                   showAddStrategy={showAddStrategy}
                   onMenu={setRowMenu}
