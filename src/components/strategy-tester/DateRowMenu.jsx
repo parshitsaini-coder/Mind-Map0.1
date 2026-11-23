@@ -50,9 +50,9 @@ export default function DateRowMenu({ x, y, label, isExtra, onAdd, onDelete, onC
       }}
       initial={{ opacity: 0, scale: 0.94 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.12 } }}
-      transition={{ type: 'spring', stiffness: 500, damping: 32 }}
-      className="ta-glass-popover fixed z-[100] flex w-44 flex-col gap-0.5 rounded-lg border p-1.5 shadow-xl"
+      exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.09 } }}
+      transition={{ type: 'spring', stiffness: 760, damping: 44, mass: 0.55 }}
+      className="ta-glass-popover st-pop fixed z-[100] flex w-44 flex-col gap-0.5 rounded-lg border p-1.5 shadow-xl"
       style={{
         left: pos?.left ?? -9999,
         top: pos?.top ?? -9999,

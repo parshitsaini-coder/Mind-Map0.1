@@ -2146,3 +2146,11 @@ body {
 @media (max-height: 680px) {
   .wb-leftbar .wb-barbtn { height: 23px; }
 }
+
+/* Strategy-tester cell popovers: no backdrop blur (it re-blurs the whole
+   table behind the popup every frame) and GPU-hinted for a snappy open. */
+.st-pop.ta-glass-popover {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  will-change: transform, opacity;
+}

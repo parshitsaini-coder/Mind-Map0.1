@@ -103,9 +103,9 @@ export default function SelectCell({ strategyId, field, value, onChange }) {
       setQuery('')
       return
     }
-    onChange(id)
     setOpen(false)
     setQuery('')
+    requestAnimationFrame(() => onChange(id))
   }
 
   const create = () => {
@@ -171,10 +171,10 @@ export default function SelectCell({ strategyId, field, value, onChange }) {
               data-st-popover
               initial={{ opacity: 0, y: pos.flipUp ? 5 : -5, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.12, ease: [0.23, 1, 0.32, 1] } }}
-              transition={{ type: 'spring', stiffness: 520, damping: 34 }}
+              exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.09, ease: [0.23, 1, 0.32, 1] } }}
+              transition={{ type: 'spring', stiffness: 760, damping: 44, mass: 0.55 }}
               transformTemplate={(_, generated) => (pos.flipUp ? `translateY(-100%) ${generated}` : generated)}
-              className="ta-glass-popover fixed z-[95] flex flex-col gap-1 rounded-lg border p-1.5 shadow-xl"
+              className="ta-glass-popover st-pop fixed z-[95] flex flex-col gap-1 rounded-lg border p-1.5 shadow-xl"
               style={{
                 left: pos.left,
                 top: pos.top,

@@ -27,9 +27,11 @@ export default function RRRSelect({ value, onChange, label }) {
     }
   }, [open])
 
+  // Close first so the exit animation starts on this frame; the (heavier)
+  // value update lands on the next one.
   const pick = (v) => {
-    onChange(v)
     setOpen(false)
+    requestAnimationFrame(() => onChange(v))
   }
 
   return (
@@ -57,15 +59,15 @@ export default function RRRSelect({ value, onChange, label }) {
           <motion.div
             initial={{ opacity: 0, y: -4, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.95 }}
-            transition={{ type: 'spring', stiffness: 500, damping: 32 }}
-            className="ta-glass-popover absolute left-1/2 top-full z-[90] mt-1 flex w-16 -translate-x-1/2 flex-col gap-0.5 rounded-lg border p-1 shadow-xl"
+            exit={{ opacity: 0, y: -3, scale: 0.97, transition: { duration: 0.09, ease: [0.23, 1, 0.32, 1] } }}
+            transition={{ type: 'spring', stiffness: 760, damping: 44, mass: 0.55 }}
+            className="ta-glass-popover st-pop absolute left-1/2 top-full z-[90] mt-1 flex w-16 -translate-x-1/2 flex-col gap-0.5 rounded-lg border p-1 shadow-xl"
             style={{ backgroundColor: 'var(--ta-surface)', borderColor: 'var(--ta-slate)', transformOrigin: 'top center' }}
           >
             <motion.button
               type="button"
               initial={{ opacity: 0, x: -4 }}
-              animate={{ opacity: 1, x: 0, transition: { duration: 0.1 } }}
+              animate={{ opacity: 1, x: 0, transition: { duration: 0.08 } }}
               whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
               whileTap={{ scale: 0.96 }}
               onClick={() => pick(null)}
@@ -80,7 +82,7 @@ export default function RRRSelect({ value, onChange, label }) {
                 key={o}
                 type="button"
                 initial={{ opacity: 0, x: -4 }}
-                animate={{ opacity: 1, x: 0, transition: { delay: (idx + 1) * 0.015, duration: 0.1 } }}
+                animate={{ opacity: 1, x: 0, transition: { delay: (idx + 1) * 0.008, duration: 0.08 } }}
                 whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
                 whileTap={{ scale: 0.96 }}
                 onClick={() => pick(o)}

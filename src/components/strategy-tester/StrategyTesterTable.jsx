@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { CalendarDays, GripVertical, Trash2, Eye, EyeOff, Pencil } from 'lucide-react'
 import { useStrategyTesterStore, ROWS_KEY } from '../../store/strategyTesterStore'
@@ -234,6 +234,50 @@ function StrategyGroupHeader({ strategy, isOnly, isNew }) {
 
 // Small restore bar for hidden strategies — shown above the table so a
 // hidden panel is never permanently lost, just tucked away.
+// One grid row. Memoised: a cell edit only changes that row's `rowData`
+// object (the store copies just the touched row), so every other row skips
+// rendering — picking an option stays instant even with hundreds of rows.
+const TableRow = memo(function TableRow({ strategy: st, dk, baseKey, id, n, day, wd, rowIdx, isToday, rowData, fresh, showAddStrategy, onMenu }) {
+  const rowLabel = n === 0 ? `${day} ${WEEKDAY_SHORT[wd]}` : `${day} ${WEEKDAY_SHORT[wd]} · entry ${n + 1}`
+  return (
+    <tr className={`st-row-in ${isToday ? 'st-today' : ''} ${n > 0 ? 'st-row-extra' : ''}`} style={{ '--i': rowIdx }}>
+      <td
+        className="st-td-date"
+        style={{ '--wk': WEEKDAY_COLORS[wd] }}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          onMenu({ x: e.clientX, y: e.clientY, dk: baseKey, id, label: rowLabel })
+        }}
+        title="Right-click to add another entry on this date"
+      >
+        {(wd === 0 || wd === 6) && <span className="st-date-bg" aria-hidden="true" />}
+        <div className="st-date">
+          {n === 0 ? (
+            <>
+              <span className="st-date-num">{day}</span>
+              <span className="st-wk">{WEEKDAY_SHORT[wd]}</span>
+            </>
+          ) : (
+            <span className="st-wk" style={{ opacity: 0.75 }}>↳ #{n + 1}</span>
+          )}
+        </div>
+      </td>
+      {st &&
+        (st.fields.length > 0 ? (
+          st.fields.map((f) => (
+            <td key={f.id} data-field-id={f.id} className={`text-center ${fresh.has(f.id) || fresh.has(st.id) ? 'st-col-new' : ''}`}>
+              <FieldCell strategyId={st.id} field={f} dk={dk} rowLabel={rowLabel} value={rowData?.[f.id]} />
+            </td>
+          ))
+        ) : (
+          <td key={st.id} />
+        ))}
+      {showAddStrategy && <td />}
+      <td />
+    </tr>
+  )
+})
+
 // One-strategy-at-a-time picker above the grid.
 function StrategySwitcher({ strategies, activeId }) {
   if (strategies.length === 0) return null
@@ -460,7 +504,11 @@ export default function StrategyTesterTable() {
   const extraRows = (activeStrategy && entries?.[ROWS_KEY]?.[activeStrategy.id]) || {}
   const hiddenStrategies = strategies.filter((st) => st.hidden)
 
-  const fresh = useFreshIds(visibleStrategies.flatMap((st) => [st.id, ...st.fields.map((f) => f.id)]))
+  const freshRaw = useFreshIds(visibleStrategies.flatMap((st) => [st.id, ...st.fields.map((f) => f.id)]))
+  const freshSig = [...freshRaw].join('|')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const freshStable = useMemo(() => freshRaw, [freshSig])
+  const fresh = freshStable
 
   // Drag a field header left/right to reorder columns inside its strategy.
   const startColDrag = (e, strategy, field) =>
@@ -611,50 +659,23 @@ export default function StrategyTesterTable() {
             const ids = [null, ...(extraRows[baseKey] || [])]
             return ids.map((id, n) => {
               const dk = id ? `${baseKey}#${id}` : baseKey
-              const rowLabel = n === 0 ? `${day} ${WEEKDAY_SHORT[wd]}` : `${day} ${WEEKDAY_SHORT[wd]} · entry ${n + 1}`
               return (
-                <tr key={dk} className={`st-row-in ${isToday ? 'st-today' : ''} ${n > 0 ? 'st-row-extra' : ''}`} style={{ '--i': rowIdx }}>
-                  <td
-                    className="st-td-date"
-                    style={{ '--wk': WEEKDAY_COLORS[wd] }}
-                    onContextMenu={(e) => {
-                      e.preventDefault()
-                      setRowMenu({ x: e.clientX, y: e.clientY, dk: baseKey, id, label: rowLabel })
-                    }}
-                    title="Right-click to add another entry on this date"
-                  >
-                    {(wd === 0 || wd === 6) && <span className="st-date-bg" aria-hidden="true" />}
-                    <div className="st-date">
-                      {n === 0 ? (
-                        <>
-                          <span className="st-date-num">{day}</span>
-                          <span className="st-wk">{WEEKDAY_SHORT[wd]}</span>
-                        </>
-                      ) : (
-                        <span className="st-wk" style={{ opacity: 0.75 }}>↳ #{n + 1}</span>
-                      )}
-                    </div>
-                  </td>
-                  {visibleStrategies.map((st) =>
-                    st.fields.length > 0 ? (
-                      st.fields.map((f) => (
-                        <td key={f.id} data-field-id={f.id} className={`text-center ${fresh.has(f.id) || fresh.has(st.id) ? 'st-col-new' : ''}`}>
-                          <FieldCell
-                            strategyId={st.id}
-                            field={f}
-                            dk={dk}
-                            rowLabel={rowLabel}
-                            value={entries?.[st.id]?.[dk]?.[f.id]}
-                          />
-                        </td>
-                      ))
-                    ) : (
-                      <td key={st.id} />
-                    )
-                  )}
-                  {showAddStrategy && <td />}
-                  <td />
-                </tr>
+                <TableRow
+                  key={dk}
+                  strategy={activeStrategy}
+                  dk={dk}
+                  baseKey={baseKey}
+                  id={id}
+                  n={n}
+                  day={day}
+                  wd={wd}
+                  rowIdx={rowIdx}
+                  isToday={isToday}
+                  rowData={entries?.[activeStrategy?.id]?.[dk]}
+                  fresh={freshStable}
+                  showAddStrategy={showAddStrategy}
+                  onMenu={setRowMenu}
+                />
               )
             })
           })}
