@@ -95,17 +95,17 @@ export default function SelectCell({ strategyId, field, value, onChange }) {
   const filtered = q ? options.filter((o) => o.label.toLowerCase().includes(q.toLowerCase())) : options
   const exact = options.some((o) => o.label.toLowerCase() === q.toLowerCase())
 
+  // Picking closes the popup straight away (multi-select too). The exit
+  // animation starts on this frame; the value update lands on the next one.
   const pick = (id) => {
-    if (multi) {
-      // Multi-select stays open so several tags can be ticked in a row.
-      if (id == null) onChange([])
-      else onChange(ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id])
-      setQuery('')
-      return
-    }
     setOpen(false)
     setQuery('')
-    requestAnimationFrame(() => onChange(id))
+    requestAnimationFrame(() => {
+      if (multi) {
+        if (id == null) onChange([])
+        else onChange(ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id])
+      } else onChange(id)
+    })
   }
 
   const create = () => {
@@ -202,7 +202,7 @@ export default function SelectCell({ strategyId, field, value, onChange }) {
               />
 
               <p className="px-1 pt-0.5 text-[8px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ta-slate)' }}>
-                {multi ? 'Pick one or more' : 'Select an option'} · right-click cell to manage
+                {multi ? 'Pick an option (reopen to add more)' : 'Select an option'} · right-click cell to manage
               </p>
 
               <div className="ta-scroll flex max-h-40 flex-col gap-0.5 overflow-y-auto">
